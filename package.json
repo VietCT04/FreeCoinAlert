@@ -7,9 +7,13 @@
     "node": ">=24.18.0 <25"
   },
   "scripts": {
-    "format": "prettier --write package.json pnpm-workspace.yaml",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml",
-    "verify": "pnpm format:check"
+    "format": "prettier --write . --ignore-unknown",
+    "format:check": "prettier --check . --ignore-unknown",
+    "verify": "pnpm format:check && pnpm lint:web && pnpm typecheck:web && pnpm build:web",
+    "dev:web": "pnpm --filter @freecoinalert/web dev",
+    "build:web": "pnpm --filter @freecoinalert/web build",
+    "lint:web": "pnpm --filter @freecoinalert/web lint",
+    "typecheck:web": "pnpm --filter @freecoinalert/web typecheck"
   },
   "devDependencies": {
     "prettier": "3.9.6"

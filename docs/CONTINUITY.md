@@ -2,13 +2,24 @@
 
 ## Current Project State
 
-FreeCoinAlert has an approved documentation baseline and a repository-level pnpm workspace foundation. No application source code, database migrations, infrastructure definitions, or automated tests exist yet.
+FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, and a runnable Next.js frontend foundation. No backend API source code, database migrations, infrastructure definitions, or automated tests exist yet.
 
 US-0001 defines the first stakeholder outcome: establish a consistent and runnable project foundation before authentication, Telegram integration, market-data ingestion, and alerts are implemented.
 
 The agreed product direction remains an alert-first web application where users connect Telegram, subscribe to available signal templates, or create validated custom alerts. Binance WebSocket data will drive real-time evaluation, closed one-minute candles will be stored as canonical history, and reconciliation will repair missing data. Future historical analysis will reuse the same strategy-core logic and internal candle database.
 
 ## Latest Completed Work
+
+- **Date:** 2026-07-28
+- **GitHub Issue:** #5 - Bootstrap the frontend application
+- **Pull Request:** Pending - Bootstrap the frontend application
+- **Summary:** Added the Next.js TypeScript App Router frontend, Tailwind CSS, frontend workspace commands, safe frontend environment guidance, and the frontend foundation page.
+- **Files changed:** `apps/web/*`, `package.json`, `pnpm-lock.yaml`, `AGENTS.md`, `README.md`, `docs/ARCHITECTURE.md`, `docs/OPERATIONS.md`, `docs/CONCERNS.md`, and `docs/CONTINUITY.md`.
+
+- **Date:** 2026-07-28
+- **GitHub Issue:** #4 - Establish the monorepo workspace and developer conventions
+- **Pull Request:** #8 - Establish monorepo workspace and developer conventions
+- **Summary:** Merged the native pnpm workspace foundation, tooling conventions, contributor guidance, and repository boundary documentation.
 
 - **Date:** 2026-07-28
 - **GitHub Issue:** #1 - Establish project documentation baseline
@@ -19,10 +30,10 @@ The agreed product direction remains an alert-first web application where users 
 ## Active Work
 
 - **User Story:** `docs/user-stories/US-0001-establish-project-foundation.md`
-- **Current Pull Request:** Pending - Establish the monorepo workspace and developer conventions
-- **Current goal:** Implement the approved GitHub Issue #4 solution: pnpm workspace configuration, repository conventions, boundary documentation, and documentation updates.
+- **Current Pull Request:** Pending - Bootstrap the frontend application
+- **Current goal:** Merge Issue #5 before beginning the approved backend foundation in Issue #6.
 - **Implementation Issues:** #4, #5, #6, and #7
-- **Current blocker:** None for Issue #4; its approved solution comment is the implementation source of truth.
+- **Current blocker:** Issue #6 is intentionally blocked until Issue #5 is merged, as required by its approved solution.
 
 ## Important User Stories
 
@@ -45,7 +56,6 @@ See [`CONCERNS.md`](CONCERNS.md).
 
 Important unresolved decisions include:
 
-- Exact frontend stack and package choices
 - Exact backend stack and package choices
 - Local container and startup orchestration
 - Product name and domain
@@ -66,12 +76,10 @@ Important unresolved decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge the Issue #4 pull request.
-2. Ask for a proposed solution to Issue #5 and approve or revise it.
-3. Implement Issue #5 through a separate pull request.
-4. Repeat the solution-approval workflow for Issue #6.
-5. Address Issue #7 after the required frontend, backend, and repository foundations are clear.
-6. Propose US-0002 only after the project foundation direction is stable.
+1. Review and merge the Issue #5 pull request.
+2. Implement Issue #6 through its already approved solution and a separate pull request.
+3. Address Issue #7 after the required frontend, backend, and repository foundations are clear.
+4. Propose US-0002 only after the project foundation direction is stable.
 
 ## Handoff Notes
 
@@ -81,7 +89,7 @@ Future agents must:
 - Read `docs/README.md` and the relevant domain docs.
 - Read US-0001 and Issues #4 through #7 before changing the project foundation.
 - Treat PR #3 as documentation-only.
-- Follow the approved Issue #4 solution without broadening it.
+- Follow the approved Issue #5 solution without broadening it.
 - Do not invent a technical solution for an implementation issue when no approved issue comment exists.
 - Do not begin authentication, Telegram, Binance, alert, or backtesting work under US-0001.
 - Avoid provider-specific infrastructure without an approved issue.

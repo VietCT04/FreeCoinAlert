@@ -30,7 +30,7 @@ Directories should be created only when an approved issue requires them.
 
 The repository uses native pnpm workspaces for JavaScript and TypeScript workspace management. It does not use Nx or Turborepo.
 
-- `apps/` owns deployable browser and API applications. Issue #5 will initialize the frontend, and Issue #6 will initialize the backend API.
+- `apps/` owns deployable browser and API applications. `apps/web` is the Next.js TypeScript frontend created by Issue #5; Issue #6 will initialize the backend API.
 - `services/` owns separately runnable background processes such as market-data ingestion and notification delivery.
 - `packages/` owns reusable code that is not independently deployed.
 - `packages/shared/` is reserved for concrete shared contracts when an approved issue first requires them.
@@ -40,6 +40,8 @@ The workspace currently establishes only these boundaries. Directories and proje
 ## Main Components
 
 ### Web Application
+
+The frontend uses Next.js with TypeScript, the App Router, and Tailwind CSS. Server Components are the default; client components are introduced only when a future approved feature needs browser state or effects. Feature-specific UI architecture remains undecided.
 
 Responsibilities:
 
@@ -209,8 +211,8 @@ User requests analysis
 
 ## Pending Architecture Decisions
 
-- Exact framework and monorepo tooling.
-- Component-level frontend and backend tooling, which remain owned by Issues #5 and #6.
+- Backend component tooling, which remains owned by Issue #6.
+- Feature-specific frontend architecture, including component boundaries and client-state needs.
 - Authentication implementation and provider.
 - Whether early processes run in one container or separate containers.
 - Database hosting.

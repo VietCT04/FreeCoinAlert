@@ -29,7 +29,15 @@ pnpm format:check
 pnpm verify
 ```
 
-`verify` currently checks root workspace formatting only. Issue #5 will add frontend checks, Issue #6 will add backend checks, and Issue #7 will add integrated local startup. `docker compose up` remains a later target owned by Issue #7.
+The frontend component uses Next.js on local port `3000` by default:
+
+```bash
+pnpm dev:web
+pnpm build:web
+pnpm --filter @freecoinalert/web start
+```
+
+`pnpm dev:web` is the development command; `pnpm build:web` produces the production build and the component `start` command serves it. `verify` includes the configured frontend formatting, lint, type-check, and build contracts. Issue #6 will add backend checks, and Issue #7 will add integrated local startup. Docker and production hosting remain unresolved.
 
 ## Environment Model
 

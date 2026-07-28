@@ -4,7 +4,7 @@ FreeCoinAlert is a web application for configurable cryptocurrency market alerts
 
 Users connect Telegram, subscribe to platform-provided signals, or create validated custom conditions. The platform consumes live Binance market data, evaluates alerts, and sends Telegram notifications. It also stores its own closed one-minute candles so future historical strategy analysis can use internal data instead of querying Binance for every customer request.
 
-> Project status: product and architecture documentation. Application code has not been initialized.
+> Project status: frontend foundation initialized. Authentication, Telegram linking, alerts, API integration, and market-data processing are not implemented.
 
 ## Product Goal
 
@@ -317,7 +317,7 @@ Current work is tracked in GitHub Issues. Do not create local ticket files.
 
 ## Development
 
-The repository now has a lightweight pnpm workspace foundation. Install dependencies and use the currently available root commands with:
+The repository has a lightweight pnpm workspace foundation and a Next.js frontend application. Install dependencies and use the root commands with:
 
 ```bash
 pnpm install
@@ -326,7 +326,13 @@ pnpm format:check
 pnpm verify
 ```
 
-Frontend and backend applications are intentionally not initialized yet; they belong to Issues #5 and #6. See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, workspace boundaries, environment-file conventions, and the approved-Issue workflow.
+Start the frontend locally with:
+
+```bash
+pnpm dev:web
+```
+
+The frontend uses [http://localhost:3000](http://localhost:3000) by default. Its build, lint, and type-check command contracts are `pnpm build:web`, `pnpm lint:web`, and `pnpm typecheck:web`. The backend application belongs to Issue #6. See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, workspace boundaries, environment-file conventions, and the approved-Issue workflow.
 
 The target integrated local startup experience remains:
 
