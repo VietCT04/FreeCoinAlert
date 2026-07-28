@@ -1,0 +1,17 @@
+{
+  "name": "free-coin-alert",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.4.0",
+  "engines": {
+    "node": ">=24.18.0 <25"
+  },
+  "scripts": {
+    "format": "prettier --write package.json pnpm-workspace.yaml",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml",
+    "verify": "pnpm format:check"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6"
+  }
+}

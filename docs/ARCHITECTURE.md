@@ -28,6 +28,15 @@ packages/
 
 Directories should be created only when an approved issue requires them.
 
+The repository uses native pnpm workspaces for JavaScript and TypeScript workspace management. It does not use Nx or Turborepo.
+
+- `apps/` owns deployable browser and API applications. Issue #5 will initialize the frontend, and Issue #6 will initialize the backend API.
+- `services/` owns separately runnable background processes such as market-data ingestion and notification delivery.
+- `packages/` owns reusable code that is not independently deployed.
+- `packages/shared/` is reserved for concrete shared contracts when an approved issue first requires them.
+
+The workspace currently establishes only these boundaries. Directories and projects are created only when their approved issue requires them.
+
 ## Main Components
 
 ### Web Application
@@ -201,6 +210,7 @@ User requests analysis
 ## Pending Architecture Decisions
 
 - Exact framework and monorepo tooling.
+- Component-level frontend and backend tooling, which remain owned by Issues #5 and #6.
 - Authentication implementation and provider.
 - Whether early processes run in one container or separate containers.
 - Database hosting.

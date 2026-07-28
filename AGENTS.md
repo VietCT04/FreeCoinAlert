@@ -463,9 +463,9 @@ Add or update tests when practical, especially for:
 - Rule validation and template versioning
 - Historical look-ahead prevention
 
-For now, do not run backend or frontend test suites after coding unless the user explicitly asks.
+For now, do not run backend or frontend test suites or verification commands after coding unless the user explicitly asks.
 
-Agents may write or update tests when practical. Run relevant non-test checks such as lint, build, typecheck, migration validation, or formatting when supported.
+Agents may write or update tests when practical. Do not run lint, build, typecheck, migration validation, formatting, or other verification commands unless the user explicitly asks.
 
 If the user approves PR- or CI-level review or says local tests are unnecessary, do not repeatedly attempt local tests. State clearly that they were not run by user direction.
 

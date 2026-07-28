@@ -6,6 +6,14 @@ Do not hide important uncertainty only in code comments or pull-request discussi
 
 ## Open Concerns
 
+### C-015: Monorepo Workspace Foundation
+
+**Status:** Resolved by GitHub Issue #4
+
+The repository uses native pnpm workspaces with Node.js `24.18.0`, pnpm `11.4.0`, Prettier, and EditorConfig. Nx and Turborepo are intentionally not used.
+
+**Why it matters:** This establishes a lightweight, portable repository-level workflow while leaving frontend, backend, Docker, deployment, and hosting choices to their own approved issues.
+
 ### C-001: Product Name and Domain
 
 **Status:** Open
