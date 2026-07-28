@@ -36,4 +36,7 @@ The project foundation is being established through US-0001. The next product ca
 
 ## Follow-up Issues
 
-To be created after this user story is approved and added to the repository.
+- GitHub Issue #11: Add user and authentication session persistence
+- GitHub Issue #13: Implement account registration and sign-in API
+- GitHub Issue #14: Implement authenticated session, current-user, and logout API
+- GitHub Issue #15: Add frontend registration, sign-in, and sign-out flow
