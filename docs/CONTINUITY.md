@@ -4,7 +4,7 @@
 
 FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, a runnable Next.js frontend foundation, and a FastAPI backend foundation. No database migrations, infrastructure definitions, or automated tests exist yet.
 
-US-0001 defines the first stakeholder outcome: establish a consistent and runnable project foundation before authentication, Telegram integration, market-data ingestion, and alerts are implemented.
+US-0001 establishes the runnable project foundation. US-0002 is the approved next product capability: users can create an account, sign in, remain signed in, and sign out before Telegram connections and alerts are introduced.
 
 The agreed product direction remains an alert-first web application where users connect Telegram, subscribe to available signal templates, or create validated custom alerts. Binance WebSocket data will drive real-time evaluation, closed one-minute candles will be stored as canonical history, and reconciliation will repair missing data. Future historical analysis will reuse the same strategy-core logic and internal candle database.
 
@@ -12,14 +12,14 @@ The agreed product direction remains an alert-first web application where users 
 
 - **Date:** 2026-07-28
 - **GitHub Issue:** #6 - Bootstrap the backend API and health endpoint
-- **Pull Request:** Pending - Bootstrap the backend API and health endpoint
-- **Summary:** Added the FastAPI Python API foundation, uv lockfile, typed API process-health endpoint, backend command contracts, and safe API environment guidance.
+- **Pull Request:** #12 - Bootstrap the backend API and health endpoint
+- **Summary:** Merged the FastAPI Python API foundation, uv lockfile, typed API process-health endpoint, backend command contracts, and safe API environment guidance.
 - **Files changed:** `apps/api/*`, `package.json`, `AGENTS.md`, `README.md`, `docs/API.md`, `docs/ARCHITECTURE.md`, `docs/OPERATIONS.md`, `docs/OBSERVABILITY.md`, `docs/CONCERNS.md`, and `docs/CONTINUITY.md`.
 
 - **Date:** 2026-07-28
 - **GitHub Issue:** #5 - Bootstrap the frontend application
-- **Pull Request:** Pending - Bootstrap the frontend application
-- **Summary:** Added the Next.js TypeScript App Router frontend, Tailwind CSS, frontend workspace commands, safe frontend environment guidance, and the frontend foundation page.
+- **Pull Request:** #9 - Bootstrap frontend application
+- **Summary:** Merged the Next.js TypeScript App Router frontend, Tailwind CSS, frontend workspace commands, safe frontend environment guidance, and the frontend foundation page.
 - **Files changed:** `apps/web/*`, `package.json`, `pnpm-lock.yaml`, `AGENTS.md`, `README.md`, `docs/ARCHITECTURE.md`, `docs/OPERATIONS.md`, `docs/CONCERNS.md`, and `docs/CONTINUITY.md`.
 
 - **Date:** 2026-07-28
@@ -31,15 +31,25 @@ The agreed product direction remains an alert-first web application where users 
 - **GitHub Issue:** #1 - Establish project documentation baseline
 - **Pull Request:** #2 - Establish project documentation baseline
 - **Summary:** Merged the initial documentation source-of-truth structure, root README, and FreeCoinAlert-specific agent rules.
-- **Files changed:** `README.md`, `AGENTS.md`, and the initial `docs/*.md` files.
 
 ## Active Work
 
-- **User Story:** `docs/user-stories/US-0001-establish-project-foundation.md`
-- **Current Pull Request:** Pending - Bootstrap the backend API and health endpoint
-- **Current goal:** Review and merge Issue #6, then proceed with the integrated local startup foundation in Issue #7.
-- **Implementation Issues:** #4, #5, #6, and #7
+### US-0001: Establish the Project Foundation
+
+- **Completed implementation issues:** #4, #5, and #6
+- **Active implementation:** None
+- **Pending implementation:** Issue #7
 - **Current blocker:** Issue #7 remains pending its approved implementation plan.
+- **Verification status:** No tests or verification pass has been requested or run.
+
+### US-0002: Create an Account and Sign In
+
+- **User Story:** `docs/user-stories/US-0002-create-account-and-sign-in.md`
+- **Documentation Pull Request:** #10
+- **Status:** Approved by the maintainer; documentation PR is open.
+- **Implementation Issues:** #11, #13, #14, and #15
+- **Implementation dependency:** Authentication implementation must not begin until the required local PostgreSQL foundation from Issue #7 is merged.
+- **Solution status:** No technical solution has been approved or posted for any US-0002 implementation issue yet.
 
 ## Important User Stories
 
@@ -54,6 +64,25 @@ Follow-up issues:
 - #6 - Bootstrap the backend API and health endpoint
 - #7 - Add local PostgreSQL and integrated development startup
 
+### US-0002: Create an Account and Sign In
+
+As a user, create an account and sign in so alerts and the Telegram connection are saved securely and belong only to that user.
+
+Follow-up issues:
+
+- #11 - Add user and authentication session persistence
+- #13 - Implement account registration and sign-in API
+- #14 - Implement authenticated session, current-user, and logout API
+- #15 - Add frontend registration, sign-in, and sign-out flow
+
+Implementation order:
+
+1. Merge Issues #6 and #7 to complete the required project foundation.
+2. Implement Issue #11.
+3. Implement Issue #13.
+4. Implement Issue #14.
+5. Implement Issue #15.
+
 No implementation should begin until the relevant issue receives an explicitly approved solution comment.
 
 ## Known Concerns
@@ -62,10 +91,10 @@ See [`CONCERNS.md`](CONCERNS.md).
 
 Important unresolved decisions include:
 
+- Authentication and session design
 - Local container and startup orchestration
 - Product name and domain
 - Initial Binance market and symbols
-- Authentication approach
 - Indicator library and numeric consistency
 - Retention and hosting
 - Telegram destination scope
@@ -81,9 +110,10 @@ Important unresolved decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge the Issue #6 pull request.
-2. Address Issue #7 after the required frontend, backend, and repository foundations are clear.
-3. Propose US-0002 only after the project foundation direction is stable.
+1. Approve a solution and implement Issue #7 for local PostgreSQL and integrated development startup.
+2. Review and merge documentation PR #10 for US-0002.
+3. Request a proposed technical solution for Issue #11 after Issue #7 is merged.
+4. Continue US-0002 in issue order: #11, #13, #14, then #15.
 
 ## Handoff Notes
 
@@ -91,10 +121,13 @@ Future agents must:
 
 - Read root `AGENTS.md`.
 - Read `docs/README.md` and the relevant domain docs.
+- Read US-0001, US-0002, and their linked implementation issues before changing project foundation or authentication behavior.
 - Read US-0001 and Issues #4 through #7 before changing the project foundation.
 - Treat PR #3 as documentation-only.
 - Follow approved issue solutions without broadening them.
 - Do not invent a technical solution for an implementation issue when no approved issue comment exists.
-- Do not begin authentication, Telegram, Binance, alert, or backtesting work under US-0001.
+- Do not begin authentication implementation until Issue #7 is merged.
+- Do not run tests or verification commands unless the maintainer explicitly requests them.
+- Do not begin Telegram, Binance, alert, or backtesting work under US-0002.
 - Avoid provider-specific infrastructure without an approved issue.
 - Update this file after every meaningful change.
