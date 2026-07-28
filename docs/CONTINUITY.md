@@ -12,12 +12,14 @@ The agreed direction is an alert-first web application where users connect Teleg
 
 - **Date:** 2026-07-28
 - **GitHub Issue:** #1 — Establish project documentation baseline
+- **Pull Request:** #2 — Establish project documentation baseline
 - **Summary:** Created the first project issue and prepared the documentation source-of-truth structure, root README, and FreeCoinAlert-specific agent rules.
-- **Files changed:** `README.md`, `AGENTS.md`, and initial `docs/*.md` files in the linked pull request.
+- **Files changed:** `README.md`, `AGENTS.md`, and initial `docs/*.md` files in PR #2.
 
 ## Active Work
 
 - **Current GitHub Issue:** #1
+- **Current Pull Request:** #2
 - **Current goal:** Review and merge the initial project documentation baseline.
 - **Current blocker:** None. The implementation stack and first user story should be selected after documentation review.
 
@@ -59,7 +61,7 @@ Important unresolved decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge the initial documentation pull request.
+1. Review and merge PR #2.
 2. Create the first user story for account authentication or Telegram connection.
 3. Create focused GitHub Issues from the approved user story.
 4. Select the initial application stack and create the monorepo skeleton through an approved issue.
@@ -71,7 +73,7 @@ Future agents must:
 
 - Read root `AGENTS.md`.
 - Read `docs/README.md` and the relevant domain docs.
-- Check Issue #1 and its pull request before assuming the documentation baseline is merged.
+- Check Issue #1 and PR #2 before assuming the documentation baseline is merged.
 - Avoid adding application code to the documentation issue.
 - Avoid selecting provider-specific infrastructure without an approved issue.
 - Update this file after every meaningful change.
