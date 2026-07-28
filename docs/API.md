@@ -6,9 +6,28 @@ This document defines API-wide conventions and the planned resource areas. Exact
 
 ## Status
 
-No application API exists yet.
+The API foundation currently implements only the unauthenticated process-health endpoint below. All feature resource groups remain planned.
 
 Do not treat the examples below as final contracts. They define naming and behavior expectations for future implementation.
+
+## Implemented Endpoints
+
+### API Process Health
+
+`GET /health`
+
+Requires no authentication and returns HTTP `200` when the API process is running.
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "service": "freecoinalert-api"
+}
+```
+
+This is liveness/process health only. It performs no database or external-network calls and does not represent readiness for PostgreSQL, market-data ingestion, alert evaluation, Telegram delivery, or future workers. Standard FastAPI OpenAPI endpoints remain available at `/docs`, `/redoc`, and `/openapi.json`.
 
 ## General Conventions
 
