@@ -2,7 +2,7 @@
 
 ## Current Project State
 
-FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, and a runnable Next.js frontend foundation. The backend API and local PostgreSQL/Compose foundation remain pending under US-0001. No authentication, Telegram integration, alert behavior, market-data ingestion, database schema, or automated tests exist yet.
+FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, and a runnable Next.js frontend foundation. The FastAPI backend foundation is implemented in draft PR #12 but not yet merged. Local PostgreSQL and Docker Compose remain pending under Issue #7. No authentication, Telegram integration, alert behavior, market-data ingestion, application database schema, or automated tests exist yet.
 
 US-0001 establishes the runnable project foundation. US-0002 is the approved next product capability: users can create an account, sign in, remain signed in, and sign out before Telegram connections and alerts are introduced.
 
@@ -31,15 +31,18 @@ The agreed product direction remains an alert-first web application where users 
 ### US-0001: Establish the Project Foundation
 
 - **Completed implementation issues:** #4 and #5
-- **Pending implementation issues:** #6 and #7
-- **Current dependency:** Issue #6 must be implemented before Issue #7.
+- **Active implementation:** Issue #6 in draft PR #12
+- **Pending implementation:** Issue #7 after Issue #6 is merged
+- **Verification status:** No tests or verification pass has been requested or run.
 
 ### US-0002: Create an Account and Sign In
 
 - **User Story:** `docs/user-stories/US-0002-create-account-and-sign-in.md`
-- **Status:** Approved by the maintainer; documentation PR is being prepared.
-- **Implementation Issues:** To be created after the user-story PR is opened.
-- **Implementation dependency:** Authentication implementation must not begin until the required backend and local database foundations from US-0001 are merged.
+- **Documentation Pull Request:** #10
+- **Status:** Approved by the maintainer; documentation PR is open.
+- **Implementation Issues:** #11, #13, #14, and #15
+- **Implementation dependency:** Authentication implementation must not begin until the required backend and local PostgreSQL foundations from Issues #6 and #7 are merged.
+- **Solution status:** No technical solution has been approved or posted for any US-0002 implementation issue yet.
 
 ## Important User Stories
 
@@ -58,7 +61,20 @@ Follow-up issues:
 
 As a user, create an account and sign in so alerts and the Telegram connection are saved securely and belong only to that user.
 
-Follow-up issues will be linked after creation.
+Follow-up issues:
+
+- #11 - Add user and authentication session persistence
+- #13 - Implement account registration and sign-in API
+- #14 - Implement authenticated session, current-user, and logout API
+- #15 - Add frontend registration, sign-in, and sign-out flow
+
+Implementation order:
+
+1. Merge Issues #6 and #7 to complete the required project foundation.
+2. Implement Issue #11.
+3. Implement Issue #13.
+4. Implement Issue #14.
+5. Implement Issue #15.
 
 No implementation should begin until the relevant issue receives an explicitly approved solution comment.
 
@@ -87,11 +103,11 @@ Important unresolved decisions include:
 
 ## Next Recommended Steps
 
-1. Open and review the US-0002 documentation PR.
-2. Create focused GitHub Issues from US-0002 and link them into the story.
-3. Implement Issue #6 through its approved solution.
-4. Implement Issue #7 after Issue #6 is merged.
-5. Propose and approve solutions for US-0002 implementation issues only after their dependencies are available.
+1. Review and merge draft PR #12 for Issue #6.
+2. Implement Issue #7 through its approved solution after PR #12 is merged.
+3. Review and merge documentation PR #10 for US-0002.
+4. Request a proposed technical solution for Issue #11 after the foundation dependencies are available.
+5. Continue US-0002 in issue order: #11, #13, #14, then #15.
 
 ## Handoff Notes
 
@@ -101,7 +117,7 @@ Future agents must:
 - Read `docs/README.md` and the relevant domain docs.
 - Read US-0001, US-0002, and their linked implementation issues before changing project foundation or authentication behavior.
 - Do not invent a technical solution for an implementation issue when no approved issue comment exists.
-- Do not begin authentication implementation until the backend and local database foundations required by US-0001 are merged.
+- Do not begin authentication implementation until Issues #6 and #7 are merged.
 - Do not run tests or verification commands unless the maintainer explicitly requests them.
 - Do not begin Telegram, Binance, alert, or backtesting work under US-0002.
 - Avoid provider-specific infrastructure without an approved issue.
