@@ -26,7 +26,12 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile.dev
-    command: uv sync --frozen && uv run fastapi dev src/freecoinalert_api/main.py --host 0.0.0.0 --port 8000
+    command: uv sync --frozen && uv run alembic upgrade head && uv run fastapi dev src/freecoinalert_api/main.py --host 0.0.0.0 --port 8000
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     healthcheck:
       test:
         ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]

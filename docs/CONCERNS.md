@@ -6,6 +6,18 @@ Do not hide important uncertainty only in code comments or pull-request discussi
 
 ## Open Concerns
 
+### C-019: Authentication Persistence Foundation
+
+**Status:** Resolved by GitHub Issue #11
+
+The initial PostgreSQL persistence layer uses UUID user accounts with a unique normalized
+email and revocable, expiring authentication sessions. Password and session tokens are
+stored only as hashes; session deletion cascades when a user is deleted.
+
+**Why it matters:** This establishes durable, minimal ownership data without deciding
+registration behavior, email validation, session lifetimes, cookie attributes, account
+deletion policy, or an authentication provider.
+
 ### C-018: Local Compose and PostgreSQL Development Foundation
 
 **Status:** Resolved by GitHub Issue #7
@@ -66,7 +78,9 @@ The initial symbol list and process for adding or removing symbols are undecided
 
 **Status:** Open
 
-The authentication provider, session model, and deployment implications are undecided.
+The authentication provider, email normalization policy, session lifetime, cookie model,
+and deployment implications are undecided. Issue #11 establishes only the initial
+persistence schema.
 
 **Why it matters:** It affects the database, API, frontend, security, account deletion, and hosting cost.
 

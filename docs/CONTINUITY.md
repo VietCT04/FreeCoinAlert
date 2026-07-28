@@ -2,7 +2,7 @@
 
 ## Current Project State
 
-FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, runnable Next.js and FastAPI foundations, and a local Docker Compose stack with PostgreSQL pending this Issue #7 pull request. No application database integration, migrations, authentication, market-data processing, alerts, or automated tests exist yet.
+FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, runnable Next.js and FastAPI foundations, and a local Docker Compose stack with PostgreSQL. Issue #11 is now adding the initial user and authentication-session persistence layer; registration, login, cookies, authorization routes, market-data processing, alerts, and automated tests do not exist yet.
 
 US-0001 establishes the runnable project foundation. US-0002 is the approved next product capability: users can create an account, sign in, remain signed in, and sign out before Telegram connections and alerts are introduced.
 
@@ -12,8 +12,8 @@ The agreed product direction remains an alert-first web application where users 
 
 - **Date:** 2026-07-28
 - **GitHub Issue:** #7 - Add local PostgreSQL and integrated development startup
-- **Pull Request:** Pending - Add local PostgreSQL and integrated development startup
-- **Summary:** Added the local Docker Compose stack, development Dockerfiles, persistent local PostgreSQL, integrated startup commands, safe local environment configuration, and operational documentation.
+- **Pull Request:** #16 - Add local Compose development stack
+- **Summary:** Merged the local Docker Compose stack, development Dockerfiles, persistent local PostgreSQL, integrated startup commands, safe local environment configuration, and operational documentation.
 - **Files changed:** `compose.yaml`, `.dockerignore`, `.env.example`, `apps/*/Dockerfile.dev`, `package.json`, `AGENTS.md`, `README.md`, `CONTRIBUTING.md`, and relevant component and operational documentation.
 
 - **Date:** 2026-07-28
@@ -42,19 +42,18 @@ The agreed product direction remains an alert-first web application where users 
 
 ### US-0001: Establish the Project Foundation
 
-- **Completed implementation issues:** #4, #5, and #6
-- **Active implementation:** Issue #7 in this pull request
-- **Implementation status:** US-0001 becomes implementation-complete when Issue #7 is merged.
+- **Completed implementation issues:** #4, #5, #6, and #7
+- **Implementation status:** US-0001 implementation is complete.
 - **Verification status:** No test or dedicated full-foundation verification pass has been requested or run.
 
 ### US-0002: Create an Account and Sign In
 
 - **User Story:** `docs/user-stories/US-0002-create-account-and-sign-in.md`
 - **Documentation Pull Request:** #10 - merged
-- **Status:** Approved documentation is merged.
+- **Status:** Issue #11 persistence implementation is active in this pull request.
 - **Implementation Issues:** #11, #13, #14, and #15
-- **Implementation dependency:** Authentication implementation must not begin until Issue #7 is merged.
-- **Solution status:** No technical solution has been approved or posted for any US-0002 implementation issue yet.
+- **Implementation dependency:** Issues #6 and #7 are merged; Issue #11 has an approved solution.
+- **Solution status:** Issue #11 is implemented in this pull request. Issues #13, #14, and #15 still require approved solutions before work begins.
 
 ## Important User Stories
 
@@ -82,11 +81,10 @@ Follow-up issues:
 
 Implementation order:
 
-1. Merge Issues #6 and #7 to complete the required project foundation.
-2. Implement Issue #11.
-3. Implement Issue #13.
-4. Implement Issue #14.
-5. Implement Issue #15.
+1. Implement Issue #11.
+2. Implement Issue #13.
+3. Implement Issue #14.
+4. Implement Issue #15.
 
 No implementation should begin until the relevant issue receives an explicitly approved solution comment.
 
@@ -114,10 +112,10 @@ Important unresolved decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge the Issue #7 pull request.
-2. Request a dedicated full-foundation verification pass when the maintainer wants one.
-3. Request a proposed technical solution for Issue #11 after Issue #7 is merged.
-4. Continue US-0002 in issue order: #11, #13, #14, then #15.
+1. Review and merge the Issue #11 pull request.
+2. Request a dedicated verification pass when the maintainer wants one.
+3. Request a proposed technical solution for Issue #13.
+4. Continue US-0002 in issue order: #13, #14, then #15.
 
 ## Handoff Notes
 
@@ -130,7 +128,7 @@ Future agents must:
 - Treat PR #3 as documentation-only.
 - Follow approved issue solutions without broadening them.
 - Do not invent a technical solution for an implementation issue when no approved issue comment exists.
-- Do not begin authentication implementation until Issue #7 is merged.
+- Do not begin Issues #13, #14, or #15 until their individual approved solutions exist.
 - Do not run tests or verification commands unless the maintainer explicitly requests them.
 - Do not begin Telegram, Binance, alert, or backtesting work under US-0002.
 - Avoid provider-specific infrastructure without an approved issue.

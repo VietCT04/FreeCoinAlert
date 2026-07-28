@@ -71,7 +71,12 @@ The frontend must not be the authority for ownership, trigger state, or sensitiv
 
 The API uses Python `3.14`, FastAPI, and uv for Python installation, dependency management, command execution, and locking. `create_app()` in `apps/api/src/freecoinalert_api/main.py` provides the application-factory boundary, and `api/router.py` composes route modules so future features do not attach routes directly to the application entry point.
 
-The only implemented route is unauthenticated `GET /health`, which reports API process health only. Database integration and feature-layer architecture remain unresolved.
+The only implemented route is unauthenticated `GET /health`, which reports API process
+health only and does not query PostgreSQL. The API has an asynchronous SQLAlchemy and
+Psycopg 3 persistence boundary for `users` and `auth_sessions`: Pydantic Settings reads
+`DATABASE_URL`, `db/session.py` provides one `AsyncSession` per request, repositories
+hold persistence operations, and Alembic owns migrations. Authentication feature routes
+remain unresolved.
 
 Responsibilities:
 
@@ -148,7 +153,9 @@ Responsibilities:
 - Data-quality and reconciliation state.
 - Future historical-analysis jobs and results.
 
-PostgreSQL is the initial relational database direction. Hosting remains undecided.
+PostgreSQL is the initial relational database direction. The API reaches the local
+Compose database through `postgresql+psycopg://…@db:5432/…` after `db` is healthy;
+direct-host API development uses `localhost`. Hosting remains undecided.
 
 ## Primary Data Flows
 
@@ -229,7 +236,6 @@ User requests analysis
 
 - Feature-specific frontend architecture, including component boundaries and client-state needs.
 - Authentication implementation and provider.
-- Whether early processes run in one container or separate containers.
 - Database hosting.
 - Webhook versus long polling for Telegram during development and production.
 - Initial approach for scheduling reconciliation and historical jobs.

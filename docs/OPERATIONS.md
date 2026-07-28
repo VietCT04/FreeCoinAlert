@@ -44,6 +44,18 @@ uv sync --project apps/api
 pnpm dev:api
 ```
 
+After copying `apps/api/.env.example` to a local `apps/api/.env`, direct-host database
+operations use `localhost` in `DATABASE_URL`:
+
+```bash
+pnpm db:migrate
+pnpm db:revision -- -m "describe the change"
+```
+
+`db:migrate` explicitly applies Alembic migrations. The local Compose API command waits
+for PostgreSQL health and applies `alembic upgrade head` before FastAPI starts; that
+behavior is local-development-only and is not a production deployment command.
+
 The frontend component uses Next.js on local port `3000` by default:
 
 ```bash
@@ -110,7 +122,11 @@ Container expectations:
 
 Persistent database data must not live only in an ephemeral application container.
 
-The local `db` service uses PostgreSQL `18.4` and the Docker-managed `postgres_data` volume mounted at `/var/lib/postgresql`. No schema, migrations, application database connection, or backup workflow is included.
+The local `db` service uses PostgreSQL `18.4` and the Docker-managed `postgres_data`
+volume mounted at `/var/lib/postgresql`. The API receives a `postgresql+psycopg` URL on
+the Compose network and depends on the database health check. The initial `users` and
+`auth_sessions` schema is owned by Alembic; backup and production migration workflows
+remain unresolved.
 
 ## Networking
 

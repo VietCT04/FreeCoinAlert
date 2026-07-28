@@ -21,6 +21,8 @@
     "lint:web": "pnpm --filter @freecoinalert/web lint",
     "typecheck:web": "pnpm --filter @freecoinalert/web typecheck",
     "dev:api": "uv run --project apps/api fastapi dev apps/api/src/freecoinalert_api/main.py --host 0.0.0.0 --port 8000",
+    "db:migrate": "uv run --project apps/api alembic upgrade head",
+    "db:revision": "uv run --project apps/api alembic revision --autogenerate -m",
     "lint:api": "uv run --project apps/api ruff check apps/api",
     "format:api": "uv run --project apps/api ruff format apps/api",
     "format:check:api": "uv run --project apps/api ruff format --check apps/api",
