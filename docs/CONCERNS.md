@@ -6,6 +6,14 @@ Do not hide important uncertainty only in code comments or pull-request discussi
 
 ## Open Concerns
 
+### C-016: Frontend Framework Foundation
+
+**Status:** Resolved by GitHub Issue #5
+
+The browser application uses Next.js `16.2.9`, TypeScript, the App Router, Tailwind CSS, ESLint, and Server Components by default.
+
+**Why it matters:** This provides a small, supported frontend base without deciding authentication, API integration, deployment, or a reusable UI system.
+
 ### C-015: Monorepo Workspace Foundation
 
 **Status:** Resolved by GitHub Issue #4
