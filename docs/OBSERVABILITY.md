@@ -21,6 +21,10 @@ This document defines logs, metrics, health checks, freshness signals, alert-del
 
 It is not readiness for PostgreSQL, market-data ingestion, alert evaluation, Telegram delivery, or any future worker. It must not claim that alerts are operating correctly when market data or notification processing is stale.
 
+### Local Compose Health Checks
+
+The local `web` container health check confirms that the Next.js development server responds on port `3000`. The `api` check calls its process-health endpoint on port `8000`. The `db` check uses `pg_isready` to confirm that PostgreSQL accepts connections. These checks are local container liveness signals only; they do not prove application database connectivity, migrations, end-to-end product readiness, backups, or production readiness.
+
 ### Market-Data Health
 
 Track:

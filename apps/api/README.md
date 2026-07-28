@@ -24,6 +24,10 @@ uv run fastapi dev src/freecoinalert_api/main.py --host 0.0.0.0 --port 8000
 The API listens on `http://localhost:8000`. FastAPI's standard documentation remains
 available at `/docs`, `/redoc`, and `/openapi.json`.
 
+## Integrated Compose Startup
+
+From the repository root, copy `.env.example` to `.env` and run `pnpm dev` to start the API with the web application and local PostgreSQL stack. The API container binds only to `127.0.0.1` on the configured `API_PORT` (default `8000`). PostgreSQL is not passed to or consumed by this API foundation; `/health` remains process health only.
+
 ## Component commands
 
 ```bash

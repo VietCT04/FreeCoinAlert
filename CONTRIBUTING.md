@@ -2,7 +2,9 @@
 
 ## Prerequisites
 
-Use Node.js `24.18.0` LTS and pnpm `11.4.0`. The required Node.js version is recorded in [`.node-version`](.node-version), and the root package manifest pins pnpm.
+Use Docker with Docker Compose v2, Node.js `24.18.0` LTS, and pnpm `11.4.0`. The required Node.js version is recorded in [`.node-version`](.node-version), and the root package manifest pins pnpm.
+
+For the integrated local stack, copy `.env.example` to `.env` and run `pnpm dev`. The Compose stack starts the web application, API, and local PostgreSQL server. `pnpm dev:down` stops the stack while preserving local data; `pnpm dev:reset` permanently removes the PostgreSQL volume and its contents.
 
 ## Install dependencies
 
@@ -20,7 +22,7 @@ pnpm verify
 
 `format` formats the root workspace manifest files. `format:check` checks those files without changing them. `verify` currently runs the root formatting check; later component issues will extend it while preserving its name.
 
-Do not add placeholder `lint` or `typecheck` commands. Issue #5 owns frontend linting and TypeScript checking, while Issue #6 owns backend linting, formatting, and Python static checking. Issue #7 owns integrated local startup.
+Do not add placeholder `lint` or `typecheck` commands. Issue #5 owns frontend linting and TypeScript checking, while Issue #6 owns backend linting, formatting, and Python static checking.
 
 ## Repository boundaries
 
@@ -29,7 +31,7 @@ Do not add placeholder `lint` or `typecheck` commands. Issue #5 owns frontend li
 - `packages/` contains reusable code that is not independently deployed.
 - `packages/shared/` is reserved for concrete shared contracts when first required.
 
-The repository does not yet contain runnable applications.
+Use direct component commands only when intentionally working outside the integrated stack: `pnpm dev:web` starts the frontend and `pnpm dev:api` starts the API after its uv environment is synchronized. `pnpm dev` is the normal integrated local-startup path.
 
 ## Environment files
 

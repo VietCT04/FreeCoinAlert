@@ -6,6 +6,14 @@ Do not hide important uncertainty only in code comments or pull-request discussi
 
 ## Open Concerns
 
+### C-018: Local Compose and PostgreSQL Development Foundation
+
+**Status:** Resolved by GitHub Issue #7
+
+The repository uses a local Docker Compose stack containing the web application, API, and PostgreSQL `18.4`, with Docker-managed persistent and dependency volumes.
+
+**Why it matters:** This provides a predictable local startup path without selecting a production database provider, backup policy, deployment design, or production container topology.
+
 ### C-017: Backend Framework and Project Management Foundation
 
 **Status:** Resolved by GitHub Issue #6
