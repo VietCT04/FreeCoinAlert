@@ -1,0 +1,186 @@
+# Observability
+
+## Purpose
+
+This document defines logs, metrics, health checks, freshness signals, alert-delivery monitoring, and incident-oriented diagnostics.
+
+## Observability Principles
+
+- A running HTTP process is not enough to call the system healthy.
+- Monitor user outcomes as well as process availability.
+- Use structured logs with stable event names and correlation identifiers.
+- Avoid logging every market tick in production.
+- Do not log secrets or unnecessary personal data.
+- Distinguish temporary provider degradation from permanent application failure.
+
+## Health Dimensions
+
+### API Health
+
+Indicates whether the API process can serve requests and reach required dependencies.
+
+It should not claim that alerts are operating correctly when market data or notification processing is stale.
+
+### Market-Data Health
+
+Track:
+
+- Binance WebSocket connection state
+- Time of last event received
+- Time of last closed candle stored per supported symbol
+- Reconnect count
+- Subscription count
+- Known candle gaps
+- Reconciliation backlog and failures
+- REST rate-limit responses
+
+Define a documented freshness threshold per stream type.
+
+### Alert-Engine Health
+
+Track:
+
+- Events evaluated
+- Evaluation latency
+- Rules skipped because data was incomplete or stale
+- Trigger count
+- Duplicate events prevented
+- Evaluation failures by rule type
+- Active alert count by market and timeframe
+
+### Notification Health
+
+Track:
+
+- Pending, claimed, sent, retrying, and permanently failed jobs
+- Oldest pending job age
+- Delivery latency
+- Telegram rate-limit responses
+- Bot-blocked and unavailable-chat failures
+- Duplicate deliveries prevented
+
+### Database Health
+
+Track:
+
+- Connection availability
+- Query latency on critical paths
+- Connection-pool use
+- Storage growth
+- Migration state
+- Candle write failures
+- Outbox backlog
+- Partition or disk capacity when relevant
+
+### Future Historical-Job Health
+
+Track separately from live processing:
+
+- Queued and running jobs
+- Job duration
+- Resource use
+- Failure category
+- Data-coverage failures
+- Whether live alert service levels are affected
+
+## Structured Logging
+
+Recommended fields include:
+
+- Timestamp in UTC
+- Severity
+- Service or process
+- Environment
+- Event name
+- Request, alert, candle, job, or correlation ID
+- Exchange, market, symbol, and timeframe when relevant
+- Safe error category
+- Duration
+
+Do not log:
+
+- Passwords
+- Sessions or access tokens
+- Telegram bot token or webhook secret
+- Raw one-time link tokens
+- Database credentials
+- Full chat IDs unless strictly required and protected
+
+## Audit Events
+
+Sensitive user actions should be auditable, including:
+
+- Telegram connected or disconnected
+- Alert created, updated, paused, resumed, or deleted
+- Template version changed for a subscription
+- Administrative symbol or template changes
+- Account-security changes
+
+Audit data must have a retention and access policy before production.
+
+## Alerts for Operators
+
+Operational alerts should eventually cover:
+
+- WebSocket disconnected beyond threshold
+- Market data stale
+- Candle gaps unresolved
+- Reconciliation repeatedly failing
+- Binance REST 429 or 418 responses
+- Notification backlog age above threshold
+- Telegram delivery failure spike
+- Database unavailable
+- Disk or storage near capacity
+- Error-rate spike
+
+Thresholds must be based on measured behavior and user impact.
+
+## Dashboards
+
+A minimal operational dashboard should answer:
+
+- Is live market data current?
+- Are all supported symbols receiving closed candles?
+- Are alerts being evaluated?
+- Are notification jobs being delivered?
+- Is a backlog growing?
+- Are external providers rate limiting or failing?
+- Are database and storage resources healthy?
+
+## Error Tracking
+
+An error-tracking service may be used, but the application should not depend on a specific provider.
+
+Group errors by safe category and include enough context to reproduce the failure without exposing secrets.
+
+## Data-Quality Visibility
+
+Maintain explicit states for:
+
+- Complete
+- Missing ranges detected
+- Repair in progress
+- Repair failed
+- Unsupported or disabled
+
+Do not hide data gaps only inside logs. Persistent gaps should appear in operational status and `CONCERNS.md` when they represent ongoing risk.
+
+## Testing and Verification
+
+Verify that:
+
+- Health endpoints report dependency failure accurately.
+- Stale market data is distinguishable from a healthy socket process.
+- Metrics do not contain unbounded user-controlled labels.
+- Logs redact secrets.
+- Notification backlog and retry states are visible.
+- Duplicate-prevention counters behave as expected.
+
+## Pending Decisions
+
+- Logging and metrics libraries.
+- Error-tracking provider.
+- Metrics storage and dashboard provider.
+- Freshness and backlog thresholds.
+- On-call or notification destination for operator alerts.
+- Audit-log retention.
