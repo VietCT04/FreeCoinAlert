@@ -317,13 +317,24 @@ Current work is tracked in GitHub Issues. Do not create local ticket files.
 
 ## Development
 
-The target local startup experience is:
+The repository now has a lightweight pnpm workspace foundation. Install dependencies and use the currently available root commands with:
+
+```bash
+pnpm install
+pnpm format
+pnpm format:check
+pnpm verify
+```
+
+Frontend and backend applications are intentionally not initialized yet; they belong to Issues #5 and #6. See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, workspace boundaries, environment-file conventions, and the approved-Issue workflow.
+
+The target integrated local startup experience remains:
 
 ```bash
 docker compose up
 ```
 
-This is not implemented yet. Setup instructions will be added by the issue that creates the application skeleton.
+This is not implemented yet. Issue #7 will add integrated local startup after the frontend and backend foundations exist.
 
 ## Disclaimer
 

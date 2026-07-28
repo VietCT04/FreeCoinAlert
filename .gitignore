@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.*.example
 
 # Python
 __pycache__/
@@ -12,6 +13,7 @@ venv/
 
 # Node.js
 node_modules/
+.pnpm-debug.log*
 .next/
 dist/
 build/
@@ -21,6 +23,8 @@ build/
 .vscode/
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
 
 # Local data and logs
 *.log
@@ -28,3 +32,4 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 coverage/
+htmlcov/

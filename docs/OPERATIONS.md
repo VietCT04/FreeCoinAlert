@@ -18,6 +18,19 @@ docker compose up
 
 This command is a target, not yet implemented.
 
+## Repository Prerequisites and Commands
+
+Repository-level tooling requires Node.js `24.18.0` LTS and pnpm `11.4.0`. The root pnpm workspace currently provides:
+
+```bash
+pnpm install
+pnpm format
+pnpm format:check
+pnpm verify
+```
+
+`verify` currently checks root workspace formatting only. Issue #5 will add frontend checks, Issue #6 will add backend checks, and Issue #7 will add integrated local startup. `docker compose up` remains a later target owned by Issue #7.
+
 ## Environment Model
 
 At minimum, support separate:
@@ -40,6 +53,8 @@ Do not hard-code:
 - Provider-specific internal hostnames
 
 Provide `.env.example` with variable names and safe descriptions only.
+
+Shared variables belong in the root `.env.example` only when more than one application or service consumes them. Component-specific examples belong in `apps/<component>/.env.example` or `services/<component>/.env.example`. Never commit local `.env` files or real credentials.
 
 ## Process Model
 
