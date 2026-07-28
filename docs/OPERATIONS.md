@@ -29,6 +29,13 @@ pnpm format:check
 pnpm verify
 ```
 
+The API requires Python `3.14` and uv. Its component project manages its own Python environment and lockfile:
+
+```bash
+uv sync --project apps/api
+pnpm dev:api
+```
+
 The frontend component uses Next.js on local port `3000` by default:
 
 ```bash
@@ -37,7 +44,7 @@ pnpm build:web
 pnpm --filter @freecoinalert/web start
 ```
 
-`pnpm dev:web` is the development command; `pnpm build:web` produces the production build and the component `start` command serves it. `verify` includes the configured frontend formatting, lint, type-check, and build contracts. Issue #6 will add backend checks, and Issue #7 will add integrated local startup. Docker and production hosting remain unresolved.
+`pnpm dev:web` is the frontend development command; `pnpm build:web` produces the production build and the component `start` command serves it. `pnpm dev:api` starts FastAPI on local port `8000`. `verify` includes the configured frontend formatting, lint, type-check, and build contracts plus backend Ruff and mypy checks. Docker, database startup, production process management, and hosting remain unresolved; Issue #7 owns integrated local startup.
 
 ## Environment Model
 
