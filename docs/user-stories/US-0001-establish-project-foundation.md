@@ -35,4 +35,7 @@ The repository currently contains documentation only. A basic project foundation
 
 ## Follow-up Issues
 
-To be created after this user story is approved and added to the repository.
+- GitHub Issue #4: Establish the monorepo workspace and developer conventions
+- GitHub Issue #5: Bootstrap the frontend application
+- GitHub Issue #6: Bootstrap the backend API and health endpoint
+- GitHub Issue #7: Add local PostgreSQL and integrated development startup
