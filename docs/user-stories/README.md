@@ -2,9 +2,11 @@
 
 ## Purpose
 
-User stories describe product behavior from a user's perspective. They are the product source for creating focused implementation GitHub Issues.
+User stories describe a valuable outcome from a stakeholder's perspective. A stakeholder may be an end user, project maintainer, developer, administrator, or another role affected by the system.
 
-A user story may cover a complete user outcome. Implementation issues should divide that outcome into small, independently verifiable slices.
+User stories are the product source for creating focused implementation GitHub Issues. A story may cover a complete stakeholder outcome, while implementation issues divide that outcome into small, independently verifiable slices.
+
+Stories should remain short and avoid unnecessary technical implementation detail. Technical decisions belong in issue proposals after the user story is approved.
 
 ## Folder and Naming
 
@@ -30,7 +32,7 @@ Numbers are sequential and never reused.
 
 ## User Story
 
-As a [user type], I want [goal], so that [benefit].
+As a [stakeholder type], I want [goal], so that [benefit].
 
 ## Context
 
@@ -42,12 +44,16 @@ Explain why this behavior matters and how it fits the product.
 - [ ] Criterion 2
 - [ ] Authorization is enforced server-side where relevant
 - [ ] External-event processing is idempotent where relevant
-- [ ] Loading, empty, success, and error states are handled
+- [ ] Loading, empty, success, and error states are handled where relevant
 - [ ] Relevant documentation is updated
+
+## Out of Scope
+
+List nearby work that is not part of this story.
 
 ## Risks
 
-List product, security, reliability, market-data, delivery, or usability risks.
+List product, security, reliability, market-data, delivery, development, or usability risks.
 
 ## Follow-up Issues
 
@@ -56,7 +62,15 @@ List product, security, reliability, market-data, delivery, or usability risks.
 
 ## Appropriate User Stories
 
-Use stories for product-facing behavior such as:
+Stories may describe outcomes for different stakeholders.
+
+### Maintainers and developers
+
+- Establish a consistent and runnable project foundation
+- Provide a repeatable local-development workflow
+- Add reliable deployment or operational capabilities
+
+### End users
 
 - Create an account and sign in
 - Connect or disconnect Telegram
@@ -65,24 +79,35 @@ Use stories for product-facing behavior such as:
 - Create a custom price or indicator alert
 - Pause, resume, edit, or delete an alert
 - Receive and view alert history
-- Review notification delivery failure
 - Request historical strategy analysis
-- Manage supported templates as an administrator
+
+### Administrators and support roles
+
+- Manage supported symbols or signal templates
+- Review notification-delivery failures
+- Investigate market-data gaps
 
 ## Story Workflow
 
-1. Draft the user story with clear acceptance criteria.
+1. Propose a short stakeholder-focused user story with clear acceptance criteria.
 2. Review product boundaries and relevant concerns.
-3. Obtain user approval.
-4. Create one or more focused GitHub Issues.
-5. Add the issue links to the story.
-6. Implement issues through pull requests.
-7. Update the story when approved behavior changes.
+3. Obtain explicit user approval.
+4. Create a documentation-only pull request that adds the approved story and updates relevant docs.
+5. Create focused GitHub Issues linked to the approved story.
+6. Add the issue links to the user-story document in the same pull request.
+7. When requested, propose a technical solution for one issue in the conversation.
+8. Revise the solution until the user explicitly approves it.
+9. Post the approved solution as a comment on that GitHub Issue so implementation agents can follow it.
+10. Implement approved issues through separate pull requests.
+11. Update the story only when approved behavior changes.
+
+Do not add an unapproved technical solution to an issue comment.
 
 ## Issue-Splitting Guidance
 
 Split work when a story includes independent areas such as:
 
+- Repository or developer tooling
 - Database schema
 - API contract
 - Frontend flow
@@ -111,4 +136,4 @@ Before approving a story, check:
 - The relevant domain document
 - [`../CONCERNS.md`](../CONCERNS.md)
 
-Do not use a user story to silently approve unresolved security, data-quality, or financial-performance assumptions.
+Do not use a user story to silently approve unresolved security, data-quality, infrastructure, or financial-performance assumptions.
