@@ -6,6 +6,14 @@ Do not hide important uncertainty only in code comments or pull-request discussi
 
 ## Open Concerns
 
+### C-017: Backend Framework and Project Management Foundation
+
+**Status:** Resolved by GitHub Issue #6
+
+The first backend application uses Python `3.14`, FastAPI `0.139.2`, and uv. Ruff and mypy provide the configured formatting, linting, and static type-checking contracts.
+
+**Why it matters:** This establishes a small, locked, Python API foundation without deciding database integration, authentication, CORS, deployment, workers, or external integrations.
+
 ### C-016: Frontend Framework Foundation
 
 **Status:** Resolved by GitHub Issue #5

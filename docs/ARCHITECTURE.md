@@ -30,7 +30,7 @@ Directories should be created only when an approved issue requires them.
 
 The repository uses native pnpm workspaces for JavaScript and TypeScript workspace management. It does not use Nx or Turborepo.
 
-- `apps/` owns deployable browser and API applications. `apps/web` is the Next.js TypeScript frontend created by Issue #5; Issue #6 will initialize the backend API.
+- `apps/` owns deployable browser and API applications. `apps/web` is the Next.js TypeScript frontend; `apps/api` is the FastAPI Python backend created by Issue #6.
 - `services/` owns separately runnable background processes such as market-data ingestion and notification delivery.
 - `packages/` owns reusable code that is not independently deployed.
 - `packages/shared/` is reserved for concrete shared contracts when an approved issue first requires them.
@@ -56,6 +56,10 @@ Responsibilities:
 The frontend must not be the authority for ownership, trigger state, or sensitive validation.
 
 ### API
+
+The API uses Python `3.14`, FastAPI, and uv for Python installation, dependency management, command execution, and locking. `create_app()` in `apps/api/src/freecoinalert_api/main.py` provides the application-factory boundary, and `api/router.py` composes route modules so future features do not attach routes directly to the application entry point.
+
+The only implemented route is unauthenticated `GET /health`, which reports API process health only. Database integration and feature-layer architecture remain unresolved.
 
 Responsibilities:
 
@@ -211,7 +215,6 @@ User requests analysis
 
 ## Pending Architecture Decisions
 
-- Backend component tooling, which remains owned by Issue #6.
 - Feature-specific frontend architecture, including component boundaries and client-state needs.
 - Authentication implementation and provider.
 - Whether early processes run in one container or separate containers.

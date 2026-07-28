@@ -17,9 +17,9 @@ This document defines logs, metrics, health checks, freshness signals, alert-del
 
 ### API Health
 
-Indicates whether the API process can serve requests and reach required dependencies.
+`GET /health` is API liveness/process health only. It confirms that the FastAPI process can serve the endpoint, without checking dependencies.
 
-It should not claim that alerts are operating correctly when market data or notification processing is stale.
+It is not readiness for PostgreSQL, market-data ingestion, alert evaluation, Telegram delivery, or any future worker. It must not claim that alerts are operating correctly when market data or notification processing is stale.
 
 ### Market-Data Health
 

@@ -4,7 +4,7 @@ FreeCoinAlert is a web application for configurable cryptocurrency market alerts
 
 Users connect Telegram, subscribe to platform-provided signals, or create validated custom conditions. The platform consumes live Binance market data, evaluates alerts, and sends Telegram notifications. It also stores its own closed one-minute candles so future historical strategy analysis can use internal data instead of querying Binance for every customer request.
 
-> Project status: frontend foundation initialized. Authentication, Telegram linking, alerts, API integration, and market-data processing are not implemented.
+> Project status: frontend and API foundations initialized. Authentication, Telegram linking, alerts, database integration, and market-data processing are not implemented.
 
 ## Product Goal
 
@@ -317,7 +317,7 @@ Current work is tracked in GitHub Issues. Do not create local ticket files.
 
 ## Development
 
-The repository has a lightweight pnpm workspace foundation and a Next.js frontend application. Install dependencies and use the root commands with:
+The repository has a lightweight pnpm workspace foundation, a Next.js frontend application, and a FastAPI backend application. Install JavaScript dependencies and use the root commands with:
 
 ```bash
 pnpm install
@@ -326,13 +326,21 @@ pnpm format:check
 pnpm verify
 ```
 
+The API requires Python `3.14` and [uv](https://docs.astral.sh/uv/). Synchronize its
+dependencies and start it locally with:
+
+```bash
+uv sync --project apps/api
+pnpm dev:api
+```
+
 Start the frontend locally with:
 
 ```bash
 pnpm dev:web
 ```
 
-The frontend uses [http://localhost:3000](http://localhost:3000) by default. Its build, lint, and type-check command contracts are `pnpm build:web`, `pnpm lint:web`, and `pnpm typecheck:web`. The backend application belongs to Issue #6. See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, workspace boundaries, environment-file conventions, and the approved-Issue workflow.
+The frontend uses [http://localhost:3000](http://localhost:3000) by default. The API uses [http://localhost:8000](http://localhost:8000) and exposes process health at `/health`. The frontend build, lint, and type-check contracts are `pnpm build:web`, `pnpm lint:web`, and `pnpm typecheck:web`; API equivalents are `pnpm lint:api`, `pnpm format:check:api`, and `pnpm typecheck:api`. See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, workspace boundaries, environment-file conventions, and the approved-Issue workflow.
 
 The target integrated local startup experience remains:
 
