@@ -10,13 +10,21 @@ Hosting is intentionally undecided while the MVP is being built.
 
 The project should run locally and remain portable between managed hosting and a low-cost VPS.
 
-Target local startup:
+Implemented local startup:
 
 ```bash
-docker compose up
+cp .env.example .env
+pnpm dev
 ```
 
-This command is a target, not yet implemented.
+In PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+pnpm dev
+```
+
+Docker and Docker Compose v2 are required. The stack binds the web, API, and PostgreSQL ports to loopback only. Use `pnpm dev:detached` for detached startup, `pnpm dev:status` for service status, `pnpm dev:logs` for logs, and `pnpm dev:down` for normal shutdown. `pnpm dev:reset` is destructive: it removes all Compose volumes, including the local PostgreSQL data volume.
 
 ## Repository Prerequisites and Commands
 
@@ -29,7 +37,7 @@ pnpm format:check
 pnpm verify
 ```
 
-The API requires Python `3.14` and uv. Its component project manages its own Python environment and lockfile:
+The API requires Python `3.14` and uv when it is run outside Compose. Its component project manages its own Python environment and lockfile:
 
 ```bash
 uv sync --project apps/api
@@ -44,7 +52,7 @@ pnpm build:web
 pnpm --filter @freecoinalert/web start
 ```
 
-`pnpm dev:web` is the frontend development command; `pnpm build:web` produces the production build and the component `start` command serves it. `pnpm dev:api` starts FastAPI on local port `8000`. `verify` includes the configured frontend formatting, lint, type-check, and build contracts plus backend Ruff and mypy checks. Docker, database startup, production process management, and hosting remain unresolved; Issue #7 owns integrated local startup.
+`pnpm dev` is the default integrated startup command. `pnpm dev:web` and `pnpm dev:api` remain direct component commands for intentional standalone work. `verify` includes the configured frontend formatting, lint, type-check, and build contracts plus backend Ruff and mypy checks. Production process management and hosting remain unresolved.
 
 ## Environment Model
 
@@ -67,7 +75,7 @@ Do not hard-code:
 - Public application URLs
 - Provider-specific internal hostnames
 
-Provide `.env.example` with variable names and safe descriptions only.
+Copy `.env.example` to a local `.env` before the first Compose startup. `.env` is ignored by Git. Its PostgreSQL password is only for isolated local development and must never be reused in production. Changing PostgreSQL initialization values after the `postgres_data` volume exists does not recreate the existing database automatically.
 
 Shared variables belong in the root `.env.example` only when more than one application or service consumes them. Component-specific examples belong in `apps/<component>/.env.example` or `services/<component>/.env.example`. Never commit local `.env` files or real credentials.
 
@@ -101,6 +109,8 @@ Container expectations:
 - Multi-architecture support only when a selected host requires it
 
 Persistent database data must not live only in an ephemeral application container.
+
+The local `db` service uses PostgreSQL `18.4` and the Docker-managed `postgres_data` volume mounted at `/var/lib/postgresql`. No schema, migrations, application database connection, or backup workflow is included.
 
 ## Networking
 
@@ -227,7 +237,6 @@ Retention changes require database, product, security, and operations review.
 
 ## Pending Decisions
 
-- Local Docker Compose topology.
 - Initial hosting provider and region.
 - Managed versus self-hosted PostgreSQL.
 - Scheduler implementation.

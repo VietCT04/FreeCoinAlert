@@ -465,6 +465,8 @@ Add or update tests when practical, especially for:
 
 No test or verification execution is required after coding. Do not run backend or frontend test suites or verification commands unless the maintainer explicitly requests a dedicated verification pass.
 
+This also prohibits Docker builds, Compose startup, container health checks, HTTP requests, and database connection commands unless the maintainer explicitly requests that verification pass.
+
 Agents may write or update tests when practical. Do not run lint, build, typecheck, migration validation, formatting, or other verification commands unless the maintainer explicitly requests a dedicated verification pass.
 
 If the user approves PR- or CI-level review or says local tests are unnecessary, do not repeatedly attempt local tests. State clearly that they were not run by user direction.

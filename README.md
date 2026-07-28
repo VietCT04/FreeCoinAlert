@@ -317,38 +317,40 @@ Current work is tracked in GitHub Issues. Do not create local ticket files.
 
 ## Development
 
-The repository has a lightweight pnpm workspace foundation, a Next.js frontend application, and a FastAPI backend application. Install JavaScript dependencies and use the root commands with:
+The default integrated local environment uses Docker Compose v2, Docker, Node.js `24.18.0`, and pnpm `11.4.0`. Before the first startup, copy the safe local configuration:
 
 ```bash
-pnpm install
-pnpm format
-pnpm format:check
-pnpm verify
+cp .env.example .env
+pnpm dev
 ```
 
-The API requires Python `3.14` and [uv](https://docs.astral.sh/uv/). Synchronize its
-dependencies and start it locally with:
+In PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+pnpm dev
+```
+
+After a later dedicated verification pass succeeds, the local endpoints are expected to be:
+
+```text
+Frontend:   http://localhost:3000
+API:        http://localhost:8000
+API docs:   http://localhost:8000/docs
+PostgreSQL: localhost:5432
+```
+
+Manage the stack with `pnpm dev:status`, `pnpm dev:logs`, and `pnpm dev:down`. `pnpm dev:reset` permanently deletes the local PostgreSQL volume and all of its data. Access the local database without a host-installed client with:
 
 ```bash
-uv sync --project apps/api
-pnpm dev:api
+docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 ```
 
-Start the frontend locally with:
+`.env` is ignored by Git. The example PostgreSQL password is only for isolated local development and must never be used in production. Changing PostgreSQL initialization values after its volume exists does not recreate the existing database automatically.
 
-```bash
-pnpm dev:web
-```
+Direct component commands remain available when intentionally running a component outside Compose: `pnpm dev:web` for the frontend and `pnpm dev:api` after `uv sync --project apps/api` for the API.
 
-The frontend uses [http://localhost:3000](http://localhost:3000) by default. The API uses [http://localhost:8000](http://localhost:8000) and exposes process health at `/health`. The frontend build, lint, and type-check contracts are `pnpm build:web`, `pnpm lint:web`, and `pnpm typecheck:web`; API equivalents are `pnpm lint:api`, `pnpm format:check:api`, and `pnpm typecheck:api`. See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, workspace boundaries, environment-file conventions, and the approved-Issue workflow.
-
-The target integrated local startup experience remains:
-
-```bash
-docker compose up
-```
-
-This is not implemented yet. Issue #7 will add integrated local startup after the frontend and backend foundations exist.
+The stack provides only the frontend, API process-health endpoint, and a local PostgreSQL server. Authentication, database integration, Telegram, alerts, and market-data processing remain unimplemented.
 
 ## Disclaimer
 

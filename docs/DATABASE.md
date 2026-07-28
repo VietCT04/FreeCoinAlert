@@ -6,7 +6,9 @@ This document defines the initial data domains, schema rules, timestamp conventi
 
 ## Status
 
-No schema or migration exists yet.
+No application schema or migration exists yet.
+
+Issue #7 provides PostgreSQL `18.4` as the local development database through the Compose service named `db`. It binds to `127.0.0.1:${POSTGRES_PORT:-5432}` and persists data in the Docker-managed `postgres_data` volume. This is a running database server only: no application connection, schema, migration, seed data, or backup automation exists.
 
 PostgreSQL is the current database direction because the product requires relational ownership, durable jobs, uniqueness constraints, time-based market data, and transactional alert-event creation.
 

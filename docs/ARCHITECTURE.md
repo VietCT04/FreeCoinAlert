@@ -37,6 +37,18 @@ The repository uses native pnpm workspaces for JavaScript and TypeScript workspa
 
 The workspace currently establishes only these boundaries. Directories and projects are created only when their approved issue requires them.
 
+## Local Development Topology
+
+Issue #7 provides one Docker Compose development stack on the default Compose network:
+
+```text
+web (Next.js)  -> localhost:3000
+api (FastAPI)  -> localhost:8000
+db (PostgreSQL) -> localhost:5432
+```
+
+All host ports bind to loopback only. The containers support local development and do not make this codebase microservices: they are a convenient process boundary for the existing modular monolith. Production container topology remains unresolved.
+
 ## Main Components
 
 ### Web Application

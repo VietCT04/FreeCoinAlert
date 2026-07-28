@@ -28,6 +28,10 @@ pnpm typecheck:web
 `pnpm dev:web` starts the local development server on [http://localhost:3000](http://localhost:3000).
 `pnpm build:web` produces a production build, and `pnpm --filter @freecoinalert/web start` serves that build.
 
+## Integrated Compose Startup
+
+From the repository root, copy `.env.example` to `.env` and run `pnpm dev` to start the web application with the API and local PostgreSQL stack. The web container binds only to `127.0.0.1` on the configured `WEB_PORT` (default `3000`). Use `pnpm dev:down` to stop the stack or `pnpm dev:reset` to remove all local Compose volumes, including PostgreSQL data.
+
 ## Directory Purpose
 
 - `src/app/` contains App Router routes, the root layout, and global styles.
