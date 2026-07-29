@@ -1,6 +1,7 @@
 from functools import lru_cache
+import re
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,12 +9,25 @@ class AuthenticationSettings(BaseSettings):
     web_origin: str = "http://localhost:3000"
     session_cookie_secure: bool = False
     session_ttl_seconds: int = Field(default=604800, gt=0)
+    telegram_bot_username: str | None = None
+    telegram_link_ttl_seconds: int = Field(default=600, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @field_validator("telegram_bot_username")
+    @classmethod
+    def validate_telegram_bot_username(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+
+        if re.fullmatch(r"[A-Za-z0-9_]+", value) is None:
+            raise ValueError("TELEGRAM_BOT_USERNAME must use Telegram username characters.")
+
+        return value
 
 
 class Settings(AuthenticationSettings):

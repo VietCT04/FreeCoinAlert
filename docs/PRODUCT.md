@@ -28,7 +28,9 @@ The MVP assumes users understand basic concepts such as trading pairs, timeframe
 ### Account and Telegram
 
 - Account registration and sign-in establish a secure browser session. The minimal browser flow provides registration, sign-in, session restoration after refresh, and current-session sign-out; it intentionally does not provide profile editing, recovery, verification, or a dashboard.
-- Secure Telegram linking using a short-lived, single-use token.
+- Secure Telegram linking uses a short-lived, single-use token. Authenticated users can request
+  a one-time deep link, view only their safe connection state, and disconnect; Telegram update
+  processing and confirmation remain later work.
 - One Telegram destination per user initially, unless a later issue expands this.
 - Connection test, disconnect, and reconnect flows.
 

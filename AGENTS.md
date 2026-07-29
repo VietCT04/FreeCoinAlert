@@ -465,6 +465,10 @@ Add or update tests when practical, especially for:
 
 No tests or verification commands need to be run after coding. Do not run backend or frontend test suites, migrations, or verification commands unless the maintainer explicitly requests a dedicated verification pass.
 
+This applies equally to approved API, security, and Telegram connection work: implementation
+does not require test, build, lint, type-check, formatting, migration, database, browser, or
+manual API verification execution.
+
 This no-verification instruction includes browser interaction and manual API checks for approved frontend work.
 
 For approved database-persistence work, it also includes Alembic upgrade or downgrade

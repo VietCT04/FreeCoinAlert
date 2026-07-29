@@ -93,6 +93,14 @@ Shared variables belong in the root `.env.example` only when more than one appli
 
 The API authentication settings are `WEB_ORIGIN`, `SESSION_COOKIE_SECURE`, and `SESSION_TTL_SECONDS`. Local defaults are `http://localhost:3000`, `false`, and `604800` seconds. The web application also receives `NEXT_PUBLIC_API_BASE_URL`, with local default `http://localhost:8000`, through Compose and its component environment example. It is a browser-visible API origin only and must not contain a credential or secret. Before public deployment or multiple API replicas, replace the bounded application-local authentication limiter with a shared, trusted-proxy-aware design; it deliberately uses `request.client.host` and does not trust `X-Forwarded-For`.
 
+The Telegram connection API also consumes optional public `TELEGRAM_BOT_USERNAME` and positive
+`TELEGRAM_LINK_TTL_SECONDS` (local default `600`). The bot username must not include `@` and
+may use only Telegram username characters; no Telegram bot token is configured under this
+issue. Its five-per-user and ten-per-direct-IP link-creation limits, plus ten-per-user
+disconnect limit, are bounded in-process controls. Before public deployment or multiple API
+replicas, replace the authentication and Telegram limiters with a shared trusted-proxy-aware
+design; they use `request.client.host` and do not trust `X-Forwarded-For`.
+
 ## Process Model
 
 The modular-monolith codebase may run as separate processes:

@@ -6,9 +6,10 @@ FreeCoinAlert has an approved documentation baseline, a repository-level pnpm wo
 
 US-0001 and US-0002 are implementation-complete. No dedicated foundation or authentication verification pass has been requested or run.
 
-US-0003 is approved and documented in merged PR #18. Issue #19 now has a draft
-persistence implementation; its Telegram transport and public API remain deliberately
-out of scope. Approved technical solutions are posted for Issues #20 through #23.
+US-0003 is approved and documented in merged PR #18. Issue #19 persistence is merged, and
+Issue #20 now has a draft authenticated connection API implementation. Telegram transport,
+update processing, confirmation, delivery, and frontend work remain deliberately out of scope.
+Approved technical solutions are posted for Issues #21 through #23.
 
 US-0004 is approved and documented in draft PR #27. It introduces the first end-to-end product alert: a one-time supported cryptocurrency price crossing that creates an immutable alert event and queues a Telegram notification. US-0004 implementation must wait until US-0003 is implementation-complete.
 
@@ -17,14 +18,22 @@ The broader direction remains an alert-first application. Binance public market 
 ## Latest Work
 
 - **Date:** 2026-07-30
-- **GitHub Issue:** #19 - Add Telegram connection and linking-token persistence
-- **Pull Request:** #34 - Add Telegram connection persistence (draft)
-- **Summary:** Added typed SQLAlchemy persistence models, asynchronous repositories, and
-  an Alembic migration for one private Telegram connection per user, SHA-256 token-hash
-  lifecycle state, and idempotent processed-update records. No Telegram API endpoint,
-  bot client, webhook, polling, or raw token generator was added.
+- **GitHub Issue:** #20 - Implement authenticated Telegram connection API
+- **Pull Request:** #35 - Implement Telegram connection API (draft)
+- **Summary:** Added session-authenticated, CSRF-protected link-token and disconnect endpoints,
+  safe connection-state retrieval, one-time 32-byte token generation and SHA-256 persistence,
+  transactional replacement and disconnect revocation, Telegram configuration, and bounded
+  process-local rate limits. Telegram Bot API calls, update processing, confirmations, delivery,
+  frontend UI, and tests remain out of scope.
 
 ## Latest Completed Work
+
+- **Date:** 2026-07-30
+- **GitHub Issue:** #19 - Add Telegram connection and linking-token persistence
+- **Pull Request:** #34 - Add Telegram connection persistence
+- **Summary:** Merged typed SQLAlchemy persistence models, asynchronous repositories, and an
+  Alembic migration for one private Telegram connection per user, SHA-256 token-hash lifecycle
+  state, and idempotent processed-update records.
 
 - **Date:** 2026-07-29
 - **GitHub Issue:** #15 - Add frontend registration, sign-in, and sign-out flow
@@ -100,8 +109,8 @@ The broader direction remains an alert-first application. Binance public market 
 - **Implementation Issues:** #19, #20, #21, #22, and #23
 - **Implementation order:** #19, #20, #21, #22, then #23
 - **Solution status:** Approved solutions are posted for all five issues.
-- **Implementation status:** Issue #19 has a draft implementation pending merge; #20
-  through #23 have not started.
+- **Implementation status:** Issue #19 is merged. Issue #20 has a draft implementation;
+  #21 through #23 have not started.
 - **Verification status:** No Telegram verification pass has been requested or run.
 
 ### US-0004: Create a One-Time Cryptocurrency Price Alert
@@ -196,8 +205,8 @@ Important unresolved decisions include:
 ## Next Recommended Steps
 
 1. Review and merge documentation PR #27.
-2. Review and merge the Issue #19 persistence pull request, then implement US-0003 in
-   order: #20, #21, #22, then #23.
+2. Review and merge the Issue #20 connection API pull request, then implement US-0003 in
+   order: #21, #22, then #23.
 3. After US-0003 is complete, request proposed technical solutions for US-0004 beginning with Issue #28.
 4. Request dedicated verification passes only when the maintainer wants them.
 

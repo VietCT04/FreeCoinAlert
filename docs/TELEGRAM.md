@@ -45,11 +45,19 @@ A connection token must:
 
 Creating tokens should be rate-limited.
 
-Issue #19 persists only the token lifecycle boundary: a user-bound SHA-256 binary hash,
-explicit creation, expiry, consumption, and revocation timestamps, and one outstanding
-unconsumed, unrevoked token per user. Issuing a replacement will revoke all outstanding
-tokens, including expired rows, in Issue #20. No raw token generation or deep-link
-construction is implemented here.
+Issue #20 creates the API link with 32 cryptographically random bytes encoded as a
+43-character URL-safe Base64 token without padding. It stores only the SHA-256 binary hash,
+expires it after `TELEGRAM_LINK_TTL_SECONDS` (600 seconds locally), and exposes the raw token
+only once inside the returned deep link. Issuing a replacement or disconnecting revokes all
+outstanding unconsumed tokens, including expired rows, in the same transaction. The API does
+not claim a connection is complete until a later update-processing issue confirms `/start`.
+
+Link creation requires the existing authenticated browser session and CSRF header, with five
+requests per fifteen minutes per user and ten per direct client IP. `GET /telegram/connection`
+returns only safe connection state; `DELETE /telegram/connection` is CSRF-protected,
+idempotently disconnects the current user's saved destination, and prevents future delivery
+code from using it until a same-owner reconnection. There is no frontend flow, bot client,
+webhook, polling, `/start` parsing, confirmation, or test notification under this issue.
 
 ## Update Processing
 
