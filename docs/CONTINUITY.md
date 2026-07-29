@@ -18,7 +18,7 @@ The broader direction remains an alert-first application. Binance public market 
 
 - **Date:** 2026-07-30
 - **GitHub Issue:** #19 - Add Telegram connection and linking-token persistence
-- **Pull Request:** Pending - Telegram connection persistence
+- **Pull Request:** #34 - Add Telegram connection persistence (draft)
 - **Summary:** Added typed SQLAlchemy persistence models, asynchronous repositories, and
   an Alembic migration for one private Telegram connection per user, SHA-256 token-hash
   lifecycle state, and idempotent processed-update records. No Telegram API endpoint,
