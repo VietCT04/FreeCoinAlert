@@ -2,7 +2,7 @@
 
 The API is the Python and FastAPI foundation for FreeCoinAlert. It includes user and
 authentication-session persistence, unauthenticated process health, and account
-registration and sign-in. Current-user lookup, logout, frontend authentication,
+registration, sign-in, current-user lookup, and logout. Frontend authentication,
 alerts, market data, Telegram delivery, and background work are not implemented.
 
 ## Prerequisites
@@ -58,8 +58,9 @@ uv run mypy src
 ## Source layout
 
 `src/freecoinalert_api/main.py` owns the application factory and ASGI application.
-`api/routes/auth.py` provides registration and sign-in, while `auth/` contains focused
-email, origin, password, rate-limit, and session helpers. `core/config.py` reads
+`api/routes/auth.py` provides registration, sign-in, current-user lookup, and logout,
+while `auth/` contains focused email, origin, password, rate-limit, session, and
+authenticated-principal helpers. `core/config.py` reads
 database and browser-authentication settings; `db/` owns typed SQLAlchemy models,
 asynchronous sessions, repositories, and Alembic migrations.
 
@@ -80,9 +81,15 @@ spaces without trimming and must be 15–128 Unicode code points. Emails are tri
 normalized without DNS or deliverability checks, then case-folded for unique identity.
 
 The API uses Argon2id password hashes, stores only a SHA-256 session-token hash, and
-enforces a seven-day absolute session expiry. Successful authentication responses are
-`Cache-Control: no-store`. The local limiter allows five registration attempts per IP,
-ten login attempts per IP, and five failed login attempts per email-and-IP in 15 minutes.
+enforces a seven-day absolute session expiry. Authentication and logout responses include
+`Cache-Control: no-store`. `GET /auth/me` restores the safe current user and the session
+CSRF token after a browser refresh. `POST /auth/logout` requires that CSRF token in
+`X-CSRF-Token`, revokes only the current session, clears the cookie, and returns `204`;
+absent or stale sessions also return `204` after clearing the cookie. Future
+cookie-authenticated ownership checks use the server-side immutable authenticated
+principal rather than client-supplied user IDs. The local limiter allows five registration
+attempts per IP, ten login attempts per IP, and five failed login attempts per
+email-and-IP in 15 minutes.
 It is deliberately process-local and must be replaced before multiple API replicas or a
 public trusted-proxy deployment.
 

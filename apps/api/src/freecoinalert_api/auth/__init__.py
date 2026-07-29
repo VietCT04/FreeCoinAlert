@@ -1,2 +1,1 @@
-"""Authentication helpers for credential and session establishment."""
-
+"""Authentication helpers for credential, session, and principal boundaries."""

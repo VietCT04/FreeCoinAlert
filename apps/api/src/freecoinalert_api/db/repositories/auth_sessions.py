@@ -3,9 +3,9 @@ from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import func
 
 from freecoinalert_api.db.models.auth_session import AuthSession
+from freecoinalert_api.db.models.user import User
 
 
 async def create_auth_session(
@@ -27,17 +27,22 @@ async def create_auth_session(
     return auth_session
 
 
-async def get_active_session_by_token_hash(
+async def get_active_session_and_user_by_token_hash(
     session: AsyncSession,
     *,
     token_hash: bytes,
-) -> AuthSession | None:
-    statement = select(AuthSession).where(
+    current_time: datetime,
+) -> tuple[AuthSession, User] | None:
+    statement = select(AuthSession, User).join(
+        User,
+        AuthSession.user_id == User.id,
+    ).where(
         AuthSession.token_hash == token_hash,
         AuthSession.revoked_at.is_(None),
-        AuthSession.expires_at > func.now(),
+        AuthSession.expires_at > current_time,
     )
-    return await session.scalar(statement)
+    result = await session.execute(statement)
+    return result.one_or_none()
 
 
 async def revoke_auth_session(

@@ -23,10 +23,25 @@ multiple concurrent sessions per user and cascades their deletion when the ownin
 is deleted. The CSRF token may be stored directly because it cannot authenticate a user
 without the HTTP-only session cookie.
 
-Registration, password hashing, email validation, session-token generation, cookies,
-login, logout, and current-user authorization are not implemented yet.
+Registration and sign-in normalize email identity, use Argon2id password hashes, and
+establish a seven-day fixed-expiry browser session. `GET /auth/me` resolves the session
+only from the HTTP-only `freecoinalert_session` cookie. It maps a SHA-256 token hash to
+one unrevoked, unexpired session and its owning user, without extending expiry or writing
+last-seen state. Missing, malformed, invalid, expired, and revoked cookies are rejected
+consistently and may be cleared.
 
-Whichever approach is selected must provide:
+The immutable `AuthenticatedPrincipal` is the reusable ownership boundary. It contains
+only the authenticated user UUID and session UUID. Future user-owned endpoints must
+derive ownership from that principal and never treat a client-supplied user ID as proof.
+
+Cookie-authenticated POST, PUT, PATCH, and DELETE endpoints must use the reusable CSRF
+dependency. It accepts `X-CSRF-Token` only as a header and compares it in constant time
+to the session-bound CSRF token. Logout revokes only the current session after a valid
+CSRF check, clears the cookie, and is intentionally idempotent for absent, invalid,
+expired, or revoked sessions. Concurrent sessions remain allowed; expiry is absolute and
+sessions are not rotated or extended on ordinary requests.
+
+The implemented approach provides:
 
 - Secure password or identity-provider handling.
 - Session expiration and revocation.
@@ -187,7 +202,7 @@ Update this document and request review when introducing:
 
 ## Pending Decisions
 
-- Authentication provider, email normalization policy, session lifetime, and cookie design.
+- Authentication provider.
 - Encryption requirements for Telegram destination identifiers.
 - Initial rate-limit thresholds.
 - Account deletion and data-retention behavior.
