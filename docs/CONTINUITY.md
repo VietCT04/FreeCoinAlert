@@ -2,13 +2,20 @@
 
 ## Current Project State
 
-FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, runnable Next.js and FastAPI foundations, and a local Docker Compose stack with PostgreSQL. Issue #11 is now adding the initial user and authentication-session persistence layer; registration, login, cookies, authorization routes, market-data processing, alerts, and automated tests do not exist yet.
+FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, runnable Next.js and FastAPI foundations, a local Docker Compose stack with PostgreSQL, and the initial user and authentication-session persistence layer from Issue #11.
 
-US-0001 establishes the runnable project foundation. US-0002 is the approved next product capability: users can create an account, sign in, remain signed in, and sign out before Telegram connections and alerts are introduced.
+US-0001 is implementation-complete. US-0002 is the active product implementation: authentication persistence is merged, while registration and sign-in, session lifecycle, and frontend authentication remain in Issues #13, #14, and #15.
+
+US-0003 is approved and documented in PR #18. Its implementation introduces one private Telegram destination per signed-in user through a short-lived, one-time deep-link flow. Telegram implementation must wait until US-0002 is implementation-complete.
 
 The agreed product direction remains an alert-first web application where users connect Telegram, subscribe to available signal templates, or create validated custom alerts. Binance WebSocket data will drive real-time evaluation, closed one-minute candles will be stored as canonical history, and reconciliation will repair missing data. Future historical analysis will reuse the same strategy-core logic and internal candle database.
 
 ## Latest Completed Work
+
+- **Date:** 2026-07-29
+- **GitHub Issue:** #11 - Add user and authentication session persistence
+- **Pull Request:** #17 - Add authentication persistence foundation
+- **Summary:** Merged typed SQLAlchemy models, asynchronous session management, persistence repositories, Alembic configuration, the initial users and authentication-sessions migration, and local PostgreSQL integration.
 
 - **Date:** 2026-07-28
 - **GitHub Issue:** #7 - Add local PostgreSQL and integrated development startup
@@ -43,17 +50,27 @@ The agreed product direction remains an alert-first web application where users 
 ### US-0001: Establish the Project Foundation
 
 - **Completed implementation issues:** #4, #5, #6, and #7
-- **Implementation status:** US-0001 implementation is complete.
+- **Implementation status:** Complete
 - **Verification status:** No test or dedicated full-foundation verification pass has been requested or run.
 
 ### US-0002: Create an Account and Sign In
 
 - **User Story:** `docs/user-stories/US-0002-create-account-and-sign-in.md`
 - **Documentation Pull Request:** #10 - merged
-- **Status:** Issue #11 persistence implementation is active in this pull request.
 - **Implementation Issues:** #11, #13, #14, and #15
-- **Implementation dependency:** Issues #6 and #7 are merged; Issue #11 has an approved solution.
-- **Solution status:** Issue #11 is implemented in this pull request. Issues #13, #14, and #15 still require approved solutions before work begins.
+- **Completed implementation:** Issue #11 through PR #17
+- **Remaining order:** #13, then #14, then #15
+- **Solution status:** Approved solutions are posted for all four issues.
+- **Verification status:** No authentication verification pass has been requested or run.
+
+### US-0003: Connect Telegram for Notifications
+
+- **User Story:** `docs/user-stories/US-0003-connect-telegram-for-notifications.md`
+- **Documentation Pull Request:** #18 - open
+- **Implementation Issues:** #19, #20, #21, #22, and #23
+- **Implementation dependency:** US-0002 must be implementation-complete before Issue #19 begins.
+- **Implementation order:** #19, #20, #21, #22, then #23
+- **Solution status:** No technical solution has been approved or posted for any US-0003 issue yet.
 
 ## Important User Stories
 
@@ -79,12 +96,17 @@ Follow-up issues:
 - #14 - Implement authenticated session, current-user, and logout API
 - #15 - Add frontend registration, sign-in, and sign-out flow
 
-Implementation order:
+### US-0003: Connect Telegram for Notifications
 
-1. Implement Issue #11.
-2. Implement Issue #13.
-3. Implement Issue #14.
-4. Implement Issue #15.
+As a signed-in user, connect a private Telegram chat so FreeCoinAlert can send cryptocurrency alerts directly to that user.
+
+Follow-up issues:
+
+- #19 - Add Telegram connection and linking-token persistence
+- #20 - Implement authenticated Telegram connection API
+- #21 - Implement Telegram bot update processing and account linking
+- #22 - Add Telegram test-notification outbox and delivery worker
+- #23 - Add frontend Telegram connection and test-notification flow
 
 No implementation should begin until the relevant issue receives an explicitly approved solution comment.
 
@@ -94,12 +116,14 @@ See [`CONCERNS.md`](CONCERNS.md).
 
 Important unresolved decisions include:
 
-- Authentication and session design
 - Product name and domain
 - Initial Binance market and symbols
 - Indicator library and numeric consistency
 - Retention and hosting
-- Telegram destination scope
+- Telegram token lifetime and reconnection behavior
+- Telegram update transport by environment
+- Notification outbox claim, retry, and failure semantics
+- Behavior of future active alerts after Telegram disconnects
 
 ## Market-Data State
 
@@ -112,10 +136,10 @@ Important unresolved decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge the Issue #11 pull request.
-2. Request a dedicated verification pass when the maintainer wants one.
-3. Request a proposed technical solution for Issue #13.
-4. Continue US-0002 in issue order: #13, #14, then #15.
+1. Implement US-0002 in order: Issues #13, #14, then #15.
+2. Review and merge documentation PR #18 when ready.
+3. After US-0002 is complete, request proposed technical solutions for US-0003 beginning with Issue #19.
+4. Request a dedicated verification pass only when the maintainer wants one.
 
 ## Handoff Notes
 
@@ -123,13 +147,13 @@ Future agents must:
 
 - Read root `AGENTS.md`.
 - Read `docs/README.md` and the relevant domain docs.
-- Read US-0001, US-0002, and their linked implementation issues before changing project foundation or authentication behavior.
-- Read US-0001 and Issues #4 through #7 before changing the project foundation.
-- Treat PR #3 as documentation-only.
+- Read the active user story and every linked implementation issue before changing behavior.
 - Follow approved issue solutions without broadening them.
 - Do not invent a technical solution for an implementation issue when no approved issue comment exists.
-- Do not begin Issues #13, #14, or #15 until their individual approved solutions exist.
+- Do not begin US-0003 implementation until US-0002 is complete.
+- Derive ownership from the authenticated principal rather than client-provided user identifiers.
+- Never ask users to type Telegram chat IDs manually.
+- Never log Telegram bot tokens, raw linking tokens, raw session tokens, or full sensitive provider payloads.
 - Do not run tests or verification commands unless the maintainer explicitly requests them.
-- Do not begin Telegram, Binance, alert, or backtesting work under US-0002.
-- Avoid provider-specific infrastructure without an approved issue.
+- Avoid provider-specific production infrastructure without an approved issue.
 - Update this file after every meaningful change.
