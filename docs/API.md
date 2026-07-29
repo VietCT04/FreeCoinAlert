@@ -6,7 +6,8 @@ This document defines API-wide conventions and the planned resource areas. Exact
 
 ## Status
 
-The API implements the unauthenticated process-health endpoint and the initial browser-session authentication endpoints: registration, sign-in, current-user lookup, and logout.
+The API implements the unauthenticated process-health endpoint, browser-session authentication,
+and authenticated Telegram link-token, connection-state, and disconnect endpoints.
 
 Do not treat the examples below as final contracts. They define naming and behavior expectations for future implementation.
 
@@ -66,6 +67,65 @@ The Next.js browser client uses `NEXT_PUBLIC_API_BASE_URL` and native `fetch` fo
 
 `GET /auth/me` restores the safe user and CSRF token into React memory after a page load. A `401` is a normal unauthenticated state; network and unexpected server failures show a retryable safe message. Registration and sign-in keep the safe user and CSRF token only in memory, while sign-out sends the memory-only token as `X-CSRF-Token`. No authentication value is placed in localStorage, sessionStorage, IndexedDB, URLs, or frontend-created persistent cookies.
 
+### Telegram Connection
+
+All Telegram connection responses use `Cache-Control: no-store`, derive ownership only from
+the authenticated principal, and never expose Telegram user IDs, chat IDs, database IDs,
+token hashes, or a previously issued raw link token.
+
+`POST /telegram/link-tokens` requires the browser session and `X-CSRF-Token`, accepts no
+request body, and returns `201`:
+
+```json
+{
+  "connection": {
+    "status": "linking",
+    "linkExpiresAt": "UTC timestamp"
+  },
+  "telegramUrl": "https://t.me/<bot_username>?start=<one-time-token>"
+}
+```
+
+The raw 43-character URL-safe token appears only in that response URL. The API generates 32
+random bytes, stores only its SHA-256 hash, uses `TELEGRAM_LINK_TTL_SECONDS` (600 seconds
+locally), revokes every outstanding unconsumed token for that user in the same transaction,
+and commits before returning. `TELEGRAM_BOT_USERNAME` is optional at startup; when absent,
+link creation returns `503 TELEGRAM_NOT_CONFIGURED`. Connected or degraded destinations return
+`409 TELEGRAM_ALREADY_CONNECTED` until they are disconnected. Concurrent creation conflicts
+return `503 TELEGRAM_LINK_UNAVAILABLE` without SQL details.
+
+`GET /telegram/connection` requires the browser session but not CSRF and returns `200`:
+
+```json
+{
+  "connection": {
+    "status": "not_connected | linking | connected | degraded | disconnected",
+    "username": "optional Telegram username",
+    "connectedAt": "optional UTC timestamp",
+    "lastVerifiedAt": "optional UTC timestamp",
+    "linkExpiresAt": "optional UTC timestamp",
+    "statusReason": "optional stable safe category"
+  }
+}
+```
+
+`linking` represents an active unexpired token, not a completed Telegram connection. A
+disconnected row with a new active token also reports `linking`; no previous deep link can be
+returned because its raw token is not stored.
+
+`DELETE /telegram/connection` requires the browser session and `X-CSRF-Token`, accepts no
+request body, and returns `204`. It locks and marks a current connection as `disconnected`,
+clears degraded state, records `user_disconnected`, revokes outstanding unconsumed tokens, and
+commits as one transaction. It is idempotent for missing or already disconnected connections;
+the persistent row and Telegram identifiers are never released for reassignment. Temporary
+persistence failure returns `503 TELEGRAM_CONNECTION_UNAVAILABLE`.
+
+Link creation is limited to five requests per 15 minutes per authenticated user and ten per
+15 minutes per direct client IP. Disconnect is limited to ten requests per 15 minutes per
+authenticated user. The bounded application-local limiter returns `429
+TELEGRAM_LINK_RATE_LIMITED` with `Retry-After`; it uses `request.client.host` and does not
+trust `X-Forwarded-For`.
+
 ## General Conventions
 
 - Use JSON request and response bodies unless a documented endpoint requires another format.
@@ -95,12 +155,15 @@ Remaining responsibilities:
 
 ### Telegram Connections
 
-Expected responsibilities:
+Implemented responsibilities:
 
 - Create a short-lived Telegram linking token.
 - Read the current user's Telegram connection state.
-- Send a test notification.
 - Disconnect a destination.
+
+Remaining responsibility:
+
+- Send a test notification.
 
 Sensitive linking tokens must not be returned after use or stored in plaintext when avoidable.
 

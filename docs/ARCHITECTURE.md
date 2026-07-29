@@ -83,10 +83,12 @@ Alembic owns migrations. Session lookup uses only the HTTP-only cookie, fixed ex
 and revocation state; it does not refresh a session during normal requests.
 
 Issue #19 extends that persistence boundary with typed Telegram connection, link-token,
-and processed-update models plus transactional repositories. Those repositories support
-row locking for future linking coordination and do not generate tokens, parse commands,
-call Telegram, read cookies, or construct API responses. Telegram transport and public
-routes remain later concerns.
+and processed-update models plus transactional repositories. Issue #20 adds a focused
+Telegram API route, schemas, an application service, cryptographic link helper, and bounded
+process-local limiter. The service owns token generation, SHA-256 hashing, replacement and
+disconnect transactions, and safe state derivation; repositories remain transport-independent.
+There is still no Telegram client, webhook, polling, `/start` parser, confirmation message, or
+notification worker.
 
 Responsibilities:
 

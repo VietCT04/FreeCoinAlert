@@ -125,6 +125,7 @@ async def mark_telegram_connection_disconnected(
         return None
 
     telegram_connection.status = "disconnected"
+    telegram_connection.degraded_at = None
     telegram_connection.disconnected_at = disconnected_at
     telegram_connection.status_reason = status_reason
     await session.flush()
@@ -165,6 +166,21 @@ async def get_active_telegram_link_token_for_update(
     if for_update:
         statement = statement.with_for_update()
 
+    return await session.scalar(statement)
+
+
+async def get_active_telegram_link_token_by_user_id(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    current_time: datetime,
+) -> TelegramLinkToken | None:
+    statement = select(TelegramLinkToken).where(
+        TelegramLinkToken.user_id == user_id,
+        TelegramLinkToken.consumed_at.is_(None),
+        TelegramLinkToken.revoked_at.is_(None),
+        TelegramLinkToken.expires_at > current_time,
+    )
     return await session.scalar(statement)
 
 

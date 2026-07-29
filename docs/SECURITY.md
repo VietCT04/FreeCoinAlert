@@ -79,8 +79,8 @@ The web application must not ask users to type a Telegram chat ID manually.
 Issue #19 persists the minimum private-chat linking state only. It stores a SHA-256
 link-token hash as `BYTEA`, never a raw token or deep link, and treats the Telegram
 update ID as a transactional idempotency key. Token expiry is checked at use time; a
-token may not be both consumed and revoked. The API has no Telegram linking endpoint or
-bot transport yet.
+token may not be both consumed and revoked. Issue #20 adds browser-session-authenticated
+link-token, state, and disconnect APIs, but no bot transport or update processing.
 
 The recommended flow uses a short-lived, single-use deep-link token.
 
@@ -95,6 +95,12 @@ Required controls:
 - Store a token hash where practical.
 - Process Telegram updates idempotently.
 - Validate webhook authenticity using Telegram's supported secret mechanism when webhooks are used.
+
+The link-creation response exposes the raw token only as part of one HTTPS Telegram URL; it
+must not be logged, returned as a separate field, persisted, or added to browser storage. It
+uses 32 random bytes, URL-safe Base64 without padding, and a ten-minute local default. Each
+replacement and disconnect revokes outstanding unconsumed tokens transactionally. The bot
+username is public configuration, but bot tokens and webhook secrets remain excluded.
 
 ## Telegram Data
 
@@ -169,6 +175,12 @@ Rate-limit operations that can create cost or spam:
 - Alert creation and modification
 - Historical-analysis submission
 - Public endpoints vulnerable to scraping or enumeration
+
+Telegram link creation uses a bounded in-process limit of five requests per authenticated
+user and ten per direct client IP in fifteen minutes; disconnect uses ten per authenticated
+user in the same window. The direct address comes only from `request.client.host`; do not
+trust `X-Forwarded-For` without an approved trusted-proxy design. Replace this local limiter
+with shared rate limiting before multiple API replicas or public launch.
 
 Introduce per-user alert and rule-complexity limits before public launch.
 
