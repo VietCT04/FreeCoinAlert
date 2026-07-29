@@ -186,6 +186,12 @@ Introduce per-user alert and rule-complexity limits before public launch.
 
 ## Input Validation
 
+Telegram test notification queueing is limited to three new requests per authenticated user per
+15 minutes. The UUID idempotency key is distinct from session and CSRF credentials, and a
+same-user replay returns its existing safe state. This limiter is application-local and must be
+replaced before multiple API replicas. The worker rechecks ownership and connected state before
+provider contact; its outbox stores no raw chat IDs, message text, provider requests, or responses.
+
 Validate:
 
 - Symbol, exchange, market, and timeframe

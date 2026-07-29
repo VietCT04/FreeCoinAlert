@@ -118,6 +118,17 @@ A test-notification action should:
 
 ## Alert Message Content
 
+## Issue #22 Test Delivery
+
+The test-notification endpoint queues a fixed versioned payload; the worker constructs the
+approved static test message and does not accept user-authored text. The worker claims at most ten
+rows with `FOR UPDATE SKIP LOCKED`, commits before provider contact, and rechecks that the owned
+connection remains `connected`. Temporary failures retry after 5 seconds, 30 seconds, 2 minutes,
+and 10 minutes before the final fifth-attempt failure. Provider rate limits defer to Telegram's
+retry time. Timeout or stale-processing outcomes fail as
+`telegram_delivery_outcome_unknown` rather than risk a duplicate send. Permanent destination
+failures degrade the connection and block new tests until reconnect or disconnect.
+
 An alert message should clearly show:
 
 - Symbol and market

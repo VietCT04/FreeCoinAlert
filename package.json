@@ -13,6 +13,8 @@
     "dev:logs": "docker compose logs --follow",
     "dev:telegram": "docker compose --profile telegram up --build",
     "dev:telegram-logs": "docker compose --profile telegram logs --follow telegram-updates",
+    "dev:telegram-updates": "uv run --project apps/api python -m freecoinalert_api.telegram.poller",
+    "dev:notification-worker": "uv run --project apps/api python -m freecoinalert_api.notifications.worker",
     "dev:down": "docker compose down --remove-orphans",
     "dev:reset": "docker compose down --volumes --remove-orphans",
     "format": "prettier --write . --ignore-unknown && pnpm format:api",

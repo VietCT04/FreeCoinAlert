@@ -263,6 +263,15 @@ Retention changes require database, product, security, and operations review.
 
 ## Pending Decisions
 
+## Issue #22 Notification Worker
+
+Use `pnpm dev:notification-worker` to define the local worker command, or the optional `telegram`
+Compose profile to start `notification-worker` alongside `telegram-updates`. The worker requires
+the internal database configuration and `TELEGRAM_BOT_TOKEN`; normal `pnpm dev` remains free of
+Telegram configuration. It claims up to ten available jobs, sleeps about two seconds when idle,
+handles shutdown signals, and marks locks older than ten minutes as outcome-unknown failures rather
+than resending them.
+
 - Initial hosting provider and region.
 - Managed versus self-hosted PostgreSQL.
 - Scheduler implementation.

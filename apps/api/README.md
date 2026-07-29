@@ -4,8 +4,8 @@ The API is the Python and FastAPI foundation for FreeCoinAlert. It includes user
 authentication-session persistence, unauthenticated process health, account
 registration, sign-in, current-user lookup, logout, authenticated Telegram link-token,
 connection-state, and disconnect APIs, plus a separately runnable Telegram update processor.
-Frontend Telegram interaction, test notification delivery, alerts, and durable notification
-work are not implemented.
+It also has a durable Telegram test-notification outbox and separately runnable delivery worker.
+Frontend Telegram interaction and alerts remain out of scope.
 
 ## Prerequisites
 
@@ -110,6 +110,14 @@ idempotency key. The processor commits linking before one confirmation attempt; 
 confirmed send but does not retry a timeout or uncertain outcome. It performs bounded processed-
 update cleanup at startup and no more than daily. Production webhook deployment, groups, channels,
 and test-notification delivery remain out of scope.
+
+## Telegram notification worker
+
+`uv run python -m freecoinalert_api.notifications.worker` processes the durable test-notification
+outbox. It claims jobs in short transactions, rechecks the connected owned destination before a
+provider request, records confirmed sends, applies bounded retries for known temporary failures,
+and records timeouts as outcome-unknown failures to avoid duplicate messages. The worker requires
+`TELEGRAM_BOT_TOKEN`; API startup does not. It must not be run as part of routine implementation.
 
 ## Authentication endpoints
 

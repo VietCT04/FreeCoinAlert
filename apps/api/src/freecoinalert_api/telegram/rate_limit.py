@@ -75,3 +75,7 @@ def link_creation_ip_key(client_ip: str) -> str:
 
 def disconnect_user_key(user_id: str) -> str:
     return f"telegram-disconnect-user:{user_id}"
+
+
+def test_notification_user_key(user_id: str) -> str:
+    return f"telegram-test-notification-user:{user_id}"

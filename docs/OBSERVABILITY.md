@@ -188,6 +188,14 @@ Verify that:
 
 ## Pending Decisions
 
+## Issue #22 Notification Events
+
+The worker emits structured `notification.queued`, `notification.claimed`, `notification.sent`,
+`notification.retry_scheduled`, `notification.failed`, `notification.outcome_unknown`, and
+`telegram.connection.degraded` events. Safe fields include internal notification, user, and
+connection IDs, attempt count, and stable failure category. Logs exclude tokens, raw Telegram
+identifiers, message text, provider URLs, and provider responses.
+
 - Logging and metrics libraries.
 - Error-tracking provider.
 - Metrics storage and dashboard provider.

@@ -49,3 +49,8 @@ class User(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    notification_outbox_entries: Mapped[list["NotificationOutbox"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )

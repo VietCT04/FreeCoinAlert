@@ -71,6 +71,23 @@ services:
       - ./apps/api:/app
       - api_venv:/app/.venv
 
+  notification-worker:
+    profiles: ["telegram"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    command: uv sync --frozen && uv run python -m freecoinalert_api.notifications.worker
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+    init: true
+    volumes:
+      - ./apps/api:/app
+      - api_venv:/app/.venv
+
   db:
     image: postgres:18.4-bookworm
     environment:

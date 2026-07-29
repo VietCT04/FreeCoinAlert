@@ -68,3 +68,7 @@ class TelegramConnection(Base):
         back_populates="connection",
         passive_deletes=True,
     )
+    notification_outbox_entries: Mapped[list["NotificationOutbox"]] = relationship(
+        back_populates="telegram_connection",
+        passive_deletes=True,
+    )

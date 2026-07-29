@@ -2,18 +2,31 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from telegram import Bot
-from telegram.error import BadRequest, Forbidden, NetworkError, TimedOut, TelegramError
+from telegram.error import (
+    BadRequest,
+    Forbidden,
+    InvalidToken,
+    NetworkError,
+    RetryAfter,
+    TimedOut,
+    TelegramError,
+)
 
 
 class TelegramDeliveryOutcome(StrEnum):
     SENT = "sent"
-    REJECTED = "rejected"
+    PERMANENT_FAILURE = "permanent_failure"
+    TEMPORARY_FAILURE = "temporary_failure"
+    RATE_LIMITED = "rate_limited"
+    NOT_CONFIGURED = "not_configured"
     UNCERTAIN = "uncertain"
 
 
 @dataclass(frozen=True, slots=True)
 class TelegramDeliveryResult:
     outcome: TelegramDeliveryOutcome
+    provider_message_id: int | None = None
+    retry_after_seconds: int | None = None
 
 
 class TelegramBotClient:
@@ -50,14 +63,39 @@ class TelegramBotClient:
             ),
         )
 
+    async def send_test_notification(self, *, chat_id: int) -> TelegramDeliveryResult:
+        return await self._send_message(
+            chat_id=chat_id,
+            text=(
+                "FreeCoinAlert test notification\n\n"
+                "Your Telegram connection is working. Cryptocurrency alerts are not enabled yet."
+            ),
+        )
+
     async def _send_message(self, *, chat_id: int, text: str) -> TelegramDeliveryResult:
         try:
-            await self._bot.send_message(chat_id=chat_id, text=text)
+            message = await self._bot.send_message(chat_id=chat_id, text=text)
+        except RetryAfter as error:
+            retry_after = error.retry_after
+            retry_after_seconds = (
+                int(retry_after.total_seconds())
+                if hasattr(retry_after, "total_seconds")
+                else int(retry_after)
+            )
+            return TelegramDeliveryResult(
+                TelegramDeliveryOutcome.RATE_LIMITED,
+                retry_after_seconds=max(1, retry_after_seconds),
+            )
         except (BadRequest, Forbidden):
-            return TelegramDeliveryResult(TelegramDeliveryOutcome.REJECTED)
+            return TelegramDeliveryResult(TelegramDeliveryOutcome.PERMANENT_FAILURE)
+        except InvalidToken:
+            return TelegramDeliveryResult(TelegramDeliveryOutcome.NOT_CONFIGURED)
         except (NetworkError, TimedOut):
             return TelegramDeliveryResult(TelegramDeliveryOutcome.UNCERTAIN)
         except TelegramError:
-            return TelegramDeliveryResult(TelegramDeliveryOutcome.REJECTED)
+            return TelegramDeliveryResult(TelegramDeliveryOutcome.TEMPORARY_FAILURE)
 
-        return TelegramDeliveryResult(TelegramDeliveryOutcome.SENT)
+        return TelegramDeliveryResult(
+            TelegramDeliveryOutcome.SENT,
+            provider_message_id=message.message_id,
+        )

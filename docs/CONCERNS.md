@@ -194,6 +194,13 @@ Deletion and retention behavior for account data, Telegram identity data, alerts
 
 ## Concern Workflow
 
+### C-022: Notification Worker Delivery Boundaries
+
+Issue #22 introduces a PostgreSQL test-notification outbox and a process-local request limiter.
+The worker intentionally fails uncertain network outcomes and stale claims rather than retrying
+without a Telegram application idempotency key. Multi-replica API rate limiting, production worker
+supervision, alert-triggered delivery, and operational retention policy remain future decisions.
+
 When adding a concern:
 
 1. Assign the next stable identifier.
