@@ -194,3 +194,11 @@ Verify that:
 - Freshness and backlog thresholds.
 - On-call or notification destination for operator alerts.
 - Audit-log retention.
+
+## Issue #21 Telegram Processor Events
+
+The processor emits `telegram.update.received`, `telegram.update.duplicate`,
+`telegram.link.succeeded`, `telegram.link.rejected`, `telegram.confirmation.sent`,
+`telegram.confirmation.failed`, and `telegram.polling.failed`. Safe fields may include an update
+ID and internal connection or user identifier after resolution. Events must not include raw links,
+token hashes, full updates, full message text, bot tokens, or provider exception bodies.

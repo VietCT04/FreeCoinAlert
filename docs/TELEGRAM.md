@@ -232,3 +232,14 @@ Normal tests must not send real Telegram messages.
 - Connection and delivery status enums.
 - Message formatting and localization.
 - Behavior of active alerts after Telegram disconnects.
+
+## Issue #21 Local Update Processing
+
+Issue #21 adds a local-only `python-telegram-bot` long-polling process. It requests message
+updates sequentially and accepts only a private `/start <token>` or addressed
+`/start@<configured_bot_username> <token>` command with exactly one 43-character URL-safe token.
+The processor inserts the `update_id` idempotency row, locks the token and connection state,
+commits a stable outcome, then attempts one safe confirmation. It never retries an uncertain
+confirmation and never rolls back a valid link because delivery fails. Processed updates receive
+bounded 30-day cleanup at startup and at most once per 24 hours. Webhooks, groups, and channels
+remain out of scope.

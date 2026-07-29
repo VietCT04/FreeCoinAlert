@@ -10,6 +10,7 @@ dependencies = [
     "pwdlib[argon2]==0.3.0",
     "psycopg[binary]==3.3.4",
     "pydantic-settings==2.14.2",
+    "python-telegram-bot==22.8",
     "sqlalchemy==2.0.51",
 ]
 

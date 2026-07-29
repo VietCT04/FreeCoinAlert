@@ -269,3 +269,13 @@ Retention changes require database, product, security, and operations review.
 - Backup and restore objectives.
 - Deployment and rollback workflow.
 - Domain, DNS, and TLS provider.
+
+## Issue #21 Local Telegram Polling
+
+Set local-only `TELEGRAM_BOT_TOKEN` and public `TELEGRAM_BOT_USERNAME` before running
+`uv run --project apps/api python -m freecoinalert_api.telegram.poller`. The processor uses
+`TELEGRAM_UPDATE_RETENTION_DAYS` with a default of 30. The optional Compose `telegram` profile
+uses the same API source and virtual environment, waits for healthy PostgreSQL, and is started with
+`pnpm dev:telegram`; use `pnpm dev:telegram-logs` for its logs. Default `pnpm dev` does not start
+this process or require Telegram credentials. Do not use local polling alongside a configured
+production webhook.

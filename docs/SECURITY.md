@@ -238,3 +238,12 @@ Update this document and request review when introducing:
 - Account deletion and data-retention behavior.
 - Audit-log schema and retention.
 - Production secret-management provider.
+
+## Issue #21 Telegram Processor Boundary
+
+The update processor requires secret `TELEGRAM_BOT_TOKEN` only when it runs; normal API startup
+does not require it. It accepts input only from private messages with a sender and a supported
+`/start` command, hashes the raw token, and completes the token, ownership, connection, and
+processed-update transaction before contacting Telegram. It never reassigns a destination or
+reveals its owner. Logs must not contain raw tokens, token hashes, full message bodies or updates,
+bot tokens, cookies, or provider exception bodies.

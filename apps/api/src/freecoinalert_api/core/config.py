@@ -10,7 +10,9 @@ class AuthenticationSettings(BaseSettings):
     session_cookie_secure: bool = False
     session_ttl_seconds: int = Field(default=604800, gt=0)
     telegram_bot_username: str | None = None
+    telegram_bot_token: str | None = None
     telegram_link_ttl_seconds: int = Field(default=600, gt=0)
+    telegram_update_retention_days: int = Field(default=30, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -21,7 +23,7 @@ class AuthenticationSettings(BaseSettings):
     @field_validator("telegram_bot_username")
     @classmethod
     def validate_telegram_bot_username(cls, value: str | None) -> str | None:
-        if value is None:
+        if value is None or value == "":
             return None
 
         if re.fullmatch(r"[A-Za-z0-9_]+", value) is None:
