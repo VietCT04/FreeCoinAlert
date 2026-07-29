@@ -14,7 +14,7 @@ The agreed product direction remains an alert-first web application where users 
 
 - **Date:** 2026-07-29
 - **GitHub Issue:** #15 - Add frontend registration, sign-in, and sign-out flow
-- **Pull Request:** Pending creation - Implement frontend authentication flow
+- **Pull Request:** #26 - Implement frontend authentication flow (draft)
 - **Summary:** Added a small in-memory authentication provider, credentialed native-fetch API client, accessible registration and sign-in forms, session restoration, and current-session sign-out without browser persistence of session data.
 - **Files changed:** `apps/web/src/app/*`, `apps/web/src/features/auth/*`, `.env.example`, `apps/web/.env.example`, `compose.yaml`, `AGENTS.md`, root and web READMEs, and relevant product, API, security, architecture, operations, concern, and continuity documentation.
 
@@ -70,7 +70,7 @@ The agreed product direction remains an alert-first web application where users 
 - **User Story:** `docs/user-stories/US-0002-create-account-and-sign-in.md`
 - **Documentation Pull Request:** #10 - merged
 - **Implementation Issues:** #11, #13, #14, and #15
-- **Completed implementation:** Issues #11, #13, and #14 are merged; Issue #15 is implemented in the pending pull request.
+- **Completed implementation:** Issues #11, #13, and #14 are merged; Issue #15 is implemented in draft PR #26.
 - **Remaining order:** Merge Issue #15 to mark US-0002 implementation-complete.
 - **Solution status:** Approved solutions are posted for all four issues.
 - **Verification status:** No authentication verification pass has been requested or run.
