@@ -6,7 +6,7 @@ This document defines API-wide conventions and the planned resource areas. Exact
 
 ## Status
 
-The API implements the unauthenticated process-health endpoint and the initial account-registration and sign-in endpoints. Current-user lookup, logout, and other feature resource groups remain planned.
+The API implements the unauthenticated process-health endpoint and the initial browser-session authentication endpoints: registration, sign-in, current-user lookup, and logout.
 
 Do not treat the examples below as final contracts. They define naming and behavior expectations for future implementation.
 
@@ -50,7 +50,15 @@ Email input is trimmed, validated without DNS or deliverability checks, normaliz
 
 Authentication errors use `{ "code", "message", "details": [] }`. `AUTH_REGISTRATION_UNAVAILABLE` safely covers duplicate registration, `AUTH_INVALID_CREDENTIALS` covers both missing accounts and incorrect passwords, `AUTH_REQUEST_INVALID` covers malformed or invalid input, `AUTH_ORIGIN_REJECTED` covers an explicit unapproved browser origin, and `AUTH_RATE_LIMITED` returns HTTP `429` with `Retry-After`.
 
-The API accepts the configured `WEB_ORIGIN` with credentialed CORS and accepts its own origin for local Swagger requests. It rejects an explicitly supplied unapproved `Origin`. Registration is limited to five attempts per IP per 15 minutes; login is limited to ten attempts per IP, with five failed attempts per normalized-email-and-IP pair, in the same window.
+The API accepts the configured `WEB_ORIGIN` with credentialed CORS and accepts its own origin for local Swagger requests. It rejects an explicitly supplied unapproved `Origin`. Registration is limited to five attempts per IP per 15 minutes; login is limited to ten attempts per IP, with five failed attempts per normalized-email-and-IP pair, in the same window. CORS permits `GET` and `POST` with `Content-Type` and `X-CSRF-Token` headers.
+
+### Current User and Logout
+
+`GET /auth/me` validates only the `freecoinalert_session` cookie and returns HTTP `200` with the same safe user object and session-bound `csrfToken` returned by registration and sign-in. It always returns `Cache-Control: no-store`. Missing, malformed, unknown, expired, or revoked cookies return HTTP `401` with `AUTHENTICATION_REQUIRED`; stale cookies are cleared when that response can be produced.
+
+`POST /auth/logout` accepts `X-CSRF-Token` only as a request header. For a valid active session, the API compares it to the session-bound CSRF token in constant time, revokes only that session, clears the cookie, and returns HTTP `204` with `Cache-Control: no-store`. Missing, expired, revoked, malformed, or unknown session cookies also clear the cookie and return `204` without revealing whether a session existed. A valid active session with a missing or invalid CSRF header returns HTTP `403` with `AUTH_CSRF_INVALID` and does not revoke the session.
+
+All cookie-authenticated endpoints derive identity through the immutable server-side `AuthenticatedPrincipal` containing only the user and session UUIDs. Future state-changing cookie-authenticated endpoints must reuse the CSRF dependency; they must not accept user IDs, session tokens, or CSRF tokens through bodies, query strings, or authorization headers.
 
 ## General Conventions
 
@@ -72,11 +80,11 @@ The API accepts the configured `WEB_ORIGIN` with credentialed CORS and accepts i
 Implemented responsibilities:
 
 - Account registration and sign-in with browser-session establishment.
+- Current-user retrieval and current-session logout.
+- Session validation and reusable authenticated-principal and CSRF boundaries.
 
 Remaining responsibilities:
 
-- Sign out and current-user retrieval.
-- Session validation for authenticated endpoints.
 - Account-level preferences such as display timezone.
 
 ### Telegram Connections
@@ -172,7 +180,6 @@ When an endpoint is added or changed:
 
 ## Pending Decisions
 
-- Authentication approach and session transport.
 - API versioning strategy.
 - Pagination format.
 - Standard error-code registry.

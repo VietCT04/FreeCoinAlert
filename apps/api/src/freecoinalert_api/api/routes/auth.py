@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Request, Response, status
+import logging
+
+from fastapi import APIRouter, Cookie, Depends, Header, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,9 +21,19 @@ from freecoinalert_api.auth.rate_limit import (
     registration_ip_key,
 )
 from freecoinalert_api.auth.sessions import create_session_credentials
+from freecoinalert_api.auth.principal import (
+    AuthenticatedSession,
+    SESSION_COOKIE_NAME,
+    get_authenticated_session,
+    require_authenticated_session,
+    validate_csrf_token,
+)
 from freecoinalert_api.core.config import Settings, get_settings
 from freecoinalert_api.db.models.user import User
-from freecoinalert_api.db.repositories.auth_sessions import create_auth_session
+from freecoinalert_api.db.repositories.auth_sessions import (
+    create_auth_session,
+    revoke_auth_session,
+)
 from freecoinalert_api.db.repositories.users import (
     create_user,
     get_user_by_normalized_email,
@@ -34,6 +46,7 @@ from freecoinalert_api.schemas.auth import (
 )
 
 auth_router = APIRouter(prefix="/auth", tags=["authentication"])
+logger = logging.getLogger(__name__)
 
 
 @auth_router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -160,6 +173,66 @@ async def login(
     )
 
 
+@auth_router.get("/me")
+async def current_user(
+    authenticated_session: AuthenticatedSession = Depends(require_authenticated_session),
+) -> JSONResponse:
+    response_body = AuthenticationResponse(
+        user=AuthenticatedUser.model_validate(
+            authenticated_session.user,
+            from_attributes=True,
+        ),
+        csrf_token=authenticated_session.csrf_token,
+    )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=response_body.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@auth_router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(
+    response: Response,
+    session_token: str | None = Cookie(default=None, alias=SESSION_COOKIE_NAME),
+    csrf_token: str | None = Header(default=None, alias="X-CSRF-Token"),
+    database_session: AsyncSession = Depends(get_database_session),
+) -> Response:
+    authenticated_session = await get_authenticated_session(
+        session_token,
+        database_session,
+    )
+
+    if authenticated_session is not None:
+        try:
+            validate_csrf_token(csrf_token, authenticated_session.csrf_token)
+        except AuthenticationError as error:
+            return authentication_error_response(error)
+
+        revoked_session = await revoke_auth_session(
+            database_session,
+            auth_session_id=authenticated_session.principal.session_id,
+        )
+
+        if revoked_session is not None:
+            await database_session.commit()
+            logger.info(
+                "auth.logout.success user_id=%s session_id=%s",
+                authenticated_session.principal.user_id,
+                authenticated_session.principal.session_id,
+            )
+
+    response.status_code = status.HTTP_204_NO_CONTENT
+    response.headers["Cache-Control"] = "no-store"
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        httponly=True,
+        samesite="lax",
+        path="/",
+    )
+    return response
+
+
 def get_client_ip(request: Request) -> str:
     if request.client is None:
         return "unknown"
@@ -193,7 +266,7 @@ def authentication_success_response(
         headers={"Cache-Control": "no-store"},
     )
     response.set_cookie(
-        key="freecoinalert_session",
+        key=SESSION_COOKIE_NAME,
         value=session_token,
         httponly=True,
         samesite="lax",

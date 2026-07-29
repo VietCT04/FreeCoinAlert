@@ -110,6 +110,12 @@ Do not log:
 - Database credentials
 - Full chat IDs unless strictly required and protected
 
+Authentication session rejection and logout events use the safe event names
+`auth.session.rejected` and `auth.logout.success`. Successful logout events may include
+internal user and session UUIDs for audit correlation. They must never include raw
+cookies, session tokens, CSRF tokens, request headers, passwords, or authentication
+request bodies.
+
 ## Audit Events
 
 Sensitive user actions should be auditable, including:
