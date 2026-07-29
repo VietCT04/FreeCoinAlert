@@ -76,6 +76,12 @@ Internal worker operations must not be exposed as unauthenticated public endpoin
 
 The web application must not ask users to type a Telegram chat ID manually.
 
+Issue #19 persists the minimum private-chat linking state only. It stores a SHA-256
+link-token hash as `BYTEA`, never a raw token or deep link, and treats the Telegram
+update ID as a transactional idempotency key. Token expiry is checked at use time; a
+token may not be both consumed and revoked. The API has no Telegram linking endpoint or
+bot transport yet.
+
 The recommended flow uses a short-lived, single-use deep-link token.
 
 Required controls:
@@ -100,6 +106,12 @@ Store only data needed to deliver and manage alerts, such as:
 - Connection and verification timestamps
 
 Do not expose chat IDs unnecessarily in the frontend or logs.
+
+The initial ownership boundary allows one connection record per user and permanently
+reserves its Telegram user and chat identifiers to that owner until the FreeCoinAlert
+account is deleted. A connected or degraded user must disconnect before linking another
+chat, while a disconnected record may reactivate only for the same owner. Cross-account
+transfer requires a later approved account-recovery design.
 
 ## Customer Strategy Rules
 

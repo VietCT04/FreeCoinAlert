@@ -45,6 +45,12 @@ A connection token must:
 
 Creating tokens should be rate-limited.
 
+Issue #19 persists only the token lifecycle boundary: a user-bound SHA-256 binary hash,
+explicit creation, expiry, consumption, and revocation timestamps, and one outstanding
+unconsumed, unrevoked token per user. Issuing a replacement will revoke all outstanding
+tokens, including expired rows, in Issue #20. No raw token generation or deep-link
+construction is implemented here.
+
 ## Update Processing
 
 Telegram updates may be received through webhook or long polling depending on environment.
@@ -58,6 +64,13 @@ Required behavior:
 - Avoid logging full sensitive payloads.
 - Separate public webhook handling from internal business logic.
 - Do not create duplicate connections from repeated updates.
+
+Issue #19 stores only the `BIGINT` update identifier, a constrained processing outcome,
+optional connection reference, operational timestamps, and optional confirmation-sent
+timestamp. The update marker must be inserted in the same transaction as future linking
+state changes so a rollback leaves the update retryable. Processed updates are eligible
+for deletion after 30 days; the future processor may invoke bounded cleanup with an
+explicit UTC cutoff. There is no webhook, polling, parsing, or Bot API integration yet.
 
 ## Stored Connection Data
 
@@ -79,6 +92,11 @@ Do not expose raw chat IDs unnecessarily.
 - A chat must not be silently reassigned between application users.
 - Reconnecting an already linked chat requires an explicit safe rule.
 - Administrative inspection must be authorized and audited when introduced.
+
+The initial persistence rule permits one private-chat connection record per user.
+Telegram user IDs and chat IDs are unique and are never silently transferred to a
+different FreeCoinAlert user, even after disconnection. Account deletion cascades to the
+connection and releases those identifiers; cross-account recovery is deferred.
 
 ## Test Notification
 

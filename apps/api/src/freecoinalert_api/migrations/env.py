@@ -8,7 +8,13 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from freecoinalert_api.core.config import get_settings
 from freecoinalert_api.db.base import Base
-from freecoinalert_api.db.models import AuthSession, User  # noqa: F401
+from freecoinalert_api.db.models import (  # noqa: F401
+    AuthSession,
+    TelegramConnection,
+    TelegramLinkToken,
+    TelegramProcessedUpdate,
+    User,
+)
 
 
 config = context.config

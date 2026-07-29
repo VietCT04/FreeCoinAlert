@@ -6,10 +6,11 @@ This document defines the initial data domains, schema rules, timestamp conventi
 
 ## Status
 
-Issue #11 introduces the initial application schema through Alembic migration
-`20260728_0001`: `users` and `auth_sessions`. The API uses SQLAlchemy asynchronous
-sessions with Psycopg 3 and consumes `DATABASE_URL`. No registration, login, cookie,
-or authorization endpoint exists yet.
+Issue #19 extends the initial application schema through Alembic migration
+`20260730_0002`: `telegram_connections`, `telegram_link_tokens`, and
+`telegram_processed_updates`. The API uses SQLAlchemy asynchronous sessions with
+Psycopg 3 and consumes `DATABASE_URL`. The persistence boundary does not create
+Telegram links, call Telegram, or expose Telegram API endpoints.
 
 Issue #7 provides PostgreSQL `18.4` as the local development database through the
 Compose service named `db`. It binds to `127.0.0.1:${POSTGRES_PORT:-5432}` and persists
@@ -70,13 +71,54 @@ later authentication code supplies the display and comparison values.
 `user_id` is indexed. No IP address, user agent, device name, location, provider data, or
 raw authentication token is stored.
 
+## Telegram Persistence
+
+### `telegram_connections`
+
+`telegram_connections` holds one private-chat destination record per FreeCoinAlert
+user. It stores PostgreSQL `BIGINT` Telegram user and chat identifiers, optional
+`VARCHAR(32)` username metadata, and no names, phone numbers, language data, photos,
+message text, or full Telegram updates. `user_id`, `telegram_user_id`, and
+`telegram_chat_id` are each unique; the latter two are never reassigned to another
+user, including after disconnection. Deleting a user cascades to its connection and
+releases those identifiers.
+
+`status` is constrained to `connected`, `degraded`, or `disconnected`. `connected_at`
+records each activation or reactivation, while `last_verified_at` changes only after
+positive ownership verification. `degraded_at` and `disconnected_at` are set only for
+their respective states. Reactivation clears both state timestamps and `status_reason`,
+which is a stable internal category rather than a raw Telegram error.
+
+### `telegram_link_tokens`
+
+`telegram_link_tokens` binds one-time link-token hashes to users. It contains a
+PostgreSQL UUID, user reference, unique `BYTEA` SHA-256 `token_hash`, creation and
+expiry timestamps, and nullable consumption and revocation timestamps. Raw tokens and
+deep links are never stored. The table checks expiry and transition timestamps, forbids
+a token from being both consumed and revoked, indexes `user_id` and `expires_at`, and
+uses a partial unique index for one unconsumed, unrevoked token per user. Expired rows
+remain inactive at use time until a later cleanup; the next link-token feature revokes
+outstanding tokens before issuing a replacement.
+
+### `telegram_processed_updates`
+
+`telegram_processed_updates` uses Telegram's `BIGINT` `update_id` as its idempotency
+key. It stores only a constrained outcome, an optional connection reference, received
+and processed timestamps, and an optional confirmation-sent timestamp. The connection
+reference becomes null if its connection is deleted. Allowed outcomes are `linked`,
+`already_linked`, `invalid_token`, `expired_token`, `consumed_token`, `revoked_token`,
+`ownership_conflict`, and `unsupported_update`; full provider payloads and command text
+are never stored. Rows are eligible for deletion after 30 days through a future bounded
+cleanup caller, which supplies an explicit UTC cutoff.
+
 ## Migration Boundary
 
 Alembic owns schema changes in `apps/api/src/freecoinalert_api/migrations`. Migration
-`20260728_0001` creates `users` before `auth_sessions`; its downgrade removes
-`auth_sessions` before `users`. The local Compose command applies the migration for
-development only. Production migration review and application remain an explicit release
-operation.
+`20260728_0001` creates `users` before `auth_sessions`. `20260730_0002` then creates
+Telegram connections, link tokens, processed updates, and their constraints and indexes;
+its downgrade removes those tables in reverse order. The local Compose command applies
+migrations for development only. Production migration review and application remain an
+explicit release operation.
 
 ## Global Rules
 
@@ -160,18 +202,6 @@ Expected outbox fields include:
 - Created, claimed, sent, and updated timestamps
 
 Workers must claim jobs safely so parallel workers do not send the same job concurrently.
-
-## Telegram Linking Tokens
-
-Linking tokens must be:
-
-- Securely random
-- Short-lived
-- Single-use
-- Bound to the authenticated user who requested them
-- Invalidated after successful linking
-
-Store a hash instead of the raw token where practical.
 
 ## Strategy Storage
 

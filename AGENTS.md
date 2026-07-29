@@ -467,6 +467,9 @@ No tests or verification commands need to be run after coding. Do not run backen
 
 This no-verification instruction includes browser interaction and manual API checks for approved frontend work.
 
+For approved database-persistence work, it also includes Alembic upgrade or downgrade
+execution, database schema inspection, and transactional repository checks.
+
 When an approved issue also excludes test files or testing dependencies, do not add them as part of implementation.
 
 This also prohibits Docker builds, Compose startup, container health checks, HTTP requests, and database connection commands unless the maintainer explicitly requests that verification pass.

@@ -1,9 +1,10 @@
 # FreeCoinAlert API
 
 The API is the Python and FastAPI foundation for FreeCoinAlert. It includes user and
-authentication-session persistence, unauthenticated process health, and account
-registration, sign-in, current-user lookup, and logout. Frontend authentication,
-alerts, market data, Telegram delivery, and background work are not implemented.
+authentication-session persistence, unauthenticated process health, account
+registration, sign-in, current-user lookup, logout, and Telegram connection/link-token/
+processed-update persistence. Frontend Telegram interaction, Telegram API integration,
+alerts, market data, delivery, and background work are not implemented.
 
 ## Prerequisites
 
@@ -62,7 +63,10 @@ uv run mypy src
 while `auth/` contains focused email, origin, password, rate-limit, session, and
 authenticated-principal helpers. `core/config.py` reads
 database and browser-authentication settings; `db/` owns typed SQLAlchemy models,
-asynchronous sessions, repositories, and Alembic migrations.
+asynchronous sessions, repositories, and Alembic migrations. Telegram persistence is
+limited to the `telegram_connections`, `telegram_link_tokens`, and
+`telegram_processed_updates` models and repository operations; it creates no Telegram
+HTTP endpoint, bot client, webhook, polling process, or raw token generator.
 
 ## Environment rules
 

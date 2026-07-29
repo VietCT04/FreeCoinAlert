@@ -14,6 +14,20 @@ Registration and sign-in use normalized email identity, Argon2id password hashes
 
 **Why it matters:** A public or horizontally scaled deployment requires a shared rate-limit store and an approved trusted-proxy design. Current-user, current-session logout, session revocation, and the minimal browser session flow are now implemented; account deletion and the production cookie/TLS deployment posture remain separate work. The authentication implementation has not received a dedicated verification pass.
 
+### C-021: Telegram Persistence Operations Await Application Coordination
+
+**Status:** Open
+
+Issue #19 provides the constrained connection, hashed link-token, and processed-update
+persistence boundary, including row-locking-capable repository reads and 30-day cleanup
+eligibility. It deliberately does not decide raw-token generation, token lifetime,
+transaction orchestration, update parsing, transport, confirmation sending, rate-limit
+thresholds, or cross-account recovery.
+
+**Why it matters:** Future linking code must consume and record each update in one
+transaction, preserve the non-transfer ownership rule, and use bounded cleanup without
+logging tokens or provider payloads.
+
 ### C-019: Authentication Persistence Foundation
 
 **Status:** Resolved by GitHub Issue #11
