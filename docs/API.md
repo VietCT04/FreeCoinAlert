@@ -126,6 +126,38 @@ authenticated user. The bounded application-local limiter returns `429
 TELEGRAM_LINK_RATE_LIMITED` with `Retry-After`; it uses `request.client.host` and does not
 trust `X-Forwarded-For`.
 
+### Supported Markets
+
+`GET /markets` is public, read-only, and does not require authentication or CSRF. It returns HTTP `200`
+with every approved product market in deterministic symbol order and `Cache-Control: public, max-age=60`.
+
+```json
+{
+  "markets": [
+    {
+      "exchange": "binance",
+      "marketType": "spot",
+      "symbol": "BTCUSDT",
+      "baseAsset": "BTC",
+      "quoteAsset": "USDT",
+      "status": "available",
+      "priceRules": {
+        "min": "0.01000000",
+        "max": "1000000.00000000",
+        "tick": "0.01000000"
+      },
+      "metadataCheckedAt": "UTC timestamp"
+    }
+  ]
+}
+```
+
+`status` is `available` only for fresh, enabled, trading records with a valid positive tick and complete
+price range. Otherwise it is `unavailable` and `priceRules` is `null`. Values are plain base-10 decimal
+strings with no exponent, sign, comma, whitespace, NaN, or infinity; they may retain meaningful trailing
+zeroes. The endpoint never returns row IDs, provider status/reasons, rate-limit state, raw provider data,
+or credentials.
+
 ## General Conventions
 
 ### Browser Telegram Connection Flow
@@ -195,10 +227,14 @@ Sensitive linking tokens must not be returned after use or stored in plaintext w
 
 ### Supported Markets
 
-Expected responsibilities:
+Implemented responsibilities:
 
-- List supported exchanges, market types, symbols, timeframes, indicators, operators, and parameter constraints.
-- Expose only combinations the backend can actually evaluate.
+- List the controlled Binance Spot product catalog and its safe price-validation rules.
+
+Remaining responsibilities:
+
+- List supported timeframes, indicators, operators, and parameter constraints.
+- Reject non-ready market selections in the future alert-creation API.
 
 ### Signal Templates
 

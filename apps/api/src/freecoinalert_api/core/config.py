@@ -13,6 +13,8 @@ class AuthenticationSettings(BaseSettings):
     telegram_bot_token: str | None = None
     telegram_link_ttl_seconds: int = Field(default=600, gt=0)
     telegram_update_retention_days: int = Field(default=30, gt=0)
+    binance_spot_base_url: str = "https://api.binance.com"
+    market_catalog_max_age_seconds: int = Field(default=86400, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -7,18 +7,28 @@ FreeCoinAlert has an approved documentation baseline, a repository-level pnpm wo
 US-0001 and US-0002 are implementation-complete. No dedicated foundation or authentication verification pass has been requested or run.
 
 US-0003 is approved and documented in merged PR #18. Issues #19 through #22 are merged. Issue #23 now
-has a draft frontend Telegram connection and test-notification implementation. Telegram verification
+has draft PR #38 for the frontend Telegram connection and test-notification flow. Telegram verification
 remains deliberately pending a maintainer-requested pass.
 
-US-0004 is approved and documented in draft PR #27. It introduces the first end-to-end product alert: a one-time supported cryptocurrency price crossing that creates an immutable alert event and queues a Telegram notification. US-0004 implementation must wait until US-0003 is implementation-complete.
+US-0004 is approved and documented in merged PR #27. It introduces the first end-to-end product alert: a one-time supported cryptocurrency price crossing that creates an immutable alert event and queues a Telegram notification. Issue #28 has a draft stacked implementation that must merge after PR #38.
 
 The broader direction remains an alert-first application. Binance public market data will drive centralized real-time evaluation. Closed one-minute candles, larger timeframe aggregation, reconciliation, indicator alerts, and historical analysis remain later capabilities.
 
 ## Latest Work
 
 - **Date:** 2026-07-30
+- **GitHub Issue:** #28 - Add supported Binance Spot market catalog
+- **Pull Request:** Pending creation (stacked on draft PR #38)
+- **Summary:** Added the fixed five-symbol Binance Spot USDT catalog, seeded `supported_markets` migration,
+  exact-decimal public metadata sync boundary, public safe `/markets` API, and explicit `market:sync`
+  command without WebSocket ingestion, scheduling, or alert creation.
+- **Verification status:** Binance was not contacted. No sync, migrations, database commands, API startup,
+  HTTP requests, Docker commands, tests, builds, linting, formatting, type checks, or verification commands
+  were run by maintainer direction.
+
+- **Date:** 2026-07-30
 - **GitHub Issue:** #23 - Add frontend Telegram connection and test-notification flow
-- **Pull Request:** Pending creation
+- **Pull Request:** #38 - Add frontend Telegram connection flow (draft)
 - **Summary:** Added the authenticated root-route Telegram panel, credentialed typed browser API client,
   in-memory deep-link and idempotency handling, bounded visibility-aware connection and delivery polling,
   safe error feedback, and an inline disconnect confirmation without new frontend dependencies.
@@ -127,18 +137,18 @@ The broader direction remains an alert-first application. Binance public market 
 - **Implementation Issues:** #19, #20, #21, #22, and #23
 - **Implementation order:** #19, #20, #21, #22, then #23
 - **Solution status:** Approved solutions are posted for all five issues.
-- **Implementation status:** Issues #19 through #22 are merged. Issue #23 has a draft implementation.
+- **Implementation status:** Issues #19 through #22 are merged. Issue #23 has draft PR #38.
 - **Verification status:** No Telegram verification pass has been requested or run.
 
 ### US-0004: Create a One-Time Cryptocurrency Price Alert
 
 - **User Story:** `docs/user-stories/US-0004-create-one-time-price-alert.md`
-- **Documentation Pull Request:** #27 - draft
+- **Documentation Pull Request:** #27 - merged
 - **Implementation Issues:** #28, #29, #30, #31, #32, and #33
-- **Implementation dependency:** US-0003 must be implementation-complete before Issue #28 begins.
+- **Implementation dependency:** Issue #28 is stacked on the final US-0003 frontend contract in draft PR #38.
 - **Implementation order:** #28, #29, #30, #31, #32, then #33
-- **Solution status:** No technical solution has been approved or posted for any US-0004 issue yet.
-- **Verification status:** Not applicable until implementation exists.
+- **Solution status:** Issue #28 has an approved solution and draft implementation; later issues await solutions.
+- **Verification status:** No catalog verification pass has been requested or run.
 
 ## Important User Stories
 
@@ -200,7 +210,7 @@ Important unresolved decisions include:
 - Product name and domain
 - Telegram update transport for production
 - Notification outbox claim, retry, and failure semantics
-- Initial Binance Spot symbols and catalog-refresh policy
+- Catalog refresh scheduling and production provider-rate-limit behavior
 - Exact live-price source and price semantics
 - Decimal precision and target-price validation
 - Price-crossing initialization, equality, duplicate, stale, and out-of-order behavior
@@ -212,8 +222,8 @@ Important unresolved decisions include:
 ## Market-Data State
 
 - **Exchange integration:** Not implemented
-- **Initial market:** To be approved in Issue #28
-- **Supported symbols:** None yet
+- **Initial market:** Binance Spot, USDT quote asset
+- **Supported symbols:** BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, XRPUSDT (metadata pending explicit sync)
 - **Live price stream:** Not implemented
 - **Stored candle ranges:** None
 - **Known data gaps:** Not applicable
@@ -221,10 +231,9 @@ Important unresolved decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge documentation PR #27.
-2. Review and merge the Issue #23 frontend Telegram pull request.
-3. After US-0003 is complete, request proposed technical solutions for US-0004 beginning with Issue #28.
-4. Request dedicated verification passes only when the maintainer wants them.
+1. Review and merge Issue #23 PR #38, then the stacked Issue #28 catalog pull request.
+2. Request the approved solution for Issue #29 after the catalog is merged.
+3. Request dedicated verification passes only when the maintainer wants them.
 
 ## Handoff Notes
 
@@ -235,7 +244,7 @@ Future agents must:
 - Read the active user story and every linked implementation issue before changing behavior.
 - Follow approved issue solutions without broadening them.
 - Do not invent a technical solution for an implementation issue when no approved issue comment exists.
-- Do not begin US-0004 implementation until US-0003 is implementation-complete.
+- Do not merge Issue #28 before its stacked final Telegram-contract dependency, PR #38.
 - Derive all ownership from the authenticated principal rather than client-provided user identifiers.
 - Never ask users to type Telegram chat IDs manually.
 - Accept only approved exchanges, markets, and symbols.

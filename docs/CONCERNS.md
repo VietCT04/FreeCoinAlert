@@ -83,17 +83,20 @@ The repository uses native pnpm workspaces with Node.js `24.18.0`, pnpm `11.4.0`
 
 ### C-002: Initial Binance Market
 
-**Status:** Open
+**Status:** Resolved for the initial catalog by Issue #28
 
-The first supported market has not been finalized. The MVP may start with Binance Spot only or include USD-M Futures.
+The initial supported market is Binance Spot only. Futures, margin, options, and additional exchanges remain
+out of scope until a later approved issue expands the catalog.
 
 **Why it matters:** Stream names, symbol metadata, prices, candle semantics, user expectations, and future strategy assumptions differ by market.
 
 ### C-003: Supported Symbols
 
-**Status:** Open
+**Status:** Resolved for the initial catalog by Issue #28
 
-The initial symbol list and process for adding or removing symbols are undecided.
+The initial allowlist is `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, and `XRPUSDT`. Product enablement is
+code- and migration-controlled in this MVP; catalog expansion and an operator refresh policy remain future
+work.
 
 **Why it matters:** Symbol count drives WebSocket subscriptions, storage growth, reconciliation requests, and user value.
 
@@ -193,6 +196,17 @@ Deletion and retention behavior for account data, Telegram identity data, alerts
 **Why it matters:** Security, privacy, support, reproducibility, and storage requirements are affected.
 
 ## Concern Workflow
+
+### C-024: Catalog Synchronization Verification and Scheduling
+
+**Status:** Open
+
+Issue #28 adds an explicit public Binance metadata synchronization command but does not contact Binance,
+run the command, apply its migration, or exercise the read endpoint during implementation. The refresh
+scheduler, production rate-limit observations, and operator ownership are intentionally unresolved.
+
+**Why it matters:** Safe availability depends on current provider metadata, while automatic scheduling must
+be designed to avoid uncoordinated provider traffic and preserve the last valid catalog on failure.
 
 ### C-023: Telegram Browser and Provider Verification
 

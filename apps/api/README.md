@@ -5,7 +5,8 @@ authentication-session persistence, unauthenticated process health, account
 registration, sign-in, current-user lookup, logout, authenticated Telegram link-token,
 connection-state, and disconnect APIs, plus a separately runnable Telegram update processor.
 It also has a durable Telegram test-notification outbox and separately runnable delivery worker.
-Frontend Telegram interaction and alerts remain out of scope.
+It provides a fixed Binance Spot market catalog with a public read endpoint and an explicit metadata
+synchronization command. Live price streams, alert creation, and alert evaluation remain out of scope.
 
 ## Prerequisites
 
@@ -55,6 +56,7 @@ uv run ruff check .
 uv run ruff format .
 uv run ruff format --check .
 uv run mypy src
+uv run python -m freecoinalert_api.market_data.catalog_sync
 ```
 
 ## Source layout
@@ -72,6 +74,10 @@ one-time token creation, link and disconnect transactions, a bounded local limit
 client boundary, private `/start` parsing, atomic update linking, and the local polling executable.
 It does not expose a webhook endpoint or implement alert notification delivery.
 
+`market_data/` owns the centralized unauthenticated Binance public REST boundary and the supported-market
+catalog service. It is limited to the approved Binance Spot USDT allowlist (`BTCUSDT`, `ETHUSDT`,
+`BNBUSDT`, `SOLUSDT`, and `XRPUSDT`) and does not start a WebSocket, backfill history, or create alerts.
+
 ## Environment rules
 
 Keep component-specific variables in `.env` files that are not committed. Use
@@ -87,6 +93,19 @@ Telegram username characters. If it is absent, link creation returns a safe `503
 `TELEGRAM_LINK_TTL_SECONDS` defaults to 600. `TELEGRAM_BOT_TOKEN` is a secret required only
 by `python -m freecoinalert_api.telegram.poller`; normal API startup does not require it.
 `TELEGRAM_UPDATE_RETENTION_DAYS` defaults to 30.
+
+`BINANCE_SPOT_BASE_URL` defaults to `https://api.binance.com` and has no credentials. The public
+catalog considers metadata stale after `MARKET_CATALOG_MAX_AGE_SECONDS` (default `86400`). Normal API
+startup never contacts Binance. Run `uv run python -m freecoinalert_api.market_data.catalog_sync` only
+as an explicit operator action; it requests metadata for exactly the five allowlisted Spot symbols in one
+call and preserves the last valid catalog when the provider or database operation fails.
+
+## Supported market catalog
+
+`GET /markets` is public, read-only, and cached for 60 seconds. It always returns the five approved
+Binance Spot symbols in deterministic symbol order. A market is `available` only when it is product-enabled,
+trading, has complete valid price rules, and its metadata is not stale; otherwise the API returns the safe
+`unavailable` state with `priceRules: null`. Decimal rules are JSON strings, never floating-point numbers.
 
 ## Telegram connection endpoints
 

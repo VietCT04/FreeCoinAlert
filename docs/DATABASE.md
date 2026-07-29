@@ -111,14 +111,29 @@ reference becomes null if its connection is deleted. Allowed outcomes are `linke
 are never stored. Rows are eligible for deletion after 30 days through a future bounded
 cleanup caller, which supplies an explicit UTC cutoff.
 
+### `supported_markets`
+
+Issue #28 adds `supported_markets` as the controlled Binance Spot product catalog. It has a PostgreSQL UUID
+key, canonical exchange/market/symbol and lowercase stream-symbol fields, nullable base and quote assets,
+provider status, product enablement, exact `NUMERIC(38,18)` price rules, metadata freshness/disablement
+timestamps, and a stable safe status reason. The table constrains exchange to `binance`, market type to
+`spot`, and provider status to `pending_metadata`, `trading`, `halt`, `break`, `unsupported`, or
+`metadata_error`.
+
+The migration seeds exactly `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, and `XRPUSDT` with pending metadata
+and product enablement. Unique constraints prevent duplicate `(exchange, market_type, symbol)` and stream
+symbol combinations. Price values are finite, non-negative, and ordered when both bounds are present. No
+full provider payload, exchange credential, order rule, quantity rule, or private-market data is stored.
+
 ## Migration Boundary
 
 Alembic owns schema changes in `apps/api/src/freecoinalert_api/migrations`. Migration
 `20260728_0001` creates `users` before `auth_sessions`. `20260730_0002` then creates
-Telegram connections, link tokens, processed updates, and their constraints and indexes;
-its downgrade removes those tables in reverse order. The local Compose command applies
-migrations for development only. Production migration review and application remain an
-explicit release operation.
+Telegram connections, link tokens, processed updates, and their constraints and indexes.
+`20260730_0003` adds the notification outbox, and `20260730_0004` adds the seeded supported-market
+catalog. Each downgrade removes its owned schema in reverse order. The local Compose command applies
+migrations for development only. Production migration review and application remain an explicit release
+operation.
 
 ## Global Rules
 

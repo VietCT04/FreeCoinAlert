@@ -89,6 +89,14 @@ Track separately from live processing:
 
 ## Structured Logging
 
+### Supported-Market Catalog
+
+The explicit catalog-sync command emits safe structured events `market.catalog.sync_started`,
+`market.catalog.sync_succeeded`, `market.catalog.sync_failed`, and `market.catalog.symbol_unavailable`.
+They may include exchange, market type, symbol, stable provider-status category, row count, retry delay,
+and duration. They must never include raw `/exchangeInfo` payloads, unrestricted exception text, headers,
+credentials, cookies, Telegram data, or provider secrets.
+
 Recommended fields include:
 
 - Timestamp in UTC

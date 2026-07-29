@@ -121,6 +121,9 @@ Responsibilities:
 
 It must not create a connection per user or run expensive historical work on the real-time path.
 
+The initial catalog is an API-owned persistence boundary rather than a process: it supports five allowlisted
+Binance Spot USDT symbols and records only the metadata necessary for safe future price validation.
+
 ### Strategy Core
 
 Responsibilities:
