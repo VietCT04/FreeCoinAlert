@@ -19,7 +19,7 @@ The broader direction remains an alert-first application. Binance public market 
 
 - **Date:** 2026-07-30
 - **GitHub Issue:** #20 - Implement authenticated Telegram connection API
-- **Pull Request:** Pending creation - Implement authenticated Telegram connection API (draft)
+- **Pull Request:** #35 - Implement Telegram connection API (draft)
 - **Summary:** Added session-authenticated, CSRF-protected link-token and disconnect endpoints,
   safe connection-state retrieval, one-time 32-byte token generation and SHA-256 persistence,
   transactional replacement and disconnect revocation, Telegram configuration, and bounded
