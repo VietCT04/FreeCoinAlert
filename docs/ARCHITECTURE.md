@@ -82,6 +82,12 @@ provides one `AsyncSession` per request, repositories hold persistence operation
 Alembic owns migrations. Session lookup uses only the HTTP-only cookie, fixed expiry,
 and revocation state; it does not refresh a session during normal requests.
 
+Issue #19 extends that persistence boundary with typed Telegram connection, link-token,
+and processed-update models plus transactional repositories. Those repositories support
+row locking for future linking coordination and do not generate tokens, parse commands,
+call Telegram, read cookies, or construct API responses. Telegram transport and public
+routes remain later concerns.
+
 Responsibilities:
 
 - Authentication and authorization.

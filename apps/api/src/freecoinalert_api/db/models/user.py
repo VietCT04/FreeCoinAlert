@@ -38,3 +38,14 @@ class User(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    telegram_connection: Mapped["TelegramConnection | None"] = relationship(
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    telegram_link_tokens: Mapped[list["TelegramLinkToken"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
