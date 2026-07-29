@@ -71,11 +71,13 @@ The frontend must not be the authority for ownership, trigger state, or sensitiv
 
 The API uses Python `3.14`, FastAPI, and uv for Python installation, dependency management, command execution, and locking. `create_app()` in `apps/api/src/freecoinalert_api/main.py` provides the application-factory boundary, and `api/router.py` composes route modules so future features do not attach routes directly to the application entry point.
 
-The only implemented route is unauthenticated `GET /health`, which reports API process
-health only and does not query PostgreSQL. The API has an asynchronous SQLAlchemy and
-Psycopg 3 persistence boundary for `users` and `auth_sessions`: Pydantic Settings reads
+The API implements unauthenticated `GET /health`, which reports API process health only
+and does not query PostgreSQL, plus `POST /auth/register` and `POST /auth/login`. The
+authentication routes compose email normalization, Argon2id password hashing, session
+creation, origin checks, and a bounded single-process rate limiter around the asynchronous
+SQLAlchemy and Psycopg 3 persistence boundary for `users` and `auth_sessions`: Pydantic Settings reads
 `DATABASE_URL`, `db/session.py` provides one `AsyncSession` per request, repositories
-hold persistence operations, and Alembic owns migrations. Authentication feature routes
+hold persistence operations, and Alembic owns migrations. Current-user and logout routes
 remain unresolved.
 
 Responsibilities:

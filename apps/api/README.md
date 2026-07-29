@@ -1,9 +1,9 @@
 # FreeCoinAlert API
 
-The API is the Python and FastAPI foundation for FreeCoinAlert. It includes the initial
-user and authentication-session persistence layer, but exposes only an unauthenticated
-process-health endpoint. Registration, login, cookies, authorization, alerts, market
-data, Telegram delivery, and background work are not implemented.
+The API is the Python and FastAPI foundation for FreeCoinAlert. It includes user and
+authentication-session persistence, unauthenticated process health, and account
+registration and sign-in. Current-user lookup, logout, frontend authentication,
+alerts, market data, Telegram delivery, and background work are not implemented.
 
 ## Prerequisites
 
@@ -58,16 +58,33 @@ uv run mypy src
 ## Source layout
 
 `src/freecoinalert_api/main.py` owns the application factory and ASGI application.
-`src/freecoinalert_api/api/router.py` composes routes, keeping future feature routes
-outside the application entry point. `core/config.py` reads `DATABASE_URL`, while `db/`
-owns typed SQLAlchemy models, asynchronous sessions, repositories, and Alembic
-migrations. The only current route is `GET /health`.
+`api/routes/auth.py` provides registration and sign-in, while `auth/` contains focused
+email, origin, password, rate-limit, and session helpers. `core/config.py` reads
+database and browser-authentication settings; `db/` owns typed SQLAlchemy models,
+asynchronous sessions, repositories, and Alembic migrations.
 
 ## Environment rules
 
 Keep component-specific variables in `.env` files that are not committed. Use
 `.env.example` only for safe, consumed variable names and comments. The API consumes
-`DATABASE_URL`; it must contain no production credentials in committed files.
+`DATABASE_URL`, `WEB_ORIGIN`, `SESSION_COOKIE_SECURE`, and `SESSION_TTL_SECONDS`; they
+must contain no production credentials in committed files. The local browser defaults
+are `http://localhost:3000`, `false`, and seven days (`604800`) respectively.
+
+## Authentication endpoints
+
+`POST /auth/register` returns `201`; `POST /auth/login` returns `200`. Both accept
+`email` and `password` JSON fields, return a safe user object plus `csrfToken`, and set
+an HTTP-only `freecoinalert_session` browser-session cookie. Passwords allow Unicode and
+spaces without trimming and must be 15–128 Unicode code points. Emails are trimmed,
+normalized without DNS or deliverability checks, then case-folded for unique identity.
+
+The API uses Argon2id password hashes, stores only a SHA-256 session-token hash, and
+enforces a seven-day absolute session expiry. Successful authentication responses are
+`Cache-Control: no-store`. The local limiter allows five registration attempts per IP,
+ten login attempts per IP, and five failed login attempts per email-and-IP in 15 minutes.
+It is deliberately process-local and must be replaced before multiple API replicas or a
+public trusted-proxy deployment.
 
 ## Health endpoint
 

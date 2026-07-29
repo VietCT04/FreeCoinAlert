@@ -27,7 +27,7 @@ The MVP assumes users understand basic concepts such as trading pairs, timeframe
 
 ### Account and Telegram
 
-- Account registration and authentication.
+- Account registration and sign-in establish a secure browser session; current-user lookup, logout, and frontend forms remain subsequent work.
 - Secure Telegram linking using a short-lived, single-use token.
 - One Telegram destination per user initially, unless a later issue expands this.
 - Connection test, disconnect, and reconnect flows.

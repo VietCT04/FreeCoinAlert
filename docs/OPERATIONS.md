@@ -91,6 +91,8 @@ Copy `.env.example` to a local `.env` before the first Compose startup. `.env` i
 
 Shared variables belong in the root `.env.example` only when more than one application or service consumes them. Component-specific examples belong in `apps/<component>/.env.example` or `services/<component>/.env.example`. Never commit local `.env` files or real credentials.
 
+The API authentication settings are `WEB_ORIGIN`, `SESSION_COOKIE_SECURE`, and `SESSION_TTL_SECONDS`. Local defaults are `http://localhost:3000`, `false`, and `604800` seconds. Compose passes them to the API. Before public deployment or multiple API replicas, replace the bounded application-local authentication limiter with a shared, trusted-proxy-aware design; it deliberately uses `request.client.host` and does not trust `X-Forwarded-For`.
+
 ## Process Model
 
 The modular-monolith codebase may run as separate processes:
