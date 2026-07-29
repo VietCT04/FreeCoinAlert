@@ -2,9 +2,10 @@
 
 The API is the Python and FastAPI foundation for FreeCoinAlert. It includes user and
 authentication-session persistence, unauthenticated process health, account
-registration, sign-in, current-user lookup, logout, and authenticated Telegram link-token,
-connection-state, and disconnect APIs. Frontend Telegram interaction, Telegram Bot API
-integration, update processing, alerts, delivery, and background work are not implemented.
+registration, sign-in, current-user lookup, logout, authenticated Telegram link-token,
+connection-state, and disconnect APIs, plus a separately runnable Telegram update processor.
+Frontend Telegram interaction, test notification delivery, alerts, and durable notification
+work are not implemented.
 
 ## Prerequisites
 
@@ -67,21 +68,25 @@ database and browser-authentication settings; `db/` owns typed SQLAlchemy models
 asynchronous sessions, repositories, and Alembic migrations. Telegram persistence is
 limited to the `telegram_connections`, `telegram_link_tokens`, and
 `telegram_processed_updates` models and repository operations. `telegram/` owns safe
-one-time token creation, link and disconnect transactions, and a bounded local limiter;
-it creates no Telegram bot client, webhook, polling process, update parser, or confirmation.
+one-time token creation, link and disconnect transactions, a bounded local limiter, the Bot API
+client boundary, private `/start` parsing, atomic update linking, and the local polling executable.
+It does not expose a webhook endpoint or implement alert notification delivery.
 
 ## Environment rules
 
 Keep component-specific variables in `.env` files that are not committed. Use
 `.env.example` only for safe, consumed variable names and comments. The API consumes
 `DATABASE_URL`, `WEB_ORIGIN`, `SESSION_COOKIE_SECURE`, `SESSION_TTL_SECONDS`,
-`TELEGRAM_BOT_USERNAME`, and `TELEGRAM_LINK_TTL_SECONDS`; they
+`TELEGRAM_BOT_USERNAME`, `TELEGRAM_LINK_TTL_SECONDS`, `TELEGRAM_BOT_TOKEN`, and
+`TELEGRAM_UPDATE_RETENTION_DAYS`; they
 must contain no production credentials in committed files. The local browser defaults
 are `http://localhost:3000`, `false`, and seven days (`604800`) respectively.
 
 `TELEGRAM_BOT_USERNAME` is optional, public configuration with no leading `@` and only
 Telegram username characters. If it is absent, link creation returns a safe `503` response.
-`TELEGRAM_LINK_TTL_SECONDS` defaults to 600. Never add a bot token under this API boundary.
+`TELEGRAM_LINK_TTL_SECONDS` defaults to 600. `TELEGRAM_BOT_TOKEN` is a secret required only
+by `python -m freecoinalert_api.telegram.poller`; normal API startup does not require it.
+`TELEGRAM_UPDATE_RETENTION_DAYS` defaults to 30.
 
 ## Telegram connection endpoints
 
@@ -94,8 +99,17 @@ current saved destination, and revokes outstanding tokens. All connection respon
 
 The local in-memory limiter permits five link requests per user and ten per direct client IP,
 plus ten disconnect requests per user, in fifteen minutes. It is not sufficient for multiple
-API replicas or an untrusted proxy deployment. No Telegram transport, `/start` processing,
-confirmation, test notification, or frontend flow exists yet.
+API replicas or an untrusted proxy deployment.
+
+## Telegram update processor
+
+Run `uv run python -m freecoinalert_api.telegram.poller` only for local Telegram long polling.
+It requests message updates, processes them sequentially, accepts private-chat `/start <token>`
+or addressed `/start@<bot_username> <token>` commands only, and uses `update_id` as the database
+idempotency key. The processor commits linking before one confirmation attempt; it records a
+confirmed send but does not retry a timeout or uncertain outcome. It performs bounded processed-
+update cleanup at startup and no more than daily. Production webhook deployment, groups, channels,
+and test-notification delivery remain out of scope.
 
 ## Authentication endpoints
 

@@ -478,6 +478,10 @@ When an approved issue also excludes test files or testing dependencies, do not 
 
 This also prohibits Docker builds, Compose startup, container health checks, HTTP requests, and database connection commands unless the maintainer explicitly requests that verification pass.
 
+Approved Telegram update-processing work does not require running the bot, contacting Telegram,
+or starting the update processor after coding; lockfile generation and configured startup commands
+remain implementation steps only.
+
 Agents may write or update tests when practical. Do not run lint, build, typecheck, migration validation, formatting, or other verification commands unless the maintainer explicitly requests a dedicated verification pass.
 
 If the user approves PR- or CI-level review or says local tests are unnecessary, do not repeatedly attempt local tests. State clearly that they were not run by user direction.

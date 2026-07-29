@@ -14,9 +14,9 @@ Registration and sign-in use normalized email identity, Argon2id password hashes
 
 **Why it matters:** A public or horizontally scaled deployment requires a shared rate-limit store and an approved trusted-proxy design. Current-user, current-session logout, session revocation, and the minimal browser session flow are now implemented; account deletion and the production cookie/TLS deployment posture remain separate work. The authentication implementation has not received a dedicated verification pass.
 
-### C-021: Telegram Update Processing and Shared Limiting Remain Open
+### C-021: Telegram Production Transport and Shared Limiting Remain Open
 
-**Status:** Open
+**Status:** Partially resolved by GitHub Issue #21
 
 Issues #19 and #20 provide the constrained connection, hashed link-token, and
 processed-update persistence boundary plus authenticated APIs for one-time link creation,
@@ -24,9 +24,9 @@ safe connection state, and idempotent disconnect. Link tokens use a configurable
 local default, replacement and disconnect revoke outstanding tokens transactionally, and
 bounded per-process limits cover link creation and disconnect.
 
-**Why it matters:** Future update processing must consume and record each update in one
-transaction, preserve the non-transfer ownership rule, and use bounded cleanup without
-logging tokens or provider payloads. A public or multi-replica deployment also needs a shared
+**Why it matters:** Issue #21 implements local sequential long polling, atomic update processing,
+and bounded cleanup, but production webhook transport, processor supervision, and shared
+cross-replica rate limiting remain decisions. A public or multi-replica deployment needs a shared
 limiter and approved trusted-proxy design before the local limits are sufficient.
 
 ### C-019: Authentication Persistence Foundation

@@ -11,6 +11,8 @@
     "dev:detached": "docker compose up --build --detach --wait",
     "dev:status": "docker compose ps",
     "dev:logs": "docker compose logs --follow",
+    "dev:telegram": "docker compose --profile telegram up --build",
+    "dev:telegram-logs": "docker compose --profile telegram logs --follow telegram-updates",
     "dev:down": "docker compose down --remove-orphans",
     "dev:reset": "docker compose down --volumes --remove-orphans",
     "format": "prettier --write . --ignore-unknown && pnpm format:api",

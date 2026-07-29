@@ -251,3 +251,11 @@ User requests analysis
 - Database hosting.
 - Webhook versus long polling for Telegram during development and production.
 - Initial approach for scheduling reconciliation and historical jobs.
+
+## Issue #21 Telegram Processor
+
+The local Telegram update processor is an executable inside `apps/api`, not a new service project.
+It reuses the API package's settings, async database sessions, Telegram repositories, and linking
+business service. Its typed Bot API client exposes only safe link-confirmation and failure messages.
+Long polling is sequential and message-only; webhook deployment and durable notification delivery
+remain separate boundaries.

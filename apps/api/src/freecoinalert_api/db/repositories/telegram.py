@@ -169,6 +169,22 @@ async def get_active_telegram_link_token_for_update(
     return await session.scalar(statement)
 
 
+async def get_telegram_link_token_by_hash(
+    session: AsyncSession,
+    *,
+    token_hash: bytes,
+    for_update: bool = False,
+) -> TelegramLinkToken | None:
+    statement = select(TelegramLinkToken).where(
+        TelegramLinkToken.token_hash == token_hash,
+    )
+
+    if for_update:
+        statement = statement.with_for_update()
+
+    return await session.scalar(statement)
+
+
 async def get_active_telegram_link_token_by_user_id(
     session: AsyncSession,
     *,
@@ -256,13 +272,37 @@ async def get_processed_telegram_update(
     return await session.scalar(statement)
 
 
+async def mark_telegram_processed_update_confirmation_sent(
+    session: AsyncSession,
+    *,
+    update_id: int,
+    confirmation_sent_at: datetime,
+) -> TelegramProcessedUpdate | None:
+    processed_update = await session.get(TelegramProcessedUpdate, update_id)
+
+    if processed_update is None:
+        return None
+
+    processed_update.confirmation_sent_at = confirmation_sent_at
+    await session.flush()
+    return processed_update
+
+
 async def delete_processed_telegram_updates_before(
     session: AsyncSession,
     *,
     cutoff: datetime,
+    limit: int,
 ) -> int:
-    statement = delete(TelegramProcessedUpdate).where(
-        TelegramProcessedUpdate.processed_at < cutoff,
+    update_ids = (
+        select(TelegramProcessedUpdate.update_id)
+        .where(TelegramProcessedUpdate.processed_at < cutoff)
+        .order_by(TelegramProcessedUpdate.processed_at)
+        .limit(limit)
     )
-    result = await session.execute(statement)
+    result = await session.execute(
+        delete(TelegramProcessedUpdate).where(
+            TelegramProcessedUpdate.update_id.in_(update_ids),
+        )
+    )
     return result.rowcount

@@ -36,6 +36,8 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-604800}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_LINK_TTL_SECONDS: ${TELEGRAM_LINK_TTL_SECONDS:-600}
     healthcheck:
       test:
         ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
@@ -46,6 +48,25 @@ services:
     init: true
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
+    volumes:
+      - ./apps/api:/app
+      - api_venv:/app/.venv
+
+  telegram-updates:
+    profiles: ["telegram"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    command: uv sync --frozen && uv run python -m freecoinalert_api.telegram.poller
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
+      TELEGRAM_UPDATE_RETENTION_DAYS: ${TELEGRAM_UPDATE_RETENTION_DAYS:-30}
+    init: true
     volumes:
       - ./apps/api:/app
       - api_venv:/app/.venv
