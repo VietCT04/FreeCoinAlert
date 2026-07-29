@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Request, Response, status
+import uuid
+
+from fastapi import APIRouter, Depends, Header, Request, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,7 +10,14 @@ from freecoinalert_api.auth.principal import (
     require_csrf_protected_principal,
 )
 from freecoinalert_api.core.config import Settings, get_settings
+from freecoinalert_api.db.models.notification_outbox import NotificationOutbox
 from freecoinalert_api.db.session import get_database_session
+from freecoinalert_api.notifications.errors import NotificationError
+from freecoinalert_api.notifications.service import notification_service
+from freecoinalert_api.schemas.notifications import (
+    NotificationEnvelope,
+    NotificationResponse,
+)
 from freecoinalert_api.schemas.telegram import (
     TelegramConnectionEnvelope,
     TelegramConnectionResponse,
@@ -19,6 +28,7 @@ from freecoinalert_api.telegram.rate_limit import (
     link_creation_ip_key,
     link_creation_user_key,
     telegram_rate_limiter,
+    test_notification_user_key,
 )
 from freecoinalert_api.telegram.service import telegram_connection_service
 
@@ -111,8 +121,102 @@ async def disconnect_connection(
     return response
 
 
+@telegram_router.post("/test-notifications", status_code=status.HTTP_202_ACCEPTED)
+async def queue_test_notification(
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    authenticated_principal: AuthenticatedPrincipal = Depends(
+        require_csrf_protected_principal
+    ),
+    database_session: AsyncSession = Depends(get_database_session),
+) -> JSONResponse:
+    valid_idempotency_key = validate_idempotency_key(idempotency_key)
+    rate_limit_key = test_notification_user_key(str(authenticated_principal.user_id))
+    existing = await notification_service.get_existing_idempotent_notification(
+        database_session,
+        user_id=authenticated_principal.user_id,
+        idempotency_key=valid_idempotency_key,
+    )
+
+    if existing is None:
+        await telegram_rate_limiter.consume(rate_limit_key, limit=3)
+        queued_notification = await notification_service.queue_test_notification(
+            database_session,
+            user_id=authenticated_principal.user_id,
+            idempotency_key=valid_idempotency_key,
+        )
+        notification = queued_notification.notification
+    else:
+        notification = existing
+
+    response_body = NotificationEnvelope(
+        notification=notification_response(notification)
+    )
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content=response_body.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@telegram_router.get("/test-notifications/{notification_id}")
+async def get_test_notification(
+    notification_id: uuid.UUID,
+    authenticated_principal: AuthenticatedPrincipal = Depends(
+        require_authenticated_principal
+    ),
+    database_session: AsyncSession = Depends(get_database_session),
+) -> JSONResponse:
+    notification = await notification_service.get_notification(
+        database_session,
+        notification_id=notification_id,
+        user_id=authenticated_principal.user_id,
+    )
+    response_body = NotificationEnvelope(
+        notification=notification_response(notification)
+    )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=response_body.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 def get_client_ip(request: Request) -> str:
     if request.client is None:
         return "unknown"
 
     return request.client.host
+
+
+def validate_idempotency_key(idempotency_key: str | None) -> str:
+    if idempotency_key is None or len(idempotency_key) > 128:
+        raise NotificationError(
+            status_code=400,
+            code="TELEGRAM_TEST_IDEMPOTENCY_KEY_INVALID",
+            message="The Idempotency-Key header must be a UUID.",
+        )
+    try:
+        return str(uuid.UUID(idempotency_key))
+    except ValueError:
+        raise NotificationError(
+            status_code=400,
+            code="TELEGRAM_TEST_IDEMPOTENCY_KEY_INVALID",
+            message="The Idempotency-Key header must be a UUID.",
+        ) from None
+
+
+def notification_response(notification: NotificationOutbox) -> NotificationResponse:
+    status_mapping = {
+        "pending": "queued",
+        "processing": "sending",
+        "retry_wait": "retrying",
+        "sent": "sent",
+        "failed": "failed",
+    }
+    return NotificationResponse(
+        id=notification.id,
+        status=status_mapping[notification.status],
+        created_at=notification.created_at,
+        sent_at=notification.sent_at,
+        failure_code=notification.failure_code,
+    )

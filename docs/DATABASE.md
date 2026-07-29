@@ -251,6 +251,15 @@ Before changing the schema:
 
 ## Pending Decisions
 
+## Issue #22 Notification Outbox
+
+Migration `20260730_0003` adds `notification_outbox` for durable Telegram test notifications.
+Each row belongs to one user and restricted Telegram connection, has a per-user UUID idempotency
+key, and stores only the versioned payload (`schemaVersion: 1`, `messageType: telegram_test`).
+It never stores a bot token, chat ID, provider request, or full provider response. The five-state
+queue uses `pending`, `processing`, `retry_wait`, `sent`, and `failed`; ownership, idempotency,
+claim, attempt, and sent/failed timestamp constraints protect its transitions.
+
 - Email normalization and validation policy.
 - Session lifetime, cookie attributes, and session-token generation policy.
 - Decimal precision for market values.

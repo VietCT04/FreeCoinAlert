@@ -246,6 +246,14 @@ User requests analysis
 
 ## Pending Architecture Decisions
 
+## Issue #22 Notification Worker
+
+The notification worker remains an executable in `apps/api`, sharing its configuration, Telegram
+client boundary, and async database sessions. The authenticated API queues PostgreSQL outbox rows;
+the separate worker claims and sends them without holding database locks during network calls.
+The optional Compose `telegram` profile runs both update polling and notification delivery while
+the default development stack needs no Telegram credentials.
+
 - Feature-specific frontend architecture, including component boundaries and client-state needs.
 - Authentication implementation and provider.
 - Database hosting.

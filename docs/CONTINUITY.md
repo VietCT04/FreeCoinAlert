@@ -6,15 +6,24 @@ FreeCoinAlert has an approved documentation baseline, a repository-level pnpm wo
 
 US-0001 and US-0002 are implementation-complete. No dedicated foundation or authentication verification pass has been requested or run.
 
-US-0003 is approved and documented in merged PR #18. Issues #19 and #20 are merged. Issue #21
-now has a draft local Telegram update-processing implementation; test delivery and frontend work
-remain deliberately out of scope. Approved technical solutions are posted for Issues #22 and #23.
+US-0003 is approved and documented in merged PR #18. Issues #19, #20, and #21 are merged. Issue
+#22 now has a draft test-notification outbox implementation; frontend work remains deliberately
+out of scope. Approved technical solutions are posted for Issues #22 and #23.
 
 US-0004 is approved and documented in draft PR #27. It introduces the first end-to-end product alert: a one-time supported cryptocurrency price crossing that creates an immutable alert event and queues a Telegram notification. US-0004 implementation must wait until US-0003 is implementation-complete.
 
 The broader direction remains an alert-first application. Binance public market data will drive centralized real-time evaluation. Closed one-minute candles, larger timeframe aggregation, reconciliation, indicator alerts, and historical analysis remain later capabilities.
 
 ## Latest Work
+
+- **Date:** 2026-07-30
+- **GitHub Issue:** #22 - Add Telegram test-notification outbox and delivery worker
+- **Pull Request:** Pending creation
+- **Summary:** Added the PostgreSQL test-notification outbox, safe idempotent queue and status API,
+  bounded local request limiting, separately runnable lock-safe worker, connection degradation,
+  Compose profile integration, and operational documentation.
+- **Verification status:** The worker was not run, Telegram was not contacted, and no tests,
+  migrations, builds, or verification commands were run by maintainer direction.
 
 - **Date:** 2026-07-30
 - **GitHub Issue:** #21 - Implement Telegram bot update processing and account linking
@@ -109,8 +118,8 @@ The broader direction remains an alert-first application. Binance public market 
 - **Implementation Issues:** #19, #20, #21, #22, and #23
 - **Implementation order:** #19, #20, #21, #22, then #23
 - **Solution status:** Approved solutions are posted for all five issues.
-- **Implementation status:** Issues #19 and #20 are merged. Issue #21 has a draft implementation;
-  #22 and #23 have not started.
+- **Implementation status:** Issues #19, #20, and #21 are merged. Issue #22 has a draft
+  implementation; #23 has not started.
 - **Verification status:** No Telegram verification pass has been requested or run.
 
 ### US-0004: Create a One-Time Cryptocurrency Price Alert
@@ -205,8 +214,7 @@ Important unresolved decisions include:
 ## Next Recommended Steps
 
 1. Review and merge documentation PR #27.
-2. Review and merge the Issue #21 update-linking pull request, then implement US-0003 in
-   order: #22, then #23.
+2. Review and merge the Issue #22 test-notification-outbox pull request, then implement #23.
 3. After US-0003 is complete, request proposed technical solutions for US-0004 beginning with Issue #28.
 4. Request dedicated verification passes only when the maintainer wants them.
 

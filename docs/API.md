@@ -128,6 +128,20 @@ trust `X-Forwarded-For`.
 
 ## General Conventions
 
+### Telegram Test Notifications
+
+`POST /telegram/test-notifications` requires the browser session, `X-CSRF-Token`, and an
+`Idempotency-Key` UUID header; it accepts no body and returns `202` with a safe queued
+notification. It queues work only for the authenticated user's connected destination. Replaying
+the same accepted key returns the existing safe notification without another message or rate-limit
+slot. New requests are limited to three per authenticated user per 15 minutes and return `429
+TELEGRAM_TEST_RATE_LIMITED` with `Retry-After`.
+
+`GET /telegram/test-notifications/{notification_id}` requires authentication and loads by both
+user and notification ID. It maps internal queue states to `queued`, `sending`, `retrying`,
+`sent`, or `failed`; a foreign ID is indistinguishable from a missing ID. Both endpoints use
+`Cache-Control: no-store` and never expose provider, lock, connection, or chat details.
+
 - Use JSON request and response bodies unless a documented endpoint requires another format.
 - Use HTTPS outside local development.
 - Authenticate server-side and derive the acting user from the authenticated principal.

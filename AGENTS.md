@@ -465,6 +465,10 @@ Add or update tests when practical, especially for:
 
 No tests or verification commands need to be run after coding. Do not run backend or frontend test suites, migrations, or verification commands unless the maintainer explicitly requests a dedicated verification pass.
 
+Approved notification-outbox work does not require running the worker, contacting Telegram,
+or starting the Compose Telegram profile after coding; adding migrations, lockfiles, and startup
+commands remains implementation work only.
+
 This applies equally to approved API, security, and Telegram connection work: implementation
 does not require test, build, lint, type-check, formatting, migration, database, browser, or
 manual API verification execution.
