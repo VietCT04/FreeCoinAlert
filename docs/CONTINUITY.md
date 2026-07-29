@@ -14,7 +14,7 @@ The agreed product direction remains an alert-first web application where users 
 
 - **Date:** 2026-07-29
 - **GitHub Issue:** #14 - Implement authenticated session, current-user, and logout API
-- **Pull Request:** Pending creation from `agent/auth-session-lifecycle`
+- **Pull Request:** #25 - Implement authenticated session lifecycle API (draft)
 - **Summary:** Added reusable authenticated-principal and CSRF dependencies, current-user session restoration, idempotent current-session logout, safe authentication events, CORS support for the session lifecycle, and synchronized documentation.
 - **Files changed:** `apps/api/src/freecoinalert_api/api/*`, `apps/api/src/freecoinalert_api/auth/principal.py`, `apps/api/src/freecoinalert_api/db/repositories/auth_sessions.py`, `apps/api/README.md`, `AGENTS.md`, and relevant API, security, architecture, observability, concern, and continuity documentation.
 
@@ -64,7 +64,7 @@ The agreed product direction remains an alert-first web application where users 
 - **User Story:** `docs/user-stories/US-0002-create-account-and-sign-in.md`
 - **Documentation Pull Request:** #10 - merged
 - **Implementation Issues:** #11, #13, #14, and #15
-- **Completed implementation:** Issues #11 and #13 are merged; Issue #14 is implemented on `agent/auth-session-lifecycle` and awaiting its pull request.
+- **Completed implementation:** Issues #11 and #13 are merged; Issue #14 is implemented in draft PR #25.
 - **Remaining order:** #15 after Issue #14 merges.
 - **Solution status:** Approved solutions are posted for all four issues.
 - **Verification status:** No authentication verification pass has been requested or run.
