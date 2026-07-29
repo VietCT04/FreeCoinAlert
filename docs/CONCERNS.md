@@ -194,6 +194,17 @@ Deletion and retention behavior for account data, Telegram identity data, alerts
 
 ## Concern Workflow
 
+### C-023: Telegram Browser and Provider Verification
+
+**Status:** Open
+
+Issue #23 implements the browser connection, test-notification, and disconnect flow without opening a
+Telegram deep link, contacting the Bot API, or running browser/API verification. The UI can report only
+the API's safe outbox status and cannot prove delivery to a user's device.
+
+**Why it matters:** A maintainer-directed pass with a configured bot is needed to validate popup fallback,
+link completion, polling behavior, provider acceptance, and safe degraded/delivery-error presentation.
+
 ### C-022: Notification Worker Delivery Boundaries
 
 Issue #22 introduces a PostgreSQL test-notification outbox and a process-local request limiter.

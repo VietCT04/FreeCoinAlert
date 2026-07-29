@@ -51,6 +51,13 @@ All host ports bind to loopback only. The containers support local development a
 
 ## Main Components
 
+### Telegram Browser Boundary
+
+The Next.js root route renders Telegram controls only after `AuthProvider` establishes an authenticated
+session. A focused browser API module uses credentialed `fetch` with the in-memory CSRF token for
+state changes. A local React hook owns transient connection, deep-link, idempotency, polling, and
+delivery-status state; it adds no client cache, persistent store, or frontend dependency.
+
 ### Web Application
 
 The frontend uses Next.js with TypeScript, the App Router, and Tailwind CSS. Server Components are the default; client components are introduced only when browser state or effects are required. The initial authentication feature is a small client-side `AuthProvider` at the application root with in-memory safe user and CSRF values. Its feature-local API client uses native credentialed `fetch` against `NEXT_PUBLIC_API_BASE_URL`; it has no global state framework and never reads the HTTP-only cookie. Sign-in and sign-up routes use feature-local semantic forms, while the root route renders loading, unauthenticated, and authenticated states.

@@ -186,6 +186,14 @@ Introduce per-user alert and rule-complexity limits before public launch.
 
 ## Input Validation
 
+### Browser Telegram State
+
+The Telegram connection UI uses the existing credentialed session and in-memory CSRF token from the
+authentication provider. It never reads the HTTP-only session cookie and does not persist Telegram deep
+links, linking tokens, idempotency keys, connection IDs, chat IDs, or Telegram user IDs in browser
+storage, frontend-created cookies, URL parameters, analytics, or logs. API ownership remains derived
+from the server-side authenticated principal.
+
 Telegram test notification queueing is limited to three new requests per authenticated user per
 15 minutes. The UUID idempotency key is distinct from session and CSRF credentials, and a
 same-user replay returns its existing safe state. This limiter is application-local and must be

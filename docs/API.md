@@ -128,6 +128,18 @@ trust `X-Forwarded-For`.
 
 ## General Conventions
 
+### Browser Telegram Connection Flow
+
+The authenticated web client uses credentialed browser requests to `GET /telegram/connection`,
+`POST /telegram/link-tokens`, `POST /telegram/test-notifications`,
+`GET /telegram/test-notifications/{notification_id}`, and `DELETE /telegram/connection`. State-changing
+requests send the in-memory CSRF token, while the test-notification request also sends a browser-memory
+UUID `Idempotency-Key`. The client never sends a user, connection, chat, or Telegram user identifier.
+
+The returned deep link and test-status state remain in React memory. The client polls a linking
+connection or queued test notification only while needed, pauses while hidden, and shows safe stable
+error-code messages instead of provider details.
+
 ### Telegram Test Notifications
 
 `POST /telegram/test-notifications` requires the browser session, `X-CSRF-Token`, and an

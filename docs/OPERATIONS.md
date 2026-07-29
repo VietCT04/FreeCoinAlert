@@ -103,6 +103,14 @@ design; they use `request.client.host` and do not trust `X-Forwarded-For`.
 
 ## Process Model
 
+### Telegram UI Verification Boundary
+
+The local web application includes the authenticated Telegram connection and test-notification UI.
+Its normal production path opens a generated Telegram deep link, but implementation work does not open
+the link, start the application, make browser or API requests, or contact Telegram. A separate,
+maintainer-requested verification pass with configured Telegram credentials is required before marking
+the browser flow or provider interaction verified.
+
 The modular-monolith codebase may run as separate processes:
 
 - Web frontend

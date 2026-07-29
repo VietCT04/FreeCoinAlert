@@ -4,7 +4,7 @@ FreeCoinAlert is a web application for configurable cryptocurrency market alerts
 
 Users connect Telegram, subscribe to platform-provided signals, or create validated custom conditions. The platform consumes live Binance market data, evaluates alerts, and sends Telegram notifications. It also stores its own closed one-minute candles so future historical strategy analysis can use internal data instead of querying Binance for every customer request.
 
-> Project status: frontend and API foundations are initialized, including the minimal browser registration, sign-in, session-restoration, and sign-out flow. Telegram linking, alerts, market-data processing, and a dedicated authentication verification pass remain unimplemented.
+> Project status: frontend and API foundations are initialized, including the minimal browser registration, sign-in, session-restoration, and sign-out flow. The authenticated Telegram connection and test-notification UI is implemented; alert and market-data processing, plus a dedicated verification pass, remain pending.
 
 ## Product Goal
 
@@ -350,7 +350,7 @@ docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 
 Direct component commands remain available when intentionally running a component outside Compose: `pnpm dev:web` for the frontend and `pnpm dev:api` after `uv sync --project apps/api` for the API.
 
-The stack provides the frontend, API process-health endpoint, and a local PostgreSQL server. Browser-session authentication is implemented; Telegram, alerts, and market-data processing remain unimplemented. Run a dedicated verification pass only when requested by the maintainer.
+The stack provides the frontend, API process-health endpoint, and a local PostgreSQL server. Browser-session authentication and the Telegram connection UI are implemented; alert and market-data processing remain pending. Run a dedicated verification pass only when requested by the maintainer.
 
 ## Disclaimer
 
