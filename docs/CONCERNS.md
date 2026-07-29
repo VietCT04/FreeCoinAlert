@@ -8,11 +8,11 @@ Do not hide important uncertainty only in code comments or pull-request discussi
 
 ### C-020: Authentication API and Single-Process Rate Limiting
 
-**Status:** Partially resolved by GitHub Issues #13 and #14
+**Status:** Partially resolved by GitHub Issues #13, #14, and #15
 
 Registration and sign-in use normalized email identity, Argon2id password hashes, seven-day absolute session expiry, HTTP-only browser-session cookies, and a bounded in-process limiter. The limiter applies only within one API process and uses the direct client address; it is not appropriate for multiple replicas or an untrusted reverse-proxy deployment.
 
-**Why it matters:** A public or horizontally scaled deployment requires a shared rate-limit store and an approved trusted-proxy design. Current-user, current-session logout, and session revocation are now implemented; account deletion and the production cookie/TLS deployment posture remain separate work.
+**Why it matters:** A public or horizontally scaled deployment requires a shared rate-limit store and an approved trusted-proxy design. Current-user, current-session logout, session revocation, and the minimal browser session flow are now implemented; account deletion and the production cookie/TLS deployment posture remain separate work. The authentication implementation has not received a dedicated verification pass.
 
 ### C-019: Authentication Persistence Foundation
 
@@ -84,14 +84,16 @@ The initial symbol list and process for adding or removing symbols are undecided
 
 ### C-004: Authentication Design
 
-**Status:** Partially resolved by GitHub Issues #11, #13, and #14
+**Status:** Partially resolved by GitHub Issues #11, #13, #14, and #15
 
 Issue #13 establishes email normalization, Argon2id password hashing, seven-day absolute
 session expiry, browser-session cookie attributes, and local single-process authentication
 rate limits. Issue #14 adds current-user lookup, current-session revocation, an
 authenticated-principal ownership boundary, and CSRF enforcement for state changes.
 Account deletion, trusted proxies, shared rate limiting, and production deployment
-implications remain undecided.
+implications remain undecided. The frontend keeps safe user and CSRF state only in
+memory and restores it through the current-user API; browser-flow verification remains
+pending a maintainer-requested dedicated pass.
 
 **Why it matters:** It affects the database, API, frontend, security, account deletion, and hosting cost.
 

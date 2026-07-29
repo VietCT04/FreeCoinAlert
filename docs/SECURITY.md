@@ -34,6 +34,12 @@ The immutable `AuthenticatedPrincipal` is the reusable ownership boundary. It co
 only the authenticated user UUID and session UUID. Future user-owned endpoints must
 derive ownership from that principal and never treat a client-supplied user ID as proof.
 
+The browser authentication flow uses credentialed `fetch` requests to the configured API
+origin. It keeps only the safe current user and session-bound CSRF token in React memory;
+it never reads the HTTP-only session cookie or writes authentication data to browser
+persistent storage, query parameters, or frontend-created cookies. A refresh restores
+that memory state only through `GET /auth/me`.
+
 Cookie-authenticated POST, PUT, PATCH, and DELETE endpoints must use the reusable CSRF
 dependency. It accepts `X-CSRF-Token` only as a header and compares it in constant time
 to the session-bound CSRF token. Logout revokes only the current session after a valid

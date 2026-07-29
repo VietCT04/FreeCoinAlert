@@ -2,15 +2,21 @@
 
 ## Current Project State
 
-FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, runnable Next.js and FastAPI foundations, a local Docker Compose stack with PostgreSQL, and completed authentication persistence, registration/sign-in, and session-lifecycle API work.
+FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, runnable Next.js and FastAPI foundations, a local Docker Compose stack with PostgreSQL, and complete authentication persistence, API, and minimal browser-flow implementation work.
 
-US-0001 is implementation-complete. US-0002 is the active product implementation: authentication persistence, registration/sign-in, and session lifecycle are complete in code, while frontend authentication remains in Issue #15.
+US-0001 is implementation-complete. US-0002 implementation is complete in code across Issues #11, #13, #14, and #15, but becomes implementation-complete only after all four pull requests are merged. No dedicated authentication verification pass has been requested or run.
 
 US-0003 is approved and documented in merged PR #18. Its implementation introduces one private Telegram destination per signed-in user through a short-lived, one-time deep-link flow. Telegram implementation must wait until US-0002 is implementation-complete.
 
 The agreed product direction remains an alert-first web application where users connect Telegram, subscribe to available signal templates, or create validated custom alerts. Binance WebSocket data will drive real-time evaluation, closed one-minute candles will be stored as canonical history, and reconciliation will repair missing data. Future historical analysis will reuse the same strategy-core logic and internal candle database.
 
 ## Latest Completed Work
+
+- **Date:** 2026-07-29
+- **GitHub Issue:** #15 - Add frontend registration, sign-in, and sign-out flow
+- **Pull Request:** Pending creation - Implement frontend authentication flow
+- **Summary:** Added a small in-memory authentication provider, credentialed native-fetch API client, accessible registration and sign-in forms, session restoration, and current-session sign-out without browser persistence of session data.
+- **Files changed:** `apps/web/src/app/*`, `apps/web/src/features/auth/*`, `.env.example`, `apps/web/.env.example`, `compose.yaml`, `AGENTS.md`, root and web READMEs, and relevant product, API, security, architecture, operations, concern, and continuity documentation.
 
 - **Date:** 2026-07-29
 - **GitHub Issue:** #14 - Implement authenticated session, current-user, and logout API
@@ -64,8 +70,8 @@ The agreed product direction remains an alert-first web application where users 
 - **User Story:** `docs/user-stories/US-0002-create-account-and-sign-in.md`
 - **Documentation Pull Request:** #10 - merged
 - **Implementation Issues:** #11, #13, #14, and #15
-- **Completed implementation:** Issues #11 and #13 are merged; Issue #14 is implemented in draft PR #25.
-- **Remaining order:** #15 after Issue #14 merges.
+- **Completed implementation:** Issues #11, #13, and #14 are merged; Issue #15 is implemented in the pending pull request.
+- **Remaining order:** Merge Issue #15 to mark US-0002 implementation-complete.
 - **Solution status:** Approved solutions are posted for all four issues.
 - **Verification status:** No authentication verification pass has been requested or run.
 
@@ -142,7 +148,7 @@ Important unresolved decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge the Issue #13 registration and sign-in pull request, then implement US-0002 Issues #14 and #15 in order.
+1. Review and merge the Issue #15 frontend-authentication pull request, then mark US-0002 implementation-complete.
 2. After US-0002 is complete, request proposed technical solutions for US-0003 beginning with Issue #19.
 3. Request a dedicated verification pass only when the maintainer wants one.
 
