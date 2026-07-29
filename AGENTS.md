@@ -463,7 +463,7 @@ Add or update tests when practical, especially for:
 - Rule validation and template versioning
 - Historical look-ahead prevention
 
-No test or verification execution is required after coding. Do not run backend or frontend test suites or verification commands unless the maintainer explicitly requests a dedicated verification pass.
+No test or verification execution is required after coding. Do not run backend or frontend test suites, migrations, or verification commands unless the maintainer explicitly requests a dedicated verification pass.
 
 This also prohibits Docker builds, Compose startup, container health checks, HTTP requests, and database connection commands unless the maintainer explicitly requests that verification pass.
 

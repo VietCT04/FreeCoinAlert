@@ -16,7 +16,15 @@ This document defines the initial security boundaries and minimum controls for a
 
 ## Authentication
 
-The authentication implementation is not final.
+Issue #11 establishes persistence only. `users` stores a password hash, never a raw
+password, and enforces unique `email_normalized` identity. `auth_sessions` stores only
+a unique session-token hash, explicit expiry, and optional revocation time. It permits
+multiple concurrent sessions per user and cascades their deletion when the owning user
+is deleted. The CSRF token may be stored directly because it cannot authenticate a user
+without the HTTP-only session cookie.
+
+Registration, password hashing, email validation, session-token generation, cookies,
+login, logout, and current-user authorization are not implemented yet.
 
 Whichever approach is selected must provide:
 
@@ -179,7 +187,7 @@ Update this document and request review when introducing:
 
 ## Pending Decisions
 
-- Authentication provider and session design.
+- Authentication provider, email normalization policy, session lifetime, and cookie design.
 - Encryption requirements for Telegram destination identifiers.
 - Initial rate-limit thresholds.
 - Account deletion and data-retention behavior.
