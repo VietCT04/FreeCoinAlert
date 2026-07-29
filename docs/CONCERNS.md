@@ -6,6 +6,14 @@ Do not hide important uncertainty only in code comments or pull-request discussi
 
 ## Open Concerns
 
+### C-020: Authentication API and Single-Process Rate Limiting
+
+**Status:** Partially resolved by GitHub Issue #13
+
+Registration and sign-in use normalized email identity, Argon2id password hashes, seven-day absolute session expiry, HTTP-only browser-session cookies, and a bounded in-process limiter. The limiter applies only within one API process and uses the direct client address; it is not appropriate for multiple replicas or an untrusted reverse-proxy deployment.
+
+**Why it matters:** A public or horizontally scaled deployment requires a shared rate-limit store and an approved trusted-proxy design. Current-user, logout, session revocation, account deletion, and the production cookie/TLS deployment posture remain separate work.
+
 ### C-019: Authentication Persistence Foundation
 
 **Status:** Resolved by GitHub Issue #11
@@ -76,11 +84,12 @@ The initial symbol list and process for adding or removing symbols are undecided
 
 ### C-004: Authentication Design
 
-**Status:** Open
+**Status:** Partially resolved by GitHub Issues #11 and #13
 
-The authentication provider, email normalization policy, session lifetime, cookie model,
-and deployment implications are undecided. Issue #11 establishes only the initial
-persistence schema.
+Issue #13 establishes email normalization, Argon2id password hashing, seven-day absolute
+session expiry, browser-session cookie attributes, and local single-process authentication
+rate limits. Current-user, logout, session revocation, account deletion, trusted proxies,
+shared rate limiting, and production deployment implications remain undecided.
 
 **Why it matters:** It affects the database, API, frontend, security, account deletion, and hosting cost.
 

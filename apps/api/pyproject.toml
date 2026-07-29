@@ -5,7 +5,9 @@ description = "Backend API for the FreeCoinAlert platform."
 requires-python = ">=3.14,<3.15"
 dependencies = [
     "alembic==1.18.5",
+    "email-validator==2.3.0",
     "fastapi[standard]==0.139.2",
+    "pwdlib[argon2]==0.3.0",
     "psycopg[binary]==3.3.4",
     "pydantic-settings==2.14.2",
     "sqlalchemy==2.0.51",

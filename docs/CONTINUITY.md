@@ -2,11 +2,11 @@
 
 ## Current Project State
 
-FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, runnable Next.js and FastAPI foundations, a local Docker Compose stack with PostgreSQL, and the initial user and authentication-session persistence layer from Issue #11.
+FreeCoinAlert has an approved documentation baseline, a repository-level pnpm workspace foundation, runnable Next.js and FastAPI foundations, a local Docker Compose stack with PostgreSQL, persistence from Issue #11, and the Issue #13 registration and sign-in API implementation awaiting review.
 
-US-0001 is implementation-complete. US-0002 is the active product implementation: authentication persistence is merged, while registration and sign-in, session lifecycle, and frontend authentication remain in Issues #13, #14, and #15.
+US-0001 is implementation-complete. US-0002 is the active product implementation: authentication persistence and registration/sign-in are complete in code, while session lifecycle and frontend authentication remain in Issues #14 and #15.
 
-US-0003 is approved and documented in PR #18. Its implementation introduces one private Telegram destination per signed-in user through a short-lived, one-time deep-link flow. Telegram implementation must wait until US-0002 is implementation-complete.
+US-0003 is approved and documented in merged PR #18. Its implementation introduces one private Telegram destination per signed-in user through a short-lived, one-time deep-link flow. Telegram implementation must wait until US-0002 is implementation-complete.
 
 The agreed product direction remains an alert-first web application where users connect Telegram, subscribe to available signal templates, or create validated custom alerts. Binance WebSocket data will drive real-time evaluation, closed one-minute candles will be stored as canonical history, and reconciliation will repair missing data. Future historical analysis will reuse the same strategy-core logic and internal candle database.
 
@@ -58,15 +58,15 @@ The agreed product direction remains an alert-first web application where users 
 - **User Story:** `docs/user-stories/US-0002-create-account-and-sign-in.md`
 - **Documentation Pull Request:** #10 - merged
 - **Implementation Issues:** #11, #13, #14, and #15
-- **Completed implementation:** Issue #11 through PR #17
-- **Remaining order:** #13, then #14, then #15
+- **Completed implementation:** Issue #11 through PR #17; Issue #13 is implemented on `agent/auth-register-login` and awaiting its pull request.
+- **Remaining order:** #14, then #15, after Issue #13 merges.
 - **Solution status:** Approved solutions are posted for all four issues.
 - **Verification status:** No authentication verification pass has been requested or run.
 
 ### US-0003: Connect Telegram for Notifications
 
 - **User Story:** `docs/user-stories/US-0003-connect-telegram-for-notifications.md`
-- **Documentation Pull Request:** #18 - open
+- **Documentation Pull Request:** #18 - merged
 - **Implementation Issues:** #19, #20, #21, #22, and #23
 - **Implementation dependency:** US-0002 must be implementation-complete before Issue #19 begins.
 - **Implementation order:** #19, #20, #21, #22, then #23
@@ -136,10 +136,9 @@ Important unresolved decisions include:
 
 ## Next Recommended Steps
 
-1. Implement US-0002 in order: Issues #13, #14, then #15.
-2. Review and merge documentation PR #18 when ready.
-3. After US-0002 is complete, request proposed technical solutions for US-0003 beginning with Issue #19.
-4. Request a dedicated verification pass only when the maintainer wants one.
+1. Review and merge the Issue #13 registration and sign-in pull request, then implement US-0002 Issues #14 and #15 in order.
+2. After US-0002 is complete, request proposed technical solutions for US-0003 beginning with Issue #19.
+3. Request a dedicated verification pass only when the maintainer wants one.
 
 ## Handoff Notes
 

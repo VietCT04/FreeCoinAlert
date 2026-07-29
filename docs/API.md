@@ -6,7 +6,7 @@ This document defines API-wide conventions and the planned resource areas. Exact
 
 ## Status
 
-The API foundation currently implements only the unauthenticated process-health endpoint below. All feature resource groups remain planned.
+The API implements the unauthenticated process-health endpoint and the initial account-registration and sign-in endpoints. Current-user lookup, logout, and other feature resource groups remain planned.
 
 Do not treat the examples below as final contracts. They define naming and behavior expectations for future implementation.
 
@@ -29,6 +29,29 @@ Response:
 
 This is liveness/process health only. It performs no database or external-network calls and does not represent readiness for PostgreSQL, market-data ingestion, alert evaluation, Telegram delivery, or future workers. Standard FastAPI OpenAPI endpoints remain available at `/docs`, `/redoc`, and `/openapi.json`.
 
+### Account Registration and Sign-In
+
+`POST /auth/register` creates an account and returns HTTP `201`. `POST /auth/login` verifies an existing account and returns HTTP `200`. Both accept JSON with `email` and `password`, and return:
+
+```json
+{
+  "user": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "createdAt": "UTC timestamp"
+  },
+  "csrfToken": "random CSRF token"
+}
+```
+
+Successful responses set the `freecoinalert_session` cookie with `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`, and no `Expires` or `Max-Age`. `SESSION_COOKIE_SECURE` controls its `Secure` attribute; it is false only for local HTTP development. The raw session token is never returned in JSON, readable response headers, URLs, or browser storage. Successful responses include `Cache-Control: no-store`.
+
+Email input is trimmed, validated without DNS or deliverability checks, normalized by `email-validator`, and case-folded for the database identity lookup. Passwords are not trimmed; they accept Unicode and spaces and must contain 15 through 128 Unicode code points. New hashes use Argon2id.
+
+Authentication errors use `{ "code", "message", "details": [] }`. `AUTH_REGISTRATION_UNAVAILABLE` safely covers duplicate registration, `AUTH_INVALID_CREDENTIALS` covers both missing accounts and incorrect passwords, `AUTH_REQUEST_INVALID` covers malformed or invalid input, `AUTH_ORIGIN_REJECTED` covers an explicit unapproved browser origin, and `AUTH_RATE_LIMITED` returns HTTP `429` with `Retry-After`.
+
+The API accepts the configured `WEB_ORIGIN` with credentialed CORS and accepts its own origin for local Swagger requests. It rejects an explicitly supplied unapproved `Origin`. Registration is limited to five attempts per IP per 15 minutes; login is limited to ten attempts per IP, with five failed attempts per normalized-email-and-IP pair, in the same window.
+
 ## General Conventions
 
 - Use JSON request and response bodies unless a documented endpoint requires another format.
@@ -46,13 +69,15 @@ This is liveness/process health only. It performs no database or external-networ
 
 ### Authentication and Current User
 
-Expected responsibilities:
+Implemented responsibilities:
 
-- Sign up, sign in, sign out, and current-user retrieval.
-- Session or token validation.
+- Account registration and sign-in with browser-session establishment.
+
+Remaining responsibilities:
+
+- Sign out and current-user retrieval.
+- Session validation for authenticated endpoints.
 - Account-level preferences such as display timezone.
-
-Final endpoints depend on the approved authentication design.
 
 ### Telegram Connections
 
