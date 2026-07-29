@@ -53,11 +53,11 @@ All host ports bind to loopback only. The containers support local development a
 
 ### Web Application
 
-The frontend uses Next.js with TypeScript, the App Router, and Tailwind CSS. Server Components are the default; client components are introduced only when a future approved feature needs browser state or effects. Feature-specific UI architecture remains undecided.
+The frontend uses Next.js with TypeScript, the App Router, and Tailwind CSS. Server Components are the default; client components are introduced only when browser state or effects are required. The initial authentication feature is a small client-side `AuthProvider` at the application root with in-memory safe user and CSRF values. Its feature-local API client uses native credentialed `fetch` against `NEXT_PUBLIC_API_BASE_URL`; it has no global state framework and never reads the HTTP-only cookie. Sign-in and sign-up routes use feature-local semantic forms, while the root route renders loading, unauthenticated, and authenticated states.
 
 Responsibilities:
 
-- Authentication UI.
+- Registration, sign-in, session restoration, and current-session sign-out UI.
 - Telegram connection UI.
 - Signal-template browsing.
 - Custom alert builder.

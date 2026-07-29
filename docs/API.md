@@ -60,6 +60,12 @@ The API accepts the configured `WEB_ORIGIN` with credentialed CORS and accepts i
 
 All cookie-authenticated endpoints derive identity through the immutable server-side `AuthenticatedPrincipal` containing only the user and session UUIDs. Future state-changing cookie-authenticated endpoints must reuse the CSRF dependency; they must not accept user IDs, session tokens, or CSRF tokens through bodies, query strings, or authorization headers.
 
+### Browser Authentication Client
+
+The Next.js browser client uses `NEXT_PUBLIC_API_BASE_URL` and native `fetch` for each authentication request. It sends `credentials: "include"`, uses JSON content types for registration and sign-in, and parses the stable authentication error shape without displaying raw server payloads. The HTTP-only `freecoinalert_session` cookie is never read or stored by frontend code.
+
+`GET /auth/me` restores the safe user and CSRF token into React memory after a page load. A `401` is a normal unauthenticated state; network and unexpected server failures show a retryable safe message. Registration and sign-in keep the safe user and CSRF token only in memory, while sign-out sends the memory-only token as `X-CSRF-Token`. No authentication value is placed in localStorage, sessionStorage, IndexedDB, URLs, or frontend-created persistent cookies.
+
 ## General Conventions
 
 - Use JSON request and response bodies unless a documented endpoint requires another format.

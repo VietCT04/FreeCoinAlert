@@ -44,7 +44,8 @@ From the repository root, copy `.env.example` to `.env` and run `pnpm dev` to st
 - Add variables only when they are consumed by implemented code.
 - Shared variables belong in the repository root `.env.example`; web-only variables belong in `.env.example` here.
 
+`NEXT_PUBLIC_API_BASE_URL` is required by the browser authentication client. It defaults to `http://localhost:8000` in the committed examples and is deliberately limited to the API origin, not a secret or session credential. The client uses credentialed browser `fetch` requests; it never reads or stores the HTTP-only session cookie.
+
 ## Current Limitations
 
-Authentication, Telegram linking, alert management, market charts, API integration,
-deployment configuration, and a reusable design system are not implemented yet.
+The minimal registration, sign-in, session restoration, and current-session sign-out flow is implemented. Telegram linking, alert management, market charts, profile editing, deployment configuration, a reusable design system, and a dedicated authentication verification pass remain out of scope or incomplete.

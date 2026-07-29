@@ -6,6 +6,7 @@ services:
     command: pnpm install --frozen-lockfile && pnpm --filter @freecoinalert/web dev --hostname 0.0.0.0
     environment:
       NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
     healthcheck:
       test:
         ["CMD", "node", "-e", "fetch('http://localhost:3000').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"]
