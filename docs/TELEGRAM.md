@@ -12,6 +12,19 @@ The initial product should support a user's private chat with the FreeCoinAlert 
 
 ## Connection Flow
 
+### Authenticated Browser Flow
+
+The authenticated root route exposes the minimum Telegram panel. A user can request a one-time bot
+deep link, open the FreeCoinAlert bot, refresh safe connection state, queue a test notification, and
+disconnect after an explicit inline confirmation. The interface never requests or displays a numeric
+chat ID or Telegram user ID.
+
+During linking, the browser keeps the deep link only in memory and polls safe connection state every
+two seconds for no more than ten minutes. It stops polling after terminal status or expiry, pauses
+while hidden, and refreshes on focus. Test-notification polling is similarly bounded to one minute.
+Queued status means the durable outbox accepted the request; `sent` means Telegram accepted the Bot API
+request, not that a device received it.
+
 Recommended flow:
 
 1. An authenticated user selects **Connect Telegram**.

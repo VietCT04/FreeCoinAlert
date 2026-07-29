@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { useAuth } from "../features/auth/auth-provider";
+import { TelegramConnectionPanel } from "../features/telegram/connection-panel";
 
 export default function Home() {
   const { error, refreshSession, signOut, status, user } = useAuth();
@@ -70,12 +71,10 @@ export default function Home() {
             <p className="leading-7 text-zinc-600 dark:text-zinc-300">
               Signed in as {user.email}
             </p>
-            <p className="leading-7 text-zinc-600 dark:text-zinc-300">
-              Telegram and alerts are not implemented yet.
-            </p>
             <p aria-live="polite" className="text-sm text-red-700 dark:text-red-300">
               {error}
             </p>
+            <TelegramConnectionPanel />
             <button
               className="rounded-lg border border-zinc-300 px-4 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700"
               disabled={isSigningOut}

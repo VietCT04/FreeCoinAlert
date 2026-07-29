@@ -46,6 +46,22 @@ From the repository root, copy `.env.example` to `.env` and run `pnpm dev` to st
 
 `NEXT_PUBLIC_API_BASE_URL` is required by the browser authentication client. It defaults to `http://localhost:8000` in the committed examples and is deliberately limited to the API origin, not a secret or session credential. The client uses credentialed browser `fetch` requests; it never reads or stores the HTTP-only session cookie.
 
+## Telegram Connection UI
+
+Authenticated users can request a one-time Telegram bot deep link, refresh their safe connection
+state, queue a test notification, and disconnect with an inline confirmation. The frontend keeps
+the deep link, test-notification idempotency key, connection state, and delivery status only in
+React memory. It never reads the HTTP-only session cookie or stores Telegram identifiers or linking
+tokens in browser storage.
+
+While a link is active, connection status polls every two seconds for at most ten minutes and pauses
+when the tab is hidden. Test-notification status follows the same bounded polling pattern for up to
+one minute. A later maintainer-requested verification pass must exercise a configured bot before
+claiming Telegram verification is complete.
+
 ## Current Limitations
 
-The minimal registration, sign-in, session restoration, and current-session sign-out flow is implemented. Telegram linking, alert management, market charts, profile editing, deployment configuration, a reusable design system, and a dedicated authentication verification pass remain out of scope or incomplete.
+The minimal registration, sign-in, session restoration, current-session sign-out, and Telegram
+connection flow are implemented. Alert management, market charts, profile editing, deployment
+configuration, a reusable design system, and dedicated authentication or Telegram verification
+passes remain out of scope or incomplete.
