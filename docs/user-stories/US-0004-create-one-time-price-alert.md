@@ -54,4 +54,21 @@ The first version should support one-time price-crossing alerts with clear owner
 
 ## Follow-up Issues
 
-To be created after this user story is approved and added to the repository.
+- #28 - Add supported Binance Spot market catalog
+- #29 - Add one-time price alert persistence
+- #30 - Implement authenticated one-time price alert API
+- #31 - Add centralized Binance live price stream
+- #32 - Evaluate price crossings and queue Telegram alerts
+- #33 - Add frontend one-time price alert flow
+
+## Implementation Order
+
+1. Complete US-0003 through Issues #19, #20, #21, #22, and #23.
+2. Implement Issue #28.
+3. Implement Issue #29.
+4. Implement Issue #30.
+5. Implement Issue #31.
+6. Implement Issue #32.
+7. Implement Issue #33.
+
+Each implementation issue requires an explicitly approved solution comment before implementation begins.
