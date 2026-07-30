@@ -19,7 +19,7 @@ The broader direction remains an alert-first application. Binance public market 
 
 - **Date:** 2026-07-30
 - **GitHub Issue:** #31 - Add centralized Binance live price stream
-- **Pull Request:** Pending creation
+- **Pull Request:** #43 - Add centralized Binance live price stream (draft)
 - **Summary:** Added a separately runnable, singleton-locked Binance Spot aggregate-trade process for the
   controlled ready catalog, immutable exact-decimal internal events, per-connection ordering, bounded internal
   pipeline, durable throttled latest-symbol state, bounded reconnect behavior, optional Compose profile, and
