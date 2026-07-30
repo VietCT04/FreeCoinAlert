@@ -18,6 +18,13 @@ The broader direction remains an alert-first application. Binance public market 
 ## Latest Work
 
 - **Date:** 2026-07-30
+- **Scope:** Documentation governance
+- **Summary:** Strengthened the agent instructions to require a post-implementation review for
+  stale, incomplete, superseded, and contradictory information across related domain documents,
+  READMEs, environment examples, and continuity notes. Corrected this document's market-data
+  status to reflect the Issue #31 draft implementation.
+
+- **Date:** 2026-07-30
 - **GitHub Issue:** #31 - Add centralized Binance live price stream
 - **Pull Request:** #43 - Add centralized Binance live price stream (draft)
 - **Summary:** Added a separately runnable, singleton-locked Binance Spot aggregate-trade process for the
@@ -253,7 +260,8 @@ Important unresolved decisions include:
 
 ## Market-Data State
 
-- **Exchange integration:** Not implemented
+- **Exchange integration:** Issue #31 provides a centralized Binance Spot aggregate-trade
+  integration in draft PR #43; it has not been started or verified.
 - **Initial market:** Binance Spot, USDT quote asset
 - **Supported symbols:** BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, XRPUSDT (metadata pending explicit sync)
 - **Live price stream:** Issue #31 implements an optional centralized Binance Spot aggregate-trade stream with durable latest-symbol state; it has not been started or verified.

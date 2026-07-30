@@ -51,6 +51,14 @@ After making changes, update the relevant docs.
 
 Code and docs must stay synchronized.
 
+After implementation, perform a documentation-staleness review before committing. Compare the
+implemented behavior, configuration, commands, schema, lifecycle states, and operational
+assumptions against every related document in `docs/`, relevant READMEs, environment examples,
+and `docs/CONTINUITY.md`. Update every statement made inaccurate, incomplete, superseded, or
+contradictory by the change; do not limit documentation edits to files named in the issue when
+other in-scope documentation has become stale. Record any deliberately deferred or uncertain
+documentation point in `docs/CONCERNS.md`.
+
 If a change affects behavior, API, database, security, market-data ingestion, candle aggregation, alert evaluation, Telegram linking, notification delivery, strategy definitions, historical analysis, deployment, or monitoring, documentation must be updated in the same change.
 
 ## Minimal Change Rule
