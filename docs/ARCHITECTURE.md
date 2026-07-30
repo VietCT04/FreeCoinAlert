@@ -4,6 +4,16 @@
 
 This document defines the initial system boundaries, component responsibilities, primary data flows, and architectural constraints for FreeCoinAlert.
 
+## One-Time Price Alert Persistence Boundary
+
+Issue #29 adds SQLAlchemy models and repositories for durable one-time price alerts and immutable
+trigger events. The repository boundary creates, reads, locks, updates lifecycle and crossing state,
+and records the single trigger event; it does not parse HTTP requests, validate CSRF, subscribe to
+Binance, evaluate a crossing, send Telegram messages, or commit a coordinating transaction.
+
+Future Issue #30 owns the alert API, Issue #31 owns the centralized live-price source, and Issue #32
+owns locked evaluation plus atomic alert-event and notification-outbox creation.
+
 ## Architectural Style
 
 Start as a modular monolith with separately runnable processes where needed.

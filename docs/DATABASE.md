@@ -125,13 +125,43 @@ and product enablement. Unique constraints prevent duplicate `(exchange, market_
 symbol combinations. Price values are finite, non-negative, and ordered when both bounds are present. No
 full provider payload, exchange credential, order rule, quantity rule, or private-market data is stored.
 
+### `price_alerts`
+
+Issue #29 adds durable one-time `price_cross` alerts. Each row belongs to a user, references a
+controlled supported market and Telegram connection, and has a user-scoped creation idempotency
+key. It snapshots the exchange, market type, symbol, assets, and price tick at creation, so later
+catalog changes cannot alter an alert's historical meaning. Exact `NUMERIC(38,18)` target and tick
+values must be finite, positive, and aligned using the captured zero-based price tick.
+
+The lifecycle is `active`, `triggered`, `disabled`, `deleted`, or `failed`. Only `active` is
+eligible for evaluation; the other states are terminal. Database constraints require exactly the
+matching terminal timestamp and reject contradictory timestamps. User deletion cascades alert rows;
+ordinary user deletion is a soft transition to `deleted`, not a physical row removal.
+
+`last_relation` (`below`, `equal`, or `above`) and the matching exact observed price, aggregate-trade
+ID, and provider time preserve crossing state through restarts. Those evaluation fields are all null
+before initialization and all present after it. A non-increasing provider ID cannot update the alert.
+
+### `alert_events`
+
+`alert_events` stores one immutable `price_crossed` trigger for a one-time alert. It preserves the
+alert's market and price meaning, exact target and trigger prices, Binance aggregate-trade identity,
+provider time, observation time, and reconnect flag without storing raw provider payloads or Telegram
+responses. `alert_id` is unique, and `(alert_id, trigger_identity)` provides an explicit additional
+deduplication boundary. Trigger identities use `binance:spot:<SYMBOL>:aggTrade:<provider_event_id>`.
+
+Alert events are retained with their alerts. Their `alert_id` foreign key uses `RESTRICT`; a future
+full account-deletion service must delete events before deleting alerts, while user ownership itself
+continues to cascade through `user_id`.
+
 ## Migration Boundary
 
 Alembic owns schema changes in `apps/api/src/freecoinalert_api/migrations`. Migration
 `20260728_0001` creates `users` before `auth_sessions`. `20260730_0002` then creates
 Telegram connections, link tokens, processed updates, and their constraints and indexes.
-`20260730_0003` adds the notification outbox, and `20260730_0004` adds the seeded supported-market
-catalog. Each downgrade removes its owned schema in reverse order. The local Compose command applies
+`20260730_0003` adds the notification outbox, `20260730_0004` adds the seeded supported-market
+catalog, and `20260730_0005` adds one-time price alerts and immutable alert events. Each downgrade
+removes its owned schema in reverse order. The local Compose command applies
 migrations for development only. Production migration review and application remain an explicit release
 operation.
 

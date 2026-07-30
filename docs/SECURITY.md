@@ -14,6 +14,19 @@ This document defines the initial security boundaries and minimum controls for a
 - Make sensitive external-event processing idempotent.
 - Prefer deny-by-default behavior for unsupported markets, symbols, indicators, operators, and parameters.
 
+## One-Time Price Alert Persistence
+
+Issue #29 keeps one-time price alerts user-owned at the database boundary. User-facing alert reads
+always filter by the authenticated user's ID; future evaluator mutations use row locking rather than
+client-provided ownership. Alert creation idempotency is scoped to the owner and uses a future API
+provided key, never a session or CSRF token.
+
+Snapshots and immutable trigger events retain only the market identifiers, exact prices, timestamps,
+and aggregate-trade reference needed for reproducibility. They do not retain Binance payloads,
+Telegram responses, message content, session data, or secrets. Soft deletion preserves immutable
+history, while a future account-deletion workflow must order alert-event deletion before alert deletion
+because event rows restrict the alert foreign key.
+
 ## Authentication
 
 Issue #11 establishes persistence only. `users` stores a password hash, never a raw

@@ -172,3 +172,11 @@ public trusted-proxy deployment.
 
 It reports only that the API process is running. It does not indicate readiness for a
 database, market-data ingestion, alert evaluation, or Telegram delivery.
+
+## One-Time Price Alert Persistence
+
+Issue #29 provides database-only persistence for one-time price-cross alerts. It stores exact decimal
+targets and immutable supported-market snapshots, durable `below`/`equal`/`above` crossing state,
+terminal lifecycle timestamps, and one immutable deduplicated trigger event per alert. No alert HTTP
+endpoint, Binance stream, evaluator, notification-outbox write, or Telegram message behavior is part
+of this issue. The migration is `20260730_0005`; it was generated but not applied.
