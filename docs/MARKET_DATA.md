@@ -230,4 +230,12 @@ Issue #31 adds a separately runnable Binance Spot aggregate-trade stream for the
 
 Messages are accepted only when their wrapper and payload symbols agree, aggregate IDs and trade IDs are non-negative and ordered, price is finite and positive, and timestamps are within the ten-second freshness and two-second future-tolerance boundaries. Aggregate ID is the per-symbol order key: duplicates and older IDs are discarded; jumps are observable but accepted. The first accepted event for each symbol after reconnect is marked `observed_after_reconnect`.
 
-The reader validates before adding to a bounded 10,000-event queue. Queue backpressure closes the connection and reconnects instead of silently discarding a valid event. The stream does not evaluate alerts, write alert events, create notification jobs, persist historical trades, or backfill data.
+The reader validates before adding to a bounded 10,000-event queue. Queue backpressure closes the connection and reconnects instead of silently discarding a valid event. The stream does not persist historical trades or backfill data.
+
+## Price-Alert Evaluation Sink
+
+Issue #32 adds the price-alert evaluator as the second ordered internal queue sink after durable market-state
+recording. It consumes only validated, fresh aggregate-trade events and never contacts Binance independently or
+stores raw ticks. Stream disconnection and stale state pause evaluation; they do not alter active-alert lifecycle.
+The first fresh post-reconnect event may produce an observed crossing from the persisted prior relation, and the
+immutable event records that reconnect observation.

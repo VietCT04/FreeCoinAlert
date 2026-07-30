@@ -263,4 +263,11 @@ When adding a concern:
 6. Keep resolved concerns when historical context remains useful, or archive them through an approved documentation change.
 # Live-price stream follow-up
 
-Issue #31 uses a single PostgreSQL advisory lock and an in-process queue, which are appropriate for the MVP but require deliberate distributed ownership and shared transport design before horizontal scaling. Aggregate-trade sequence jumps remain observable rather than treated as corruption because public consumer continuity is not guaranteed across reconnects. Alert crossing evaluation, database-backed trigger deduplication, and notification creation remain owned by Issue #32.
+Issue #31 uses a single PostgreSQL advisory lock and an in-process queue, which are appropriate for the MVP but require deliberate distributed ownership and shared transport design before horizontal scaling. Aggregate-trade sequence jumps remain observable rather than treated as corruption because public consumer continuity is not guaranteed across reconnects.
+
+## Price-Alert Evaluation Follow-Up
+
+The initial registry iterates active alerts for a symbol and uses process-local ordered delivery. Threshold indexing,
+horizontal evaluator ownership, shared transport, and measured high-volume latency policy require a later approved
+design. This implementation was not connected to Binance, Telegram, a database, or a running worker, so a
+maintainer-requested verification pass remains necessary before release.

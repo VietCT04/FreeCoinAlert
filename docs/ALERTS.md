@@ -234,3 +234,18 @@ than 20 active rows. Deleted alerts are excluded from normal lists; active and d
 `deleted` with `user_deleted`, while triggered and failed rows cannot be deleted or reactivated. The API does
 not inspect a price: a future first accepted market event initializes relation without triggering. Event and
 outbox creation remain future evaluator work.
+
+## One-Time Price Evaluation
+
+Issue #32 evaluates accepted ordered `PriceEvent` values inside the singleton market-stream process. Active
+alerts are grouped in an in-memory registry by supported market, refreshed every two seconds with a five-second
+overlap and rebuilt every 60 seconds. The first accepted price records `below`, `equal`, or `above` without a
+trigger. `cross_above` triggers only from below/equal to above; `cross_below` triggers only from above/equal to
+below. Same-side observations do not write the alert row.
+
+Each candidate re-locks and revalidates the durable active alert. A successful crossing atomically creates the
+immutable event, terminal `triggered` transition, and one Telegram outbox job. The event identity is
+`binance:spot:<SYMBOL>:aggTrade:<provider_event_id>`; reconnect observations use the first accepted fresh price,
+not an invented outage-time value. Delivery failure never re-arms a triggered alert. Markets that are no longer
+ready disable their active alerts with `market_disabled`; impossible persisted evaluation state fails the alert with
+`evaluation_invariant`.

@@ -297,3 +297,7 @@ source, evaluator, alert event/outbox write, or Telegram delivery.
 # Live-price stream boundary
 
 The optional `market-stream` process reuses the API package, settings, SQLAlchemy models, catalog synchronization service, and database configuration. One WebSocket reader produces normalized `PriceEvent` values for an ordered internal queue; Issue #31 registers only the durable market-state recorder. Issue #32 may add an alert evaluator sink to the same pipeline. Provider-specific JSON and WebSocket handling remain in `market_data/binance_websocket.py`, outside alert-domain logic.
+
+Issue #32 adds that evaluator as the ordered sink after market-state recording. It maintains a read-optimized
+active registry but locks and revalidates candidates in PostgreSQL; a trigger atomically writes the immutable
+event, terminal alert state, and Telegram outbox job. Telegram delivery remains a separate worker concern.

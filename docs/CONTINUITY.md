@@ -9,13 +9,22 @@ US-0001 and US-0002 are implementation-complete. No dedicated foundation or auth
 US-0003 is approved and documented in merged PR #18. Issues #19 through #23 are merged. Telegram
 verification remains deliberately pending a maintainer-requested pass.
 
-US-0004 is approved and documented in merged PR #27. Issues #28 through #30 are merged. Issue #31 has
-an approved centralized live-price-stream implementation on `agent/binance-live-price-stream`; alert evaluation
-and notification creation remain later work.
+US-0004 is approved and documented in merged PR #27. Issues #28 through #31 are merged. Issue #32 now has an
+approved centralized price-crossing evaluator implementation on `agent/price-alert-evaluator`; frontend alert
+creation remains later work.
 
 The broader direction remains an alert-first application. Binance public market data will drive centralized real-time evaluation. Closed one-minute candles, larger timeframe aggregation, reconciliation, indicator alerts, and historical analysis remain later capabilities.
 
 ## Latest Work
+
+- **Date:** 2026-07-30
+- **GitHub Issue:** #32 - Evaluate price crossings and queue Telegram alerts
+- **Summary:** Added the market-stream evaluator sink, active-alert registry, exact crossing relation handling,
+  atomic trigger/event/outbox transaction, price-alert Telegram message, safe read summaries, and notification-kind
+  migration. The implementation keeps delivery separate from triggered lifecycle state.
+- **Verification status:** Binance and Telegram were not contacted. No workers, migrations, database commands,
+  API or Compose startup, tests, builds, linting, formatting checks, type checks, or verification commands ran by
+  maintainer direction.
 
 - **Date:** 2026-07-30
 - **Scope:** Documentation governance
@@ -184,9 +193,9 @@ The broader direction remains an alert-first application. Binance public market 
 - **User Story:** `docs/user-stories/US-0004-create-one-time-price-alert.md`
 - **Documentation Pull Request:** #27 - merged
 - **Implementation Issues:** #28, #29, #30, #31, #32, and #33
-- **Implementation dependency:** Issues #28 through #30 are merged; Issue #31 is implemented in the current draft pull request.
+- **Implementation dependency:** Issues #28 through #31 are merged; Issue #32 is implemented in the current draft pull request.
 - **Implementation order:** #28, #29, #30, #31, #32, then #33
-- **Solution status:** Issues #28 through #31 have approved solutions; later issues await solutions.
+- **Solution status:** Issues #28 through #32 have approved solutions; later issues await solutions.
 - **Verification status:** No catalog verification pass has been requested or run.
 
 ## Important User Stories
@@ -260,19 +269,20 @@ Important unresolved decisions include:
 
 ## Market-Data State
 
-- **Exchange integration:** Issue #31 provides a centralized Binance Spot aggregate-trade
-  integration in draft PR #43; it has not been started or verified.
+- **Exchange integration:** Issue #31 centralized Binance Spot aggregate-trade integration is merged; it has not
+  been started or verified.
 - **Initial market:** Binance Spot, USDT quote asset
 - **Supported symbols:** BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, XRPUSDT (metadata pending explicit sync)
-- **Live price stream:** Issue #31 implements an optional centralized Binance Spot aggregate-trade stream with durable latest-symbol state; it has not been started or verified.
+- **Live price stream:** Issues #31 and #32 provide the optional centralized aggregate-trade stream, durable
+  latest-symbol state, and one-time price-crossing evaluator; it has not been started or verified.
 - **Stored candle ranges:** None
 - **Known data gaps:** Not applicable
 - **Reconciliation status:** Not implemented
 
 ## Next Recommended Steps
 
-1. Review and merge the Issue #31 centralized live-price stream pull request.
-2. Implement Issue #32 only after its approved solution is available.
+1. Review and merge the Issue #32 price-crossing evaluator pull request.
+2. Implement Issue #33 only after its approved solution is available.
 3. Request dedicated verification passes only when the maintainer wants them.
 
 ## Handoff Notes

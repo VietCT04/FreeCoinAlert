@@ -17,6 +17,7 @@ DeliveryStatus = Literal[
     "failed",
     "outcome_unknown",
 ]
+MarketDataStatus = Literal["live", "stale", "disconnected", "unavailable"]
 
 
 class PriceAlertCreateRequest(BaseModel):
@@ -54,6 +55,13 @@ class PriceAlertDeliveryResponse(BaseModel):
     failure_code: str | None = None
 
 
+class PriceAlertMarketDataResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    status: MarketDataStatus
+    last_observed_at: datetime | None = None
+
+
 class PriceAlertResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
 
@@ -69,6 +77,7 @@ class PriceAlertResponse(BaseModel):
     created_at: datetime
     trigger: PriceAlertTriggerResponse | None = None
     delivery: PriceAlertDeliveryResponse
+    market_data: PriceAlertMarketDataResponse
 
 
 class PriceAlertEnvelope(BaseModel):

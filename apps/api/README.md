@@ -6,7 +6,8 @@ registration, sign-in, current-user lookup, logout, authenticated Telegram link-
 connection-state, and disconnect APIs, plus a separately runnable Telegram update processor.
 It also has a durable Telegram test-notification outbox and separately runnable delivery worker.
 It provides a fixed Binance Spot market catalog with a public read endpoint and an explicit metadata
-synchronization command. Live price streams, alert creation, and alert evaluation remain out of scope.
+synchronization command. It also includes the optional centralized live price stream and its one-time price-alert
+evaluator; alert creation remains an authenticated API concern.
 
 ## Prerequisites
 
@@ -197,3 +198,11 @@ to 10 per user and 30 per direct IP, and deletes to 30 per user, per 15 minutes;
 Issue #31 adds `uv run python -m freecoinalert_api.market_data.stream`, a separately runnable public Binance Spot aggregate-trade process. It first refreshes the controlled catalog and then connects one combined stream for ready supported symbols only. It normalizes valid aggregate trades to exact-decimal internal events, rejects malformed, stale, future, duplicate, unsupported, and out-of-order events, and records throttled latest operational state in `market_symbol_states`. It uses a PostgreSQL singleton advisory lock, a bounded internal queue, and reconnect backoff; it does not evaluate alerts, create events or outbox jobs, expose a current-price endpoint, or store trade history.
 
 The stream uses the public `BINANCE_SPOT_WS_BASE_URL` (default `wss://stream.binance.com:9443`), `MARKET_EVENT_MAX_AGE_SECONDS` (10), `MARKET_EVENT_FUTURE_TOLERANCE_SECONDS` (2), `MARKET_CATALOG_REFRESH_SECONDS` (21600), `MARKET_STATE_WRITE_INTERVAL_SECONDS` (1), and `MARKET_STREAM_RECONNECT_MAX_SECONDS` (30) settings. Normal API startup does not contact Binance.
+
+## Price-alert evaluator
+
+The market stream evaluates one-time price crossings after recording each validated `PriceEvent`. It maintains an
+active-alert registry, persists initialization and side changes, and atomically creates the immutable trigger,
+terminal alert state, and `telegram_price_alert` outbox job. The notification worker formats the immutable payload
+as plain UTC text and keeps delivery state separate from the alert lifecycle. Alert reads expose only a safe
+market-data status and delivery summary.

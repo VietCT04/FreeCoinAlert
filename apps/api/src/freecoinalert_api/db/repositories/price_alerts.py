@@ -192,6 +192,28 @@ async def list_active_price_alerts_for_market(
     return (await session.scalars(statement)).all()
 
 
+async def list_active_price_alerts(session: AsyncSession) -> Sequence[PriceAlert]:
+    statement = (
+        select(PriceAlert)
+        .where(PriceAlert.status == "active")
+        .order_by(PriceAlert.supported_market_id, PriceAlert.id)
+    )
+    return (await session.scalars(statement)).all()
+
+
+async def list_active_price_alerts_updated_since(
+    session: AsyncSession,
+    *,
+    updated_since: datetime,
+) -> Sequence[PriceAlert]:
+    statement = (
+        select(PriceAlert)
+        .where(PriceAlert.updated_at >= updated_since)
+        .order_by(PriceAlert.updated_at, PriceAlert.id)
+    )
+    return (await session.scalars(statement)).all()
+
+
 async def initialize_price_alert_relation(
     session: AsyncSession,
     *,

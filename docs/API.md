@@ -336,3 +336,11 @@ All responses use `Cache-Control: no-store` and return only safe market snapshot
 optional trigger, and separate delivery summary fields. Delivery remains `not_queued` until later work. The
 first live event initializes crossing state without triggering. Create limits are 10 per user and 30 per direct
 IP; delete is 30 per user, each per 15 minutes. Limits return `429 ALERT_RATE_LIMITED` with `Retry-After`.
+
+## One-Time Price Alert Read State
+
+Issue #32 extends the existing safe alert response with `marketData.status` (`live`, `stale`, `disconnected`, or
+`unavailable`) and optional `marketData.lastObservedAt`. It maps only the latest durable market-symbol state and
+does not expose live price, provider IDs, connection generations, state reasons, Telegram identifiers, or
+delivery internals. Triggered alerts include immutable trigger price/time and delivery maps queued, sending,
+retrying, sent, failed, and outcome-unknown outbox state.

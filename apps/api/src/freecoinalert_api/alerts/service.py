@@ -15,6 +15,10 @@ from freecoinalert_api.alerts.errors import AlertError
 from freecoinalert_api.db.models.alert_event import AlertEvent
 from freecoinalert_api.db.models.price_alert import PriceAlert
 from freecoinalert_api.db.repositories.alert_events import get_alert_event_for_alert
+from freecoinalert_api.db.repositories.market_symbol_states import get_market_symbol_state
+from freecoinalert_api.db.repositories.notification_outbox import (
+    get_notification_by_user_and_idempotency_key,
+)
 from freecoinalert_api.db.repositories.price_alerts import (
     count_active_price_alerts_for_user,
     create_price_alert,
@@ -32,6 +36,7 @@ from freecoinalert_api.schemas.price_alerts import (
     PriceAlertCreateRequest,
     PriceAlertDeliveryResponse,
     PriceAlertListEnvelope,
+    PriceAlertMarketDataResponse,
     PriceAlertMarketResponse,
     PriceAlertResponse,
     PriceAlertTriggerResponse,
@@ -312,6 +317,15 @@ class PriceAlertService:
         try:
             event = await get_alert_event_for_alert(session, alert_id=alert.id)
             trigger = trigger_response(event)
+            notification = await get_notification_by_user_and_idempotency_key(
+                session,
+                user_id=alert.user_id,
+                idempotency_key=f"price-alert:{alert.id}",
+            )
+            market_state = await get_market_symbol_state(
+                session,
+                supported_market_id=alert.supported_market_id,
+            )
             return PriceAlertResponse(
                 id=alert.id,
                 type="price_cross",
@@ -334,7 +348,8 @@ class PriceAlertService:
                 ),
                 created_at=alert.created_at,
                 trigger=trigger,
-                delivery=PriceAlertDeliveryResponse(status="not_queued"),
+                delivery=delivery_response(notification),
+                market_data=market_data_response(market_state),
             )
         except SQLAlchemyError:
             await session.rollback()
@@ -467,6 +482,38 @@ def trigger_response(event: AlertEvent | None) -> PriceAlertTriggerResponse | No
     return PriceAlertTriggerResponse(
         price=canonical_decimal_string(event.trigger_price),
         occurred_at=event.observed_at,
+    )
+
+
+def delivery_response(notification: object | None) -> PriceAlertDeliveryResponse:
+    if notification is None:
+        return PriceAlertDeliveryResponse(status="not_queued")
+    status = getattr(notification, "status")
+    if status == "pending":
+        mapped = "queued"
+    elif status == "processing":
+        mapped = "sending"
+    elif status == "retry_wait":
+        mapped = "retrying"
+    elif status == "sent":
+        mapped = "sent"
+    elif getattr(notification, "failure_code") == "telegram_delivery_outcome_unknown":
+        mapped = "outcome_unknown"
+    else:
+        mapped = "failed"
+    return PriceAlertDeliveryResponse(
+        status=mapped,
+        sent_at=getattr(notification, "sent_at"),
+        failure_code=(None if mapped != "failed" else getattr(notification, "failure_code")),
+    )
+
+
+def market_data_response(state: object | None) -> PriceAlertMarketDataResponse:
+    raw_status = None if state is None else getattr(state, "status")
+    status = raw_status if raw_status in {"live", "stale", "disconnected"} else "unavailable"
+    return PriceAlertMarketDataResponse(
+        status=status,
+        last_observed_at=(None if state is None else getattr(state, "last_received_at")),
     )
 
 
