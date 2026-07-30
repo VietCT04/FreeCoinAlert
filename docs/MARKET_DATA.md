@@ -217,3 +217,10 @@ Unit tests must not depend on a live Binance connection.
 - Scheduling mechanism.
 - Market-data library versus a small internal client.
 - Maximum acceptable data-freshness delay before alerts are suspended.
+
+## Price Alert Creation Boundary
+
+Issue #30 resolves price-alert creation through the controlled catalog rather than trusting arbitrary identifiers.
+The market must be enabled, trading, fresh, complete, and have a positive tick. Plain `Decimal` targets are
+validated against enabled minimum/maximum bounds and exact tick alignment. Creation performs no Binance request,
+current-price lookup, stream subscription, or evaluation.

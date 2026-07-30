@@ -225,3 +225,12 @@ Prioritize tests for:
 - Whether users can edit active alerts or changes create a new version.
 - Maximum active alerts per user.
 - Data-staleness threshold for suspending evaluation.
+
+## One-Time Price Alert API
+
+Issue #30 adds authenticated create, owned list/read, and CSRF-protected soft-delete behavior. Creation requires
+a connected Telegram destination, a canonical ready market, exact target validation, UUID idempotency, and fewer
+than 20 active rows. Deleted alerts are excluded from normal lists; active and disabled rows become terminal
+`deleted` with `user_deleted`, while triggered and failed rows cannot be deleted or reactivated. The API does
+not inspect a price: a future first accepted market event initializes relation without triggering. Event and
+outbox creation remain future evaluator work.

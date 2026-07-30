@@ -19,6 +19,20 @@ provides deduplication data, but correct live crossing and atomic notification b
 #30 through #32. No migration, database command, test, or verification command was run by maintainer
 direction.
 
+### C-026: Price Alert API Awaiting Live Evaluation
+
+**Status:** Partially resolved by GitHub Issue #30
+
+Issue #30 provides authenticated creation, owned read/list, and soft-delete behavior with exact decimal
+validation, idempotency, catalog and Telegram checks, and bounded local limits. It intentionally does not fetch
+the current price, connect to Binance, evaluate crossings, create alert events/outbox rows, or send Telegram.
+No tests, migrations, application startup, HTTP requests, builds, linting, formatting, type checks, or other
+verification commands were run by maintainer direction.
+
+**Why it matters:** A created alert starts with no relation and cannot notify until a future centralized stream
+and evaluator initialize it. Process-local rate limits must be replaced before multiple API replicas or public
+launch.
+
 ### C-020: Authentication API and Single-Process Rate Limiting
 
 **Status:** Partially resolved by GitHub Issues #13, #14, and #15

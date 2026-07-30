@@ -218,3 +218,10 @@ The processor emits `telegram.update.received`, `telegram.update.duplicate`,
 `telegram.confirmation.failed`, and `telegram.polling.failed`. Safe fields may include an update
 ID and internal connection or user identifier after resolution. Events must not include raw links,
 token hashes, full updates, full message text, bot tokens, or provider exception bodies.
+
+## Issue #30 Price Alert API Events
+
+The alert API emits `alert.price.created`, `alert.price.create_replayed`, `alert.price.creation_rejected`,
+`alert.price.deleted`, and `alert.price.delete_rejected`. Safe fields may include internal alert/user UUIDs,
+canonical symbol, direction, and stable result category. Do not log request bodies, idempotency keys, sessions,
+CSRF tokens, Telegram identifiers, provider identifiers, or unrestricted persistence errors.

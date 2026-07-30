@@ -109,3 +109,10 @@ The MVP is successful when a user can:
 - Whether the MVP is permanently free or introduces paid limits later.
 - Data-retention period for alert history and one-minute candles.
 - Whether Telegram groups are supported in the first release.
+
+## Implemented One-Time Price Alert API
+
+Signed-in users with connected Telegram can create, list, read, and soft-delete only their own supported
+one-time price-cross alerts. Targets are exact catalog-validated decimals, and each user has at most 20 active
+alerts. Creation does not inspect the current price: the first accepted market event initializes state, and only
+a later crossing can trigger. Live evaluation and Telegram delivery are not part of this API slice.

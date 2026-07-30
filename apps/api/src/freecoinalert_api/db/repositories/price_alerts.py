@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select, text, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from freecoinalert_api.db.models.price_alert import PriceAlert
@@ -64,6 +64,36 @@ async def get_price_alert_for_user(
     return await session.scalar(statement)
 
 
+async def get_price_alert_for_user_for_update(
+    session: AsyncSession,
+    *,
+    alert_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> PriceAlert | None:
+    return await session.scalar(
+        select(PriceAlert)
+        .where(
+            PriceAlert.id == alert_id,
+            PriceAlert.user_id == user_id,
+        )
+        .with_for_update()
+    )
+
+
+async def get_price_alert_by_user_and_idempotency_key(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    creation_idempotency_key: str,
+) -> PriceAlert | None:
+    return await session.scalar(
+        select(PriceAlert).where(
+            PriceAlert.user_id == user_id,
+            PriceAlert.creation_idempotency_key == creation_idempotency_key,
+        )
+    )
+
+
 async def list_price_alerts_for_user(
     session: AsyncSession,
     *,
@@ -77,6 +107,63 @@ async def list_price_alerts_for_user(
 
     statement = statement.order_by(PriceAlert.created_at.desc(), PriceAlert.id.desc())
     return (await session.scalars(statement)).all()
+
+
+async def list_price_alerts_page_for_user(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    limit: int,
+    status: str | None,
+    cursor_created_at: datetime | None,
+    cursor_id: uuid.UUID | None,
+) -> Sequence[PriceAlert]:
+    statement = select(PriceAlert).where(
+        PriceAlert.user_id == user_id,
+        PriceAlert.status != "deleted",
+    )
+
+    if status is not None:
+        statement = statement.where(PriceAlert.status == status)
+
+    if cursor_created_at is not None and cursor_id is not None:
+        statement = statement.where(
+            tuple_(PriceAlert.created_at, PriceAlert.id)
+            < tuple_(cursor_created_at, cursor_id)
+        )
+
+    statement = statement.order_by(
+        PriceAlert.created_at.desc(),
+        PriceAlert.id.desc(),
+    ).limit(limit)
+    return (await session.scalars(statement)).all()
+
+
+async def lock_user_price_alert_creation(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+) -> None:
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(CAST(:user_id AS text), 0))"),
+        {"user_id": str(user_id)},
+    )
+
+
+async def count_active_price_alerts_for_user(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+) -> int:
+    return int(
+        await session.scalar(
+            select(func.count()).select_from(PriceAlert).where(
+                PriceAlert.user_id == user_id,
+                PriceAlert.status == "active",
+            )
+        )
+        or 0
+    )
 
 
 async def get_price_alert_by_id_for_update(
@@ -205,10 +292,11 @@ async def mark_price_alert_deleted(
     alert: PriceAlert,
     deleted_at: datetime,
 ) -> bool:
-    if alert.status != "active":
+    if alert.status not in {"active", "disabled"}:
         return False
 
     alert.status = "deleted"
+    alert.status_reason = "user_deleted"
     alert.deleted_at = deleted_at
     await session.flush()
     return True

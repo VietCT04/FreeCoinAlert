@@ -6,21 +6,30 @@ FreeCoinAlert has an approved documentation baseline, a repository-level pnpm wo
 
 US-0001 and US-0002 are implementation-complete. No dedicated foundation or authentication verification pass has been requested or run.
 
-US-0003 is approved and documented in merged PR #18. Issues #19 through #22 are merged. Issue #23 now
-has draft PR #38 for the frontend Telegram connection and test-notification flow. Telegram verification
-remains deliberately pending a maintainer-requested pass.
+US-0003 is approved and documented in merged PR #18. Issues #19 through #23 are merged. Telegram
+verification remains deliberately pending a maintainer-requested pass.
 
-US-0004 is approved and documented in merged PR #27. Its catalog prerequisite, Issue #28, is merged.
-Issue #29 now provides the durable one-time price-alert and immutable event persistence required before
-the API, live-price stream, and evaluator slices.
+US-0004 is approved and documented in merged PR #27. Issues #28 and #29 are merged. Issue #30 now has
+an authenticated price-alert API implementation on `agent/price-alert-api`; live-price stream and evaluator
+slices remain later work.
 
 The broader direction remains an alert-first application. Binance public market data will drive centralized real-time evaluation. Closed one-minute candles, larger timeframe aggregation, reconciliation, indicator alerts, and historical analysis remain later capabilities.
 
 ## Latest Work
 
 - **Date:** 2026-07-30
+- **GitHub Issue:** #30 - Implement authenticated one-time price alert API
+- **Pull Request:** #42 - Implement authenticated price alert API (draft)
+- **Summary:** Added session-authenticated alert create/list/read/soft-delete routes, exact-decimal validation,
+  catalog and connected-Telegram gates, idempotency, opaque cursor pagination, transactionally enforced active
+  limit, bounded local rate limiting, safe responses/errors, and supporting documentation. No live Binance
+  lookup or stream, evaluator, alert-event/outbox write, Telegram message, frontend, migration, or test files.
+- **Verification status:** No migration, database command, API startup, HTTP request, test, Docker/Compose command,
+  build, lint, format, type check, or other verification command was run by maintainer direction.
+
+- **Date:** 2026-07-30
 - **GitHub Issue:** #29 - Add one-time price alert persistence
-- **Pull Request:** #41 - Add one-time price alert persistence (draft)
+- **Pull Request:** #41 - Add one-time price alert persistence (merged)
 - **Summary:** Added PostgreSQL one-time price-alert and immutable alert-event schema, exact-decimal
   constraints, snapshot and lifecycle invariants, locked repository operations, and the Alembic migration.
   No API route, Binance stream, evaluator, outbox write, Telegram behavior, or frontend was added.
@@ -148,7 +157,7 @@ The broader direction remains an alert-first application. Binance public market 
 - **Implementation Issues:** #19, #20, #21, #22, and #23
 - **Implementation order:** #19, #20, #21, #22, then #23
 - **Solution status:** Approved solutions are posted for all five issues.
-- **Implementation status:** Issues #19 through #22 are merged. Issue #23 has draft PR #38.
+- **Implementation status:** Issues #19 through #23 are merged.
 - **Verification status:** No Telegram verification pass has been requested or run.
 
 ### US-0004: Create a One-Time Cryptocurrency Price Alert
@@ -156,9 +165,9 @@ The broader direction remains an alert-first application. Binance public market 
 - **User Story:** `docs/user-stories/US-0004-create-one-time-price-alert.md`
 - **Documentation Pull Request:** #27 - merged
 - **Implementation Issues:** #28, #29, #30, #31, #32, and #33
-- **Implementation dependency:** Issue #28 is stacked on the final US-0003 frontend contract in draft PR #38.
+- **Implementation dependency:** Issues #28 and #29 are merged; Issue #30 is ready for review once its pull request opens.
 - **Implementation order:** #28, #29, #30, #31, #32, then #33
-- **Solution status:** Issue #28 has an approved solution and draft implementation; later issues await solutions.
+- **Solution status:** Issues #28 through #30 have approved solutions; later issues await solutions.
 - **Verification status:** No catalog verification pass has been requested or run.
 
 ## Important User Stories
@@ -242,8 +251,8 @@ Important unresolved decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge Issue #23 PR #38, then the stacked Issue #28 catalog pull request.
-2. Request the approved solution for Issue #29 after the catalog is merged.
+1. Review and merge the Issue #30 price-alert API pull request.
+2. Implement the approved centralized live-price source in Issue #31.
 3. Request dedicated verification passes only when the maintainer wants them.
 
 ## Handoff Notes

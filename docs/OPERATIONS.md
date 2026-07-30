@@ -306,3 +306,10 @@ uses the same API source and virtual environment, waits for healthy PostgreSQL, 
 `pnpm dev:telegram`; use `pnpm dev:telegram-logs` for its logs. Default `pnpm dev` does not start
 this process or require Telegram credentials. Do not use local polling alongside a configured
 production webhook.
+
+## One-Time Price Alert API Operations
+
+Issue #30 adds bounded in-memory create/delete request windows and a PostgreSQL advisory transaction lock for
+same-user active-alert creation. It needs no new process, environment variable, scheduler, migration, provider
+contact, or worker. Shared rate limiting and trusted-proxy design are required before multiple replicas or public
+launch; operators should observe safe creation, idempotency-conflict, and delete-rejection categories.
