@@ -267,3 +267,10 @@ commits a stable outcome, then attempts one safe confirmation. It never retries 
 confirmation and never rolls back a valid link because delivery fails. Processed updates receive
 bounded 30-day cleanup at startup and at most once per 24 hours. Webhooks, groups, and channels
 remain out of scope.
+
+## One-Time Price Alert Requirement
+
+Issue #30 activates a price alert only when the authenticated owner has a `connected` private destination.
+Missing or disconnected destinations return `ALERT_TELEGRAM_NOT_CONNECTED`; degraded destinations return
+`ALERT_TELEGRAM_DEGRADED`. The alert API exposes no Telegram identity and does not queue a message, send content,
+or define future-disconnect behavior for an already active alert.

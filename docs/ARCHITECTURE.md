@@ -287,3 +287,10 @@ It reuses the API package's settings, async database sessions, Telegram reposito
 business service. Its typed Bot API client exposes only safe link-confirmation and failure messages.
 Long polling is sequential and message-only; webhook deployment and durable notification delivery
 remain separate boundaries.
+
+## Issue #30 Alert API Boundary
+
+The API now has a focused price-alert route, schemas, service, safe error boundary, and bounded local limiter.
+The service coordinates authenticated ownership, catalog and Telegram readiness, idempotency, per-user creation
+serialization, and commits; repositories remain persistence-focused. It does not own a Binance client, live-price
+source, evaluator, alert event/outbox write, or Telegram delivery.

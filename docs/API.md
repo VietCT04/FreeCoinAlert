@@ -315,3 +315,24 @@ When an endpoint is added or changed:
 - Pagination format.
 - Standard error-code registry.
 - Whether public market metadata is served through the API or generated into the frontend build.
+
+## One-Time Price Alerts
+
+`POST /alerts/price` requires authentication, `X-CSRF-Token`, and an `Idempotency-Key` UUID. It accepts only
+`exchange`, `marketType`, `symbol`, `direction`, and string `targetPrice`; unknown fields and non-plain decimal
+targets are rejected. The target has at most 64 characters and 18 fractional digits, is parsed only through
+`Decimal`, and must satisfy the fresh catalog's enabled bounds and exact tick. Creation requires a connected
+Telegram destination and fewer than 20 active alerts. It returns `201`; a same user/key/same normalized replay
+returns `200`, while a changed request returns `409 ALERT_IDEMPOTENCY_CONFLICT`.
+
+`GET /alerts` lists only the authenticated user's non-deleted alerts in `createdAt DESC, id DESC` order with
+opaque `cursor`, `limit` 1â€“50 (default 20), and optional `active`, `triggered`, `disabled`, or `failed` status.
+An invalid cursor returns `422 ALERT_CURSOR_INVALID`. `GET /alerts/{alert_id}` returns the same safe shape or
+`404 ALERT_NOT_FOUND` for missing, deleted, or foreign rows. `DELETE /alerts/{alert_id}` is CSRF-protected,
+has no body, returns `204`, soft-deletes active or disabled alerts with `user_deleted`, and is idempotent for an
+owned deleted row. Triggered and failed alerts return `409 ALERT_NOT_DELETABLE`.
+
+All responses use `Cache-Control: no-store` and return only safe market snapshots, lifecycle, evaluation,
+optional trigger, and separate delivery summary fields. Delivery remains `not_queued` until later work. The
+first live event initializes crossing state without triggering. Create limits are 10 per user and 30 per direct
+IP; delete is 30 per user, each per 15 minutes. Limits return `429 ALERT_RATE_LIMITED` with `Retry-After`.

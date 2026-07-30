@@ -274,3 +274,13 @@ does not require it. It accepts input only from private messages with a sender a
 processed-update transaction before contacting Telegram. It never reassigns a destination or
 reveals its owner. Logs must not contain raw tokens, token hashes, full message bodies or updates,
 bot tokens, cookies, or provider exception bodies.
+
+## One-Time Price Alert API Controls
+
+Issue #30 derives every alert owner from `AuthenticatedPrincipal.user_id`; create and delete reuse the CSRF
+boundary. Request bodies cannot supply an owner, destination, market row, status, evaluator state, timestamp, or
+provider value. A per-user advisory transaction lock serializes creation while enforcing the 20-active-alert cap.
+Creates are limited to 10 per user and 30 per direct IP, and deletes to 30 per user, per 15 minutes. These
+bounded process-local controls use `request.client.host`, do not trust forwarded headers, and need a shared
+trusted-proxy-aware replacement before multiple replicas or public launch. Errors do not disclose foreign
+ownership, Telegram identity, raw idempotency keys, request bodies, session/CSRF values, or SQL details.

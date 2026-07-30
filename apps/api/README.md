@@ -180,3 +180,14 @@ targets and immutable supported-market snapshots, durable `below`/`equal`/`above
 terminal lifecycle timestamps, and one immutable deduplicated trigger event per alert. No alert HTTP
 endpoint, Binance stream, evaluator, notification-outbox write, or Telegram message behavior is part
 of this issue. The migration is `20260730_0005`; it was generated but not applied.
+
+## One-Time Price Alert API
+
+Issue #30 adds authenticated `POST /alerts/price`, `GET /alerts`, `GET /alerts/{alert_id}`, and
+`DELETE /alerts/{alert_id}` endpoints. Creation and deletion require `X-CSRF-Token`; creation also
+requires a UUID `Idempotency-Key`, a connected Telegram destination, a fresh approved market, and an exact
+plain decimal target that satisfies the catalog bounds and tick. Each user may have 20 active alerts.
+Responses are safe, use `Cache-Control: no-store`, and list owned non-deleted alerts with opaque cursors.
+The first accepted market event initializes rather than triggers the alert. This issue adds no current-price
+lookup, Binance stream, evaluator, alert-event/outbox write, or Telegram message behavior. Creates are limited
+to 10 per user and 30 per direct IP, and deletes to 30 per user, per 15 minutes; limits are process-local.
