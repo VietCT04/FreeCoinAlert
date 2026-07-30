@@ -261,3 +261,6 @@ When adding a concern:
 4. Update the status when resolved.
 5. Update the source-of-truth document with the approved decision.
 6. Keep resolved concerns when historical context remains useful, or archive them through an approved documentation change.
+# Live-price stream follow-up
+
+Issue #31 uses a single PostgreSQL advisory lock and an in-process queue, which are appropriate for the MVP but require deliberate distributed ownership and shared transport design before horizontal scaling. Aggregate-trade sequence jumps remain observable rather than treated as corruption because public consumer continuity is not guaranteed across reconnects. Alert crossing evaluation, database-backed trigger deduplication, and notification creation remain owned by Issue #32.

@@ -349,6 +349,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-telegram-bot" },
     { name = "sqlalchemy" },
+    { name = "websockets" },
 ]
 
 [package.dev-dependencies]
@@ -368,6 +369,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = "==2.14.2" },
     { name = "python-telegram-bot", specifier = "==22.8" },
     { name = "sqlalchemy", specifier = "==2.0.51" },
+    { name = "websockets", specifier = "==16.1.1" },
 ]
 
 [package.metadata.requires-dev]

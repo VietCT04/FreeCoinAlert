@@ -1,5 +1,6 @@
 from functools import lru_cache
 import re
+from urllib.parse import urlparse
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,6 +16,12 @@ class AuthenticationSettings(BaseSettings):
     telegram_update_retention_days: int = Field(default=30, gt=0)
     binance_spot_base_url: str = "https://api.binance.com"
     market_catalog_max_age_seconds: int = Field(default=86400, gt=0)
+    binance_spot_ws_base_url: str = "wss://stream.binance.com:9443"
+    market_event_max_age_seconds: int = Field(default=10, gt=0)
+    market_event_future_tolerance_seconds: int = Field(default=2, ge=0)
+    market_catalog_refresh_seconds: int = Field(default=21600, gt=0)
+    market_state_write_interval_seconds: int = Field(default=1, gt=0)
+    market_stream_reconnect_max_seconds: int = Field(default=30, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -32,6 +39,19 @@ class AuthenticationSettings(BaseSettings):
             raise ValueError("TELEGRAM_BOT_USERNAME must use Telegram username characters.")
 
         return value
+
+    @field_validator("binance_spot_ws_base_url")
+    @classmethod
+    def validate_binance_spot_ws_base_url(cls, value: str) -> str:
+        parsed = urlparse(value)
+
+        if parsed.scheme not in {"ws", "wss"} or not parsed.netloc:
+            raise ValueError("BINANCE_SPOT_WS_BASE_URL must be a WebSocket URL.")
+
+        if parsed.hostname == "stream.binance.com" and parsed.scheme != "wss":
+            raise ValueError("BINANCE_SPOT_WS_BASE_URL must use wss for Binance production.")
+
+        return value.rstrip("/")
 
 
 class Settings(AuthenticationSettings):

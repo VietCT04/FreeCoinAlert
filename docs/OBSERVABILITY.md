@@ -225,3 +225,8 @@ The alert API emits `alert.price.created`, `alert.price.create_replayed`, `alert
 `alert.price.deleted`, and `alert.price.delete_rejected`. Safe fields may include internal alert/user UUIDs,
 canonical symbol, direction, and stable result category. Do not log request bodies, idempotency keys, sessions,
 CSRF tokens, Telegram identifiers, provider identifiers, or unrestricted persistence errors.
+# Live-price stream signals
+
+The market stream emits safe structured events for startup, connection, reconnection, disconnect, singleton rejection, accepted/invalid/stale/duplicate/out-of-order events, sequence jumps, pipeline backpressure, symbol live state, and symbol stale state. Fields are limited to exchange, market type, symbol, provider event ID, connection generation, queue depth, event age, reconnect attempt, and stable error categories. Raw provider payloads, full WebSocket URLs, user and alert data, and credentials are never logged.
+
+Operational state records connection status, latest accepted event, state-write failures, catalog-refresh outcomes, and freshness. These are operational signals, not a current-price API or alert-delivery guarantee.

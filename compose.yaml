@@ -90,6 +90,29 @@ services:
       - ./apps/api:/app
       - api_venv:/app/.venv
 
+  market-stream:
+    profiles: ["market"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    command: uv sync --frozen && uv run python -m freecoinalert_api.market_data.stream
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      BINANCE_SPOT_BASE_URL: ${BINANCE_SPOT_BASE_URL:-https://api.binance.com}
+      BINANCE_SPOT_WS_BASE_URL: ${BINANCE_SPOT_WS_BASE_URL:-wss://stream.binance.com:9443}
+      MARKET_EVENT_MAX_AGE_SECONDS: ${MARKET_EVENT_MAX_AGE_SECONDS:-10}
+      MARKET_EVENT_FUTURE_TOLERANCE_SECONDS: ${MARKET_EVENT_FUTURE_TOLERANCE_SECONDS:-2}
+      MARKET_CATALOG_REFRESH_SECONDS: ${MARKET_CATALOG_REFRESH_SECONDS:-21600}
+      MARKET_STATE_WRITE_INTERVAL_SECONDS: ${MARKET_STATE_WRITE_INTERVAL_SECONDS:-1}
+      MARKET_STREAM_RECONNECT_MAX_SECONDS: ${MARKET_STREAM_RECONNECT_MAX_SECONDS:-30}
+    init: true
+    volumes:
+      - ./apps/api:/app
+      - api_venv:/app/.venv
+
   db:
     image: postgres:18.4-bookworm
     environment:

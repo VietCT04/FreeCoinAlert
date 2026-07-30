@@ -284,3 +284,6 @@ Creates are limited to 10 per user and 30 per direct IP, and deletes to 30 per u
 bounded process-local controls use `request.client.host`, do not trust forwarded headers, and need a shared
 trusted-proxy-aware replacement before multiple replicas or public launch. Errors do not disclose foreign
 ownership, Telegram identity, raw idempotency keys, request bodies, session/CSRF values, or SQL details.
+# Public market-stream boundary
+
+The Binance Spot aggregate-trade stream uses only the public combined-stream endpoint and no Binance API keys, private feeds, user streams, or trading endpoints. Symbols are loaded from the controlled catalog rather than environment input, and production Binance URLs must use `wss`. The stream records no user, alert, Telegram, quantity, maker-direction, or raw provider-payload data.

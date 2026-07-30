@@ -10,6 +10,7 @@ from freecoinalert_api.core.config import get_settings
 from freecoinalert_api.db.base import Base
 from freecoinalert_api.db.models import (  # noqa: F401
     AuthSession,
+    MarketSymbolState,
     NotificationOutbox,
     SupportedMarket,
     TelegramConnection,
