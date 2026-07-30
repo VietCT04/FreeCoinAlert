@@ -22,7 +22,10 @@ from freecoinalert_api.db.base import Base
 class NotificationOutbox(Base):
     __tablename__ = "notification_outbox"
     __table_args__ = (
-        CheckConstraint("kind = 'telegram_test'", name="ck_notification_outbox_kind"),
+        CheckConstraint(
+            "kind IN ('telegram_test', 'telegram_price_alert')",
+            name="ck_notification_outbox_kind",
+        ),
         CheckConstraint(
             "status IN ('pending', 'processing', 'retry_wait', 'sent', 'failed')",
             name="ck_notification_outbox_status",

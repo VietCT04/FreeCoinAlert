@@ -72,6 +72,14 @@ class TelegramBotClient:
             ),
         )
 
+    async def send_price_alert(
+        self,
+        *,
+        chat_id: int,
+        text: str,
+    ) -> TelegramDeliveryResult:
+        return await self._send_message(chat_id=chat_id, text=text)
+
     async def _send_message(self, *, chat_id: int, text: str) -> TelegramDeliveryResult:
         try:
             message = await self._bot.send_message(chat_id=chat_id, text=text)

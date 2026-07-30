@@ -274,3 +274,11 @@ Issue #30 activates a price alert only when the authenticated owner has a `conne
 Missing or disconnected destinations return `ALERT_TELEGRAM_NOT_CONNECTED`; degraded destinations return
 `ALERT_TELEGRAM_DEGRADED`. The alert API exposes no Telegram identity and does not queue a message, send content,
 or define future-disconnect behavior for an already active alert.
+
+## Price Alert Delivery
+
+Issue #32 adds the internal `telegram_price_alert` outbox kind. Its versioned payload contains only immutable
+symbol, asset, direction, exact target and observed prices, trigger time, and alert-event ID. The worker formats
+plain text from that payload and rechecks the bound destination before contacting Telegram. An unavailable or
+degraded connection records `telegram_connection_unavailable`; the alert remains terminally `triggered` and is
+never rearmed.

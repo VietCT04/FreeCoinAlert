@@ -2,10 +2,23 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 
 from freecoinalert_api.db.models.market_symbol_state import MarketSymbolState
+
+
+async def get_market_symbol_state(
+    session: AsyncSession,
+    *,
+    supported_market_id: UUID,
+) -> MarketSymbolState | None:
+    return await session.scalar(
+        select(MarketSymbolState).where(
+            MarketSymbolState.supported_market_id == supported_market_id,
+        )
+    )
 
 
 async def upsert_market_symbol_state(

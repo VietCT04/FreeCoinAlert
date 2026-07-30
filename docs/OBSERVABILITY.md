@@ -230,3 +230,10 @@ CSRF tokens, Telegram identifiers, provider identifiers, or unrestricted persist
 The market stream emits safe structured events for startup, connection, reconnection, disconnect, singleton rejection, accepted/invalid/stale/duplicate/out-of-order events, sequence jumps, pipeline backpressure, symbol live state, and symbol stale state. Fields are limited to exchange, market type, symbol, provider event ID, connection generation, queue depth, event age, reconnect attempt, and stable error categories. Raw provider payloads, full WebSocket URLs, user and alert data, and credentials are never logged.
 
 Operational state records connection status, latest accepted event, state-write failures, catalog-refresh outcomes, and freshness. These are operational signals, not a current-price API or alert-delivery guarantee.
+
+## Price-Alert Evaluation Signals
+
+Issue #32 emits safe structured categories for initialization, relation change, old-event suppression, trigger
+creation or duplicate suppression, invariant failure, market disablement, notification queueing, and registry
+refresh success/failure. Metrics should track registry size, evaluation duration, relation changes, triggers,
+duplicate suppression, disabled or failed alerts, queued jobs, delivery outcomes, refresh lag, and backpressure.

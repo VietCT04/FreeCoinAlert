@@ -318,3 +318,7 @@ launch; operators should observe safe creation, idempotency-conflict, and delete
 Run the optional local market profile with `pnpm dev:market`, or run the process directly with `pnpm dev:market-stream`; use `pnpm dev:market-logs` for its Compose logs. The default `pnpm dev` stack does not start the stream or contact Binance.
 
 The process uses a PostgreSQL session advisory lock for `freecoinalert:market-stream:binance:spot`, so only one stream can run against an MVP database. It refreshes the controlled catalog at startup and at most every six hours, reconnects when the ready set changes, and uses 1, 2, 4, 8, 16, then at most 30-second reconnect delays with up to 25% jitter. A healthy connection resets backoff after 60 seconds and is proactively replaced before Binance's 24-hour connection limit.
+
+Price-crossing evaluation runs in that same `market-stream` process; no second evaluator, broker, or HTTP relay is
+required. Stale or disconnected market state pauses evaluation rather than disabling alerts. Registry refresh
+failures retain the last good snapshot and emit a safe operational error.

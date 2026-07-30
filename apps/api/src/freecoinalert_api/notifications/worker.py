@@ -20,6 +20,7 @@ from freecoinalert_api.db.repositories.telegram import (
     mark_telegram_connection_degraded,
 )
 from freecoinalert_api.db.session import get_async_session_factory
+from freecoinalert_api.notifications.messages import format_price_alert_message
 from freecoinalert_api.telegram.client import (
     TelegramBotClient,
     TelegramDeliveryResult,
@@ -129,18 +130,36 @@ class NotificationWorker:
                     session,
                     notification_id=notification.id,
                     failed_at=datetime.now(timezone.utc),
-                    failure_code="telegram_not_connected",
+                    failure_code="telegram_connection_unavailable",
                 )
                 await session.commit()
                 logger.info(
-                    "notification.failed notification_id=%s failure_category=telegram_not_connected",
+                    "notification.failed notification_id=%s "
+                    "failure_category=telegram_connection_unavailable",
                     notification.id,
                 )
                 return
 
             chat_id = connection.telegram_chat_id
 
-        delivery = await self._telegram_client.send_test_notification(chat_id=chat_id)
+        if notification.kind == "telegram_test":
+            delivery = await self._telegram_client.send_test_notification(chat_id=chat_id)
+        elif notification.kind == "telegram_price_alert":
+            delivery = await self._telegram_client.send_price_alert(
+                chat_id=chat_id,
+                text=format_price_alert_message(notification.message_payload),
+            )
+        else:
+            async with session_factory() as session:
+                await mark_notification_failed(
+                    session,
+                    notification_id=notification.id,
+                    failed_at=datetime.now(timezone.utc),
+                    failure_code="notification_kind_invalid",
+                )
+                await session.commit()
+            logger.error("notification.failed notification_id=%s failure_category=kind_invalid", notification.id)
+            return
         await self._record_delivery(notification, delivery)
 
     async def _record_delivery(

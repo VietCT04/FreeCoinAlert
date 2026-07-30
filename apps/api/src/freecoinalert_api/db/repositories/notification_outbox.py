@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,6 +50,45 @@ async def create_telegram_test_notification(
         status="pending",
         idempotency_key=idempotency_key,
         message_payload={"schemaVersion": 1, "messageType": "telegram_test"},
+    )
+    session.add(notification)
+    await session.flush()
+    return notification
+
+
+async def create_telegram_price_alert_notification(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    telegram_connection_id: uuid.UUID,
+    alert_id: uuid.UUID,
+    alert_event_id: uuid.UUID,
+    symbol: str,
+    base_asset: str,
+    quote_asset: str,
+    direction: str,
+    target_price: Decimal,
+    trigger_price: Decimal,
+    triggered_at: datetime,
+) -> NotificationOutbox:
+    notification = NotificationOutbox(
+        user_id=user_id,
+        telegram_connection_id=telegram_connection_id,
+        kind="telegram_price_alert",
+        status="pending",
+        idempotency_key=f"price-alert:{alert_id}",
+        message_payload={
+            "schemaVersion": 1,
+            "messageType": "telegram_price_alert",
+            "alertEventId": str(alert_event_id),
+            "symbol": symbol,
+            "baseAsset": base_asset,
+            "quoteAsset": quote_asset,
+            "direction": direction,
+            "targetPrice": format(target_price, "f"),
+            "triggerPrice": format(trigger_price, "f"),
+            "triggeredAt": triggered_at.isoformat(),
+        },
     )
     session.add(notification)
     await session.flush()

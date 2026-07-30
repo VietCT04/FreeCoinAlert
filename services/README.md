@@ -16,3 +16,6 @@ The centralized Binance Spot market stream also remains in `apps/api` so it can 
 catalog and persistence boundaries. Run `uv run --project apps/api python -m freecoinalert_api.market_data.stream`
 only when explicitly needed, or use the optional Compose `market` profile. It owns provider connectivity and
 normalized events only; alert evaluation and notification delivery are not part of this process in Issue #31.
+
+Issue #32 adds the ordered one-time price-alert evaluator to that same market-stream process. It creates durable
+trigger events and Telegram outbox jobs, while the existing notification worker remains responsible for delivery.

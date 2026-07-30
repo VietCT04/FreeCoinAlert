@@ -12,6 +12,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 from websockets.asyncio.client import connect
 
+from freecoinalert_api.alerts.evaluator import PriceAlertEvaluator
+from freecoinalert_api.alerts.registry import ActiveAlertRegistry
 from freecoinalert_api.core.config import get_settings
 from freecoinalert_api.db.models.supported_market import SupportedMarket
 from freecoinalert_api.db.repositories.supported_markets import list_product_markets
@@ -47,6 +49,9 @@ class BinanceMarketStream:
         self._recorder = MarketStateRecorder(
             write_interval_seconds=self.settings.market_state_write_interval_seconds,
         )
+        self._registry = ActiveAlertRegistry()
+        self._evaluator = PriceAlertEvaluator(self._registry)
+        self._last_market_reconciliation = 0.0
 
     async def run(self) -> int:
         logger.info("market.stream.starting exchange=binance market_type=spot")
@@ -57,7 +62,14 @@ class BinanceMarketStream:
             return 1
 
         try:
-            await self._run_until_stopped()
+            await self._registry.load_initial()
+            maintenance = asyncio.create_task(self._maintain_alert_registry())
+            try:
+                await self._run_until_stopped()
+            finally:
+                maintenance.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await maintenance
         finally:
             await lock_connection.close()
 
@@ -118,7 +130,7 @@ class BinanceMarketStream:
         generation: uuid.UUID,
     ) -> None:
         url = build_combined_stream_url(self.settings.binance_spot_ws_base_url, markets)
-        pipeline = PriceEventPipeline([self._recorder])
+        pipeline = PriceEventPipeline([self._recorder, self._evaluator])
         consumer = asyncio.create_task(pipeline.consume(self.stop_event))
         freshness = asyncio.create_task(self._monitor_freshness(markets))
         observed_symbols: set[str] = set()
@@ -269,6 +281,17 @@ class BinanceMarketStream:
                         status="stale",
                         status_reason="freshness_timeout",
                     )
+
+    async def _maintain_alert_registry(self) -> None:
+        while not self.stop_event.is_set():
+            await self._registry.refresh_if_due()
+            if time.monotonic() - self._last_market_reconciliation >= 60:
+                await self._evaluator.reconcile_markets()
+                self._last_market_reconciliation = time.monotonic()
+            try:
+                await asyncio.wait_for(self.stop_event.wait(), timeout=2)
+            except TimeoutError:
+                continue
 
     async def _acquire_singleton_lock(self) -> AsyncConnection | None:
         connection = await get_async_engine().connect()

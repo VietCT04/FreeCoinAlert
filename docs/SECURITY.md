@@ -287,3 +287,9 @@ ownership, Telegram identity, raw idempotency keys, request bodies, session/CSRF
 # Public market-stream boundary
 
 The Binance Spot aggregate-trade stream uses only the public combined-stream endpoint and no Binance API keys, private feeds, user streams, or trading endpoints. Symbols are loaded from the controlled catalog rather than environment input, and production Binance URLs must use `wss`. The stream records no user, alert, Telegram, quantity, maker-direction, or raw provider-payload data.
+
+## Price Alert Payload Boundary
+
+Price-alert notification payloads are internal, versioned, and built only from immutable alert-event snapshots.
+They must not include Telegram chat IDs, tokens, provider URLs or raw payloads, cookies, CSRF values, or user-
+written message text. Alert read APIs expose only safe lifecycle, delivery summary, and market-state summary data.
