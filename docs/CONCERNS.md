@@ -6,6 +6,19 @@ Do not hide important uncertainty only in code comments or pull-request discussi
 
 ## Open Concerns
 
+### C-025: One-Time Price Alert Evaluation and Delivery Remain Pending
+
+**Status:** Partially resolved by GitHub Issue #29
+
+Issue #29 stores exact price-alert definitions, snapshots, crossing state, lifecycle timestamps, and
+immutable one-time trigger events. It deliberately provides no alert API, live Binance source,
+evaluator, or transaction that creates an outbox job with an event.
+
+**Why it matters:** The persistence boundary prevents a triggered alert from being reactivated and
+provides deduplication data, but correct live crossing and atomic notification behavior require Issues
+#30 through #32. No migration, database command, test, or verification command was run by maintainer
+direction.
+
 ### C-020: Authentication API and Single-Process Rate Limiting
 
 **Status:** Partially resolved by GitHub Issues #13, #14, and #15

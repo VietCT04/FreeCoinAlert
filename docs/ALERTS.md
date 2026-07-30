@@ -65,6 +65,20 @@ The exact enum must be approved with the schema issue.
 
 State transitions must be explicit. A disabled alert caused by invalid market data or delivery failure must not silently reactivate.
 
+### One-Time Price-Cross Lifecycle
+
+Issue #29 fixes the initial one-time price-cross states as `active`, `triggered`, `disabled`,
+`deleted`, and `failed`. A new alert is `active` and has no crossing state until its first accepted
+market observation. The first observation initializes `below`, `equal`, or `above` without triggering.
+Later accepted observations may change that relation; repeated observations on the same relation do
+not need to write state.
+
+`triggered`, `disabled`, `deleted`, and `failed` are terminal. `triggered` records exactly one immutable
+event and can never return to `active`. `disabled` records a stable product reason such as
+`user_disabled` or `market_disabled`; delivery failure is not an alert failure. User-facing deletion
+soft-deletes only pending active alerts, excludes them from normal lists and evaluation, and retains
+the row and any immutable history.
+
 ## Evaluation State
 
 Depending on rule type, an alert may need durable state such as:
@@ -132,6 +146,12 @@ For candle-close alerts, the key should include the alert, strategy version, can
 For price alerts, the key must account for crossing state and restart behavior.
 
 Database constraints should enforce uniqueness where possible.
+
+For the initial one-time price alert, the event key is
+`binance:spot:<SYMBOL>:aggTrade:<provider_event_id>`. The database permits only one event per alert
+and also uniquely stores that alert-scoped trigger identity. The future evaluator must lock the alert,
+ignore aggregate-trade IDs that are not greater than the persisted ID, and create the event within its
+coordinating transaction.
 
 ## Notification Creation
 

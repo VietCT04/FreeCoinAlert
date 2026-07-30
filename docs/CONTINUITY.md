@@ -10,15 +10,26 @@ US-0003 is approved and documented in merged PR #18. Issues #19 through #22 are 
 has draft PR #38 for the frontend Telegram connection and test-notification flow. Telegram verification
 remains deliberately pending a maintainer-requested pass.
 
-US-0004 is approved and documented in merged PR #27. It introduces the first end-to-end product alert: a one-time supported cryptocurrency price crossing that creates an immutable alert event and queues a Telegram notification. Issue #28 has a draft stacked implementation that must merge after PR #38.
+US-0004 is approved and documented in merged PR #27. Its catalog prerequisite, Issue #28, is merged.
+Issue #29 now provides the durable one-time price-alert and immutable event persistence required before
+the API, live-price stream, and evaluator slices.
 
 The broader direction remains an alert-first application. Binance public market data will drive centralized real-time evaluation. Closed one-minute candles, larger timeframe aggregation, reconciliation, indicator alerts, and historical analysis remain later capabilities.
 
 ## Latest Work
 
 - **Date:** 2026-07-30
+- **GitHub Issue:** #29 - Add one-time price alert persistence
+- **Pull Request:** #41 - Add one-time price alert persistence (draft)
+- **Summary:** Added PostgreSQL one-time price-alert and immutable alert-event schema, exact-decimal
+  constraints, snapshot and lifecycle invariants, locked repository operations, and the Alembic migration.
+  No API route, Binance stream, evaluator, outbox write, Telegram behavior, or frontend was added.
+- **Verification status:** No migration, database command, test, application startup, HTTP request,
+  build, lint, format, type check, or other verification command was run by maintainer direction.
+
+- **Date:** 2026-07-30
 - **GitHub Issue:** #28 - Add supported Binance Spot market catalog
-- **Pull Request:** Pending creation (stacked on draft PR #38)
+- **Pull Request:** #39 - Add supported Binance Spot market catalog (merged)
 - **Summary:** Added the fixed five-symbol Binance Spot USDT catalog, seeded `supported_markets` migration,
   exact-decimal public metadata sync boundary, public safe `/markets` API, and explicit `market:sync`
   command without WebSocket ingestion, scheduling, or alert creation.
