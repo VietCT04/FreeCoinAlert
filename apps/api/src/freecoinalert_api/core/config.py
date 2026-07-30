@@ -22,6 +22,7 @@ class AuthenticationSettings(BaseSettings):
     market_catalog_refresh_seconds: int = Field(default=21600, gt=0)
     market_state_write_interval_seconds: int = Field(default=1, gt=0)
     market_stream_reconnect_max_seconds: int = Field(default=30, gt=0)
+    candle_retention_days: int = Field(default=180, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",

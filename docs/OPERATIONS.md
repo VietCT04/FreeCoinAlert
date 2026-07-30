@@ -93,6 +93,8 @@ Shared variables belong in the root `.env.example` only when more than one appli
 
 The API authentication settings are `WEB_ORIGIN`, `SESSION_COOKIE_SECURE`, and `SESSION_TTL_SECONDS`. Local defaults are `http://localhost:3000`, `false`, and `604800` seconds. The web application also receives `NEXT_PUBLIC_API_BASE_URL`, with local default `http://localhost:8000`, through Compose and its component environment example. It is a browser-visible API origin only and must not contain a credential or secret. Before public deployment or multiple API replicas, replace the bounded application-local authentication limiter with a shared, trusted-proxy-aware design; it deliberately uses `request.client.host` and does not trust `X-Forwarded-For`.
 
+`CANDLE_RETENTION_DAYS` defaults to `180`. It defines the intended retention cutoff for current and superseded candle revisions; Issue #48 provides only the bounded cleanup repository operation. No bootstrap, cleanup schedule, reconciliation job, kline stream, or aggregation process is added until Issue #49.
+
 The Telegram connection API also consumes optional public `TELEGRAM_BOT_USERNAME` and positive
 `TELEGRAM_LINK_TTL_SECONDS` (local default `600`). The bot username must not include `@` and
 may use only Telegram username characters; no Telegram bot token is configured under this
@@ -252,7 +254,7 @@ Processes should:
 
 ## Data Retention
 
-Retention is not final.
+Canonical and derived candle revisions have an approved initial retention of 180 days. The initial bootstrap target is 150 days, giving enough additional data for a 200-period `4h` warm-up before the earliest retained signal event. Scheduling, execution, backup, archival, and partitioning decisions remain pending.
 
 Separate policies are needed for:
 

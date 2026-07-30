@@ -59,8 +59,8 @@ Indicator alerts should initially evaluate only after the selected candle closes
             |                           |
       Price alerts                Persist to database
                                         |
-                              Aggregate larger timeframes
-                               5m / 15m / 1h / 4h / 1d
+                               Aggregate larger timeframes
+                                      1h / 4h
                                         |
                                 Strategy evaluation
                                         |
@@ -97,7 +97,7 @@ The application should:
 
 Closed one-minute candles are the canonical stored market-data interval.
 
-Larger timeframes are derived internally using UTC-aligned boundaries. Live and historical aggregation must use the same implementation.
+The initial persisted larger timeframes are `1h` and `4h`, derived only from complete consecutive one-minute candles on UTC boundaries. Live and historical aggregation must use the same implementation.
 
 ### Daily Reconciliation
 

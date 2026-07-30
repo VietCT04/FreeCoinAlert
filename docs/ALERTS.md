@@ -23,7 +23,7 @@ Crossing alerts require previous-state tracking. A stream of prices remaining ab
 
 Examples:
 
-- RSI falls below 30 on `15m`.
+- RSI falls below 30 on `1h`.
 - MACD crosses above its signal line on `1h`.
 - EMA 20 crosses above EMA 50 on `4h`.
 - Volume exceeds a defined multiple of its moving average.

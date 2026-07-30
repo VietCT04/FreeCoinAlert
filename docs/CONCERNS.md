@@ -176,9 +176,9 @@ No indicator library or numeric precision approach has been selected.
 
 ### C-009: Candle Retention and Partitioning
 
-**Status:** Open
+**Status:** Partially resolved
 
-The one-minute candle retention period, supported history, and partitioning strategy are undecided.
+Issue #48 sets an initial 150-day bootstrap target and 180-day retention for current and superseded `1m`, `1h`, and `4h` candle revisions. Partitioning, archival, backup/recovery objectives, and cleanup scheduling remain undecided and belong to follow-up operational work.
 
 **Why it matters:** Data volume can grow into tens of millions of rows and affects cost, backups, queries, and future analysis.
 

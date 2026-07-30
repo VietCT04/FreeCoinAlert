@@ -32,33 +32,15 @@ An in-progress candle may be used for a future explicitly documented intrabar fe
 
 ## Canonical Candle Model
 
-Closed one-minute candles are the canonical stored interval.
+Issue #48 persists only confirmed Binance Spot `1m` candles as canonical rows, alongside approved derived `1h` and `4h` rows. All boundaries are UTC: `1h` runs minute 00 through 59, and `4h` begins at 00:00, 04:00, 08:00, 12:00, 16:00, or 20:00. `open_time` is inclusive and `close_time` is exclusive; Binance's inclusive source close time remains separate on canonical rows.
 
-All timestamps are stored in UTC.
-
-Uniqueness must be equivalent to:
-
-```text
-(exchange, market_type, symbol, open_time)
-```
-
-Writes must be idempotent so reconnects, retries, and repeated events are harmless.
+Current-candle identity is `(supported_market_id, timeframe, open_time)`. Repeated identical closed input is harmless. A changed confirmed value creates a new current revision and marks the previous complete revision superseded; it is never overwritten in place. The persistence boundary uses exact `Decimal` and `NUMERIC(38,18)` values only.
 
 ## Timeframe Aggregation
 
-Larger timeframes are derived from one-minute candles using UTC-aligned boundaries.
+The initial persistence scope is limited to `1h` and `4h`. A complete derived row requires exactly 60 or 240 consecutive current complete `1m` sources in the exact UTC window. Its open, high, low, close, volume, and trade count are calculated from those sources only. Its source fingerprint is the SHA-256 digest of the ordered `<candle id>:<revision>` tuple. Incomplete windows record observed source count and fingerprint when available, but never OHLCV values.
 
-Examples:
-
-- `5m`: minute 00–04, 05–09, and so on
-- `15m`: minute 00–14, 15–29, 30–44, 45–59
-- `1h`: top of each UTC hour
-- `4h`: 00:00, 04:00, 08:00, 12:00, 16:00, and 20:00 UTC
-- `1d`: 00:00 through 23:59 UTC
-
-A derived candle is closed only after its timeframe boundary is complete and the required source minutes are available.
-
-Live and historical aggregation must use the same implementation.
+No empty-minute synthesis or forward fill is allowed. Aggregation scheduling and provider ingestion remain Issue #49 work; the shared live/historical calculation implementation remains a later strategy-core responsibility.
 
 ## Missing Source Candles
 
@@ -72,6 +54,8 @@ If one or more source minutes are missing:
 - Expose the data-quality problem through metrics and concerns when persistent.
 
 Any future rule that synthesizes empty candles must be explicitly approved and documented.
+
+The persistence repository accepts an explicit bounded UTC range to compact missing current complete `1m` rows into ranges. It treats incomplete and invalid current rows as missing and never calls Binance or repairs a gap.
 
 ## Reconnection
 

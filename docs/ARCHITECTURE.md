@@ -127,6 +127,8 @@ Responsibilities:
 - Reconnection and gap detection.
 - UTC-aligned aggregation to larger timeframes.
 - Daily reconciliation of missing candles.
+
+Issue #48 adds the shared API-package persistence boundary for canonical and derived candle rows. It has no executable provider client or aggregation scheduler: Issue #49 will supply closed-kline ingestion, bootstrap, reconciliation, and runtime aggregation orchestration.
 - Rate-limited historical backfill.
 
 It must not create a connection per user or run expensive historical work on the real-time path.

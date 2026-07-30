@@ -35,6 +35,8 @@ Track:
 - Reconnect count
 - Subscription count
 - Known candle gaps
+
+Issue #48 introduces no worker metrics or health endpoint. Future market-data observability must distinguish complete, incomplete, invalid, and superseded candle revisions; report the latest current complete `1m` candle, bounded missing ranges, derived-window source counts, and revision replacements without recording raw provider payloads.
 - Reconciliation backlog and failures
 - REST rate-limit responses
 
