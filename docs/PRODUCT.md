@@ -37,15 +37,17 @@ The MVP assumes users understand basic concepts such as trading pairs, timeframe
 
 ### Alerts
 
-- Price above or below a threshold.
-- Price crossing a threshold.
+- One-time supported-market price-crossing alerts can be created from the authenticated root route after
+  Telegram is connected. The first live price initializes crossing state; a later crossing can trigger one
+  Telegram notification.
 - Percentage price movement.
 - RSI threshold.
 - MACD crossover.
 - EMA crossover.
 - Volume spike.
 - Platform-provided templates and validated custom rules.
-- Telegram delivery with retry and duplicate prevention.
+- Alert lifecycle and Telegram-delivery state are shown separately; Telegram acceptance is not claimed as
+  device delivery.
 
 ### Market Data
 

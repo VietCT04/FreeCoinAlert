@@ -322,3 +322,10 @@ The process uses a PostgreSQL session advisory lock for `freecoinalert:market-st
 Price-crossing evaluation runs in that same `market-stream` process; no second evaluator, broker, or HTTP relay is
 required. Stale or disconnected market state pauses evaluation rather than disabling alerts. Registry refresh
 failures retain the last good snapshot and emit a safe operational error.
+
+## Browser Price-Alert Refresh
+
+Issue #33 requires no frontend service or configuration. While visible, the authenticated panel refreshes its first
+alert page every 30 seconds for active alerts; pending delivery uses two-second refreshes for at most one minute,
+then 15-second refreshes with a manual action. It prevents overlapping requests and stops when alerts are terminal
+or the session ends. A maintainer-requested browser/API pass remains necessary before release.

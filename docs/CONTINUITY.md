@@ -9,13 +9,20 @@ US-0001 and US-0002 are implementation-complete. No dedicated foundation or auth
 US-0003 is approved and documented in merged PR #18. Issues #19 through #23 are merged. Telegram
 verification remains deliberately pending a maintainer-requested pass.
 
-US-0004 is approved and documented in merged PR #27. Issues #28 through #31 are merged. Issue #32 now has an
-approved centralized price-crossing evaluator implementation on `agent/price-alert-evaluator`; frontend alert
-creation remains later work.
+US-0004 is approved and documented in merged PR #27. Issues #28 through #32 are merged, and Issue #33 now has
+the complete browser one-time price-alert flow on `agent/frontend-price-alert-flow`.
 
 The broader direction remains an alert-first application. Binance public market data will drive centralized real-time evaluation. Closed one-minute candles, larger timeframe aggregation, reconciliation, indicator alerts, and historical analysis remain later capabilities.
 
 ## Latest Work
+
+- **Date:** 2026-07-30
+- **GitHub Issue:** #33 - Add frontend one-time price alert flow
+- **Summary:** Added the authenticated root-route price-alert section, typed catalog and alert clients, in-memory
+  decimal/form/idempotency state, Telegram readiness gating, safe lifecycle/delivery summaries, explicit eligible
+  deletion, cursor-based load-more, and bounded visibility-aware refresh behavior. Updated affected documentation.
+- **Verification status:** No browser interaction, API/Binance/Telegram requests, application startup, tests,
+  builds, linting, formatting checks, type checks, or other verification commands ran by maintainer direction.
 
 - **Date:** 2026-07-30
 - **GitHub Issue:** #32 - Evaluate price crossings and queue Telegram alerts
@@ -193,9 +200,9 @@ The broader direction remains an alert-first application. Binance public market 
 - **User Story:** `docs/user-stories/US-0004-create-one-time-price-alert.md`
 - **Documentation Pull Request:** #27 - merged
 - **Implementation Issues:** #28, #29, #30, #31, #32, and #33
-- **Implementation dependency:** Issues #28 through #31 are merged; Issue #32 is implemented in the current draft pull request.
+- **Implementation dependency:** Issues #28 through #33 are merged or implemented in the current Issue #33 pull request.
 - **Implementation order:** #28, #29, #30, #31, #32, then #33
-- **Solution status:** Issues #28 through #32 have approved solutions; later issues await solutions.
+- **Solution status:** Issues #28 through #33 have approved solutions.
 - **Verification status:** No catalog verification pass has been requested or run.
 
 ## Important User Stories
@@ -281,9 +288,8 @@ Important unresolved decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge the Issue #32 price-crossing evaluator pull request.
-2. Implement Issue #33 only after its approved solution is available.
-3. Request dedicated verification passes only when the maintainer wants them.
+1. Review and merge the Issue #33 browser price-alert pull request.
+2. Request dedicated verification passes only when the maintainer wants them.
 
 ## Handoff Notes
 

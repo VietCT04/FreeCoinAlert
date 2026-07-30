@@ -119,6 +119,7 @@ export function TelegramConnectionPanel() {
     <section
       aria-labelledby="telegram-connection-heading"
       className="space-y-4 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700"
+      id="telegram-connection"
     >
       <div className="space-y-1">
         <h2 className="text-xl font-semibold" id="telegram-connection-heading">

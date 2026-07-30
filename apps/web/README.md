@@ -61,7 +61,9 @@ claiming Telegram verification is complete.
 
 ## Current Limitations
 
-The minimal registration, sign-in, session restoration, current-session sign-out, and Telegram
-connection flow are implemented. Alert management, market charts, profile editing, deployment
-configuration, a reusable design system, and dedicated authentication or Telegram verification
-passes remain out of scope or incomplete.
+The minimal registration, sign-in, session restoration, current-session sign-out, Telegram connection,
+and one-time price-alert flow are implemented. The price-alert panel reads the controlled catalog,
+keeps decimal input and idempotency keys in React memory, shows safe lifecycle/delivery state, and
+uses bounded visibility-aware refreshes. Market charts, alert editing or recurrence, profile editing,
+deployment configuration, a reusable design system, and dedicated verification passes remain out of
+scope or incomplete.

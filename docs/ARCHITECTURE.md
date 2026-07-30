@@ -301,3 +301,10 @@ The optional `market-stream` process reuses the API package, settings, SQLAlchem
 Issue #32 adds that evaluator as the ordered sink after market-state recording. It maintains a read-optimized
 active registry but locks and revalidates candidates in PostgreSQL; a trigger atomically writes the immutable
 event, terminal alert state, and Telegram outbox job. Telegram delivery remains a separate worker concern.
+
+## Browser Price-Alert Boundary
+
+Issue #33 adds focused catalog and alert browser modules to the existing Next.js root route. Native fetch,
+React state/effects/refs, the established authentication provider, and the Telegram connection read boundary
+remain the only client-side dependencies. The browser is a typed consumer of the API's safe catalog and alert
+contracts; it does not own lifecycle evaluation, decimal persistence, authorization, or provider connectivity.
