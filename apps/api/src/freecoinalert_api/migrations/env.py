@@ -11,6 +11,7 @@ from freecoinalert_api.db.base import Base
 from freecoinalert_api.db.models import (  # noqa: F401
     AuthSession,
     NotificationOutbox,
+    SupportedMarket,
     TelegramConnection,
     TelegramLinkToken,
     TelegramProcessedUpdate,

@@ -479,6 +479,10 @@ manual API verification execution.
 
 This no-verification instruction includes browser interaction and manual API checks for approved frontend work.
 
+Issue #28 catalog work does not require contacting Binance, running the explicit catalog-sync command,
+or applying its migration after coding. Generating its migration and updated dependency lockfile is
+implementation work, not verification.
+
 For approved database-persistence work, it also includes Alembic upgrade or downgrade
 execution, database schema inspection, and transactional repository checks.
 
