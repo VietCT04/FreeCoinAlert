@@ -344,3 +344,12 @@ Issue #32 extends the existing safe alert response with `marketData.status` (`li
 does not expose live price, provider IDs, connection generations, state reasons, Telegram identifiers, or
 delivery internals. Triggered alerts include immutable trigger price/time and delivery maps queued, sending,
 retrying, sent, failed, and outcome-unknown outbox state.
+
+### Browser Price-Alert Client
+
+Issue #33 adds the authenticated root-route price-alert panel. It obtains the public controlled catalog and the
+current user's first alert page with credentialed native `fetch`, uses the memory-only CSRF token for create and
+delete requests, and creates an in-memory UUID idempotency key for each logical creation. It never sends user,
+Telegram, market-row, provider, or connection IDs, and does not persist alert, catalog, Telegram, or idempotency
+state in browser storage. The panel accepts only catalog-provided market choices and validates plain positive decimal
+syntax before submitting; API validation remains authoritative.

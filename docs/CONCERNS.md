@@ -271,3 +271,13 @@ The initial registry iterates active alerts for a symbol and uses process-local 
 horizontal evaluator ownership, shared transport, and measured high-volume latency policy require a later approved
 design. This implementation was not connected to Binance, Telegram, a database, or a running worker, so a
 maintainer-requested verification pass remains necessary before release.
+
+### C-025: Browser Price-Alert Flow Verification
+
+**Status:** Open
+
+Issue #33 implements the catalog-backed browser form, safe status presentation, deletion confirmation, and bounded
+refresh logic without browser interaction, API calls, or configured Telegram/Binance services.
+
+**Why it matters:** A maintainer-directed pass is required to confirm cross-origin credential behavior, CSRF errors,
+catalog availability, pagination, visibility refresh, concurrent deletion handling, and safe delivery wording.

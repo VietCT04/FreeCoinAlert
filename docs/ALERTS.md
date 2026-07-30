@@ -81,6 +81,14 @@ the row and any immutable history.
 
 ## Evaluation State
 
+## Browser One-Time Price Alert Flow
+
+Issue #33 places the minimal authenticated price-alert form and stacked alert cards on the root route after the
+Telegram connection section. It offers only available catalog markets, exact string target input, cross-above or
+cross-below direction, creation, first-page refresh, cursor-based load-more, and explicit deletion of eligible
+active or disabled alerts. It does not display a ticker or chart, edit or reactivate alerts, expose internal
+identifiers, or conflate a terminal trigger with Telegram delivery state.
+
 Depending on rule type, an alert may need durable state such as:
 
 - Previous comparison result

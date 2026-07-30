@@ -239,3 +239,9 @@ recording. It consumes only validated, fresh aggregate-trade events and never co
 stores raw ticks. Stream disconnection and stale state pause evaluation; they do not alter active-alert lifecycle.
 The first fresh post-reconnect event may produce an observed crossing from the persisted prior relation, and the
 immutable event records that reconnect observation.
+
+## Browser Market-State Feedback
+
+Issue #33 renders only the safe alert-read market-data summary. A stale or disconnected state explains that
+evaluation is paused or resumes after reconnection; unavailable explains that the alert is not evaluated. The
+browser does not infer freshness from its clock, subscribe to Binance, or expose current-price data.

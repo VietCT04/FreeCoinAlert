@@ -282,3 +282,9 @@ symbol, asset, direction, exact target and observed prices, trigger time, and al
 plain text from that payload and rechecks the bound destination before contacting Telegram. An unavailable or
 degraded connection records `telegram_connection_unavailable`; the alert remains terminally `triggered` and is
 never rearmed.
+
+## Browser Price-Alert Readiness
+
+Issue #33 reuses the authenticated Telegram connection boundary to gate new alerts. The browser asks users to
+connect or reconnect through the existing Telegram section and never requests a chat ID or username. It displays
+only safe queued/sending/retrying/sent/failed/outcome-unknown delivery wording after an alert has triggered.

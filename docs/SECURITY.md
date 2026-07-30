@@ -293,3 +293,10 @@ The Binance Spot aggregate-trade stream uses only the public combined-stream end
 Price-alert notification payloads are internal, versioned, and built only from immutable alert-event snapshots.
 They must not include Telegram chat IDs, tokens, provider URLs or raw payloads, cookies, CSRF values, or user-
 written message text. Alert read APIs expose only safe lifecycle, delivery summary, and market-state summary data.
+
+## Browser Price Alert Boundary
+
+Issue #33 keeps alert, catalog, Telegram-readiness, pagination, and idempotency state in React memory. Every
+authenticated mutation uses credentialed fetch and the in-memory CSRF token. The UI submits canonical fields from
+the controlled catalog only and never stores or renders user IDs, Telegram identifiers, market row IDs, provider
+event IDs, outbox IDs, cookies, or internal state reasons.

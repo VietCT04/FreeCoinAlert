@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { useAuth } from "../features/auth/auth-provider";
+import { PriceAlertPanel } from "../features/alerts/price-alert-panel";
 import { TelegramConnectionPanel } from "../features/telegram/connection-panel";
 
 export default function Home() {
@@ -36,7 +37,7 @@ export default function Home() {
         {status === "unauthenticated" ? (
           <div className="space-y-4">
             <p className="leading-7 text-zinc-600 dark:text-zinc-300">
-              Telegram and alerts are not implemented yet.
+              Sign in to connect Telegram and manage your price alerts.
             </p>
             {error ? (
               <div className="space-y-2" aria-live="polite">
@@ -75,6 +76,7 @@ export default function Home() {
               {error}
             </p>
             <TelegramConnectionPanel />
+            <PriceAlertPanel />
             <button
               className="rounded-lg border border-zinc-300 px-4 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700"
               disabled={isSigningOut}
