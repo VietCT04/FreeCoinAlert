@@ -224,3 +224,10 @@ Issue #30 resolves price-alert creation through the controlled catalog rather th
 The market must be enabled, trading, fresh, complete, and have a positive tick. Plain `Decimal` targets are
 validated against enabled minimum/maximum bounds and exact tick alignment. Creation performs no Binance request,
 current-price lookup, stream subscription, or evaluation.
+# Centralized Binance Spot Live Prices
+
+Issue #31 adds a separately runnable Binance Spot aggregate-trade stream for the controlled, alert-creation-ready catalog only (initially at most BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, and XRPUSDT). It uses one combined `<lowercase-symbol>@aggTrade` public stream, normalizes valid messages to exact-decimal `PriceEvent` values, and does not expose provider payloads to alert logic.
+
+Messages are accepted only when their wrapper and payload symbols agree, aggregate IDs and trade IDs are non-negative and ordered, price is finite and positive, and timestamps are within the ten-second freshness and two-second future-tolerance boundaries. Aggregate ID is the per-symbol order key: duplicates and older IDs are discarded; jumps are observable but accepted. The first accepted event for each symbol after reconnect is marked `observed_after_reconnect`.
+
+The reader validates before adding to a bounded 10,000-event queue. Queue backpressure closes the connection and reconnects instead of silently discarding a valid event. The stream does not evaluate alerts, write alert events, create notification jobs, persist historical trades, or backfill data.

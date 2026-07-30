@@ -191,3 +191,9 @@ Responses are safe, use `Cache-Control: no-store`, and list owned non-deleted al
 The first accepted market event initializes rather than triggers the alert. This issue adds no current-price
 lookup, Binance stream, evaluator, alert-event/outbox write, or Telegram message behavior. Creates are limited
 to 10 per user and 30 per direct IP, and deletes to 30 per user, per 15 minutes; limits are process-local.
+
+## Centralized live-price stream
+
+Issue #31 adds `uv run python -m freecoinalert_api.market_data.stream`, a separately runnable public Binance Spot aggregate-trade process. It first refreshes the controlled catalog and then connects one combined stream for ready supported symbols only. It normalizes valid aggregate trades to exact-decimal internal events, rejects malformed, stale, future, duplicate, unsupported, and out-of-order events, and records throttled latest operational state in `market_symbol_states`. It uses a PostgreSQL singleton advisory lock, a bounded internal queue, and reconnect backoff; it does not evaluate alerts, create events or outbox jobs, expose a current-price endpoint, or store trade history.
+
+The stream uses the public `BINANCE_SPOT_WS_BASE_URL` (default `wss://stream.binance.com:9443`), `MARKET_EVENT_MAX_AGE_SECONDS` (10), `MARKET_EVENT_FUTURE_TOLERANCE_SECONDS` (2), `MARKET_CATALOG_REFRESH_SECONDS` (21600), `MARKET_STATE_WRITE_INTERVAL_SECONDS` (1), and `MARKET_STREAM_RECONNECT_MAX_SECONDS` (30) settings. Normal API startup does not contact Binance.

@@ -312,3 +312,6 @@ claim, attempt, and sent/failed timestamp constraints protect its transitions.
 - Candle retention and partitioning.
 - Backup frequency and recovery objectives.
 - Data-deletion behavior for account removal.
+# Market symbol state snapshots
+
+Issue #31 adds `market_symbol_states`, keyed by `supported_market_id` with cascading deletion. It stores only the latest operational state (`starting`, `live`, `stale`, `disconnected`, or `error`), latest aggregate event ID, exact positive latest price, provider trade time, receipt time, connection generation, status reason, and update time. This is not trade history, a raw-event queue, or the evaluator transport. High-volume accepted events are written at most once per configured second, while status transitions are written immediately.

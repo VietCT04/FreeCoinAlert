@@ -9,17 +9,29 @@ US-0001 and US-0002 are implementation-complete. No dedicated foundation or auth
 US-0003 is approved and documented in merged PR #18. Issues #19 through #23 are merged. Telegram
 verification remains deliberately pending a maintainer-requested pass.
 
-US-0004 is approved and documented in merged PR #27. Issues #28 and #29 are merged. Issue #30 now has
-an authenticated price-alert API implementation on `agent/price-alert-api`; live-price stream and evaluator
-slices remain later work.
+US-0004 is approved and documented in merged PR #27. Issues #28 through #30 are merged. Issue #31 has
+an approved centralized live-price-stream implementation on `agent/binance-live-price-stream`; alert evaluation
+and notification creation remain later work.
 
 The broader direction remains an alert-first application. Binance public market data will drive centralized real-time evaluation. Closed one-minute candles, larger timeframe aggregation, reconciliation, indicator alerts, and historical analysis remain later capabilities.
 
 ## Latest Work
 
 - **Date:** 2026-07-30
+- **GitHub Issue:** #31 - Add centralized Binance live price stream
+- **Pull Request:** #43 - Add centralized Binance live price stream (draft)
+- **Summary:** Added a separately runnable, singleton-locked Binance Spot aggregate-trade process for the
+  controlled ready catalog, immutable exact-decimal internal events, per-connection ordering, bounded internal
+  pipeline, durable throttled latest-symbol state, bounded reconnect behavior, optional Compose profile, and
+  supporting operational documentation. It does not evaluate alerts, create alert events or notification jobs,
+  expose current prices, or persist trade history.
+- **Verification status:** Binance was not contacted and the stream was not started. No migrations, database
+  commands, API or Compose startup, tests, builds, linting, formatting checks, type checks, or other verification
+  commands were run by maintainer direction.
+
+- **Date:** 2026-07-30
 - **GitHub Issue:** #30 - Implement authenticated one-time price alert API
-- **Pull Request:** #42 - Implement authenticated price alert API (draft)
+- **Pull Request:** #42 - Implement authenticated price alert API (merged)
 - **Summary:** Added session-authenticated alert create/list/read/soft-delete routes, exact-decimal validation,
   catalog and connected-Telegram gates, idempotency, opaque cursor pagination, transactionally enforced active
   limit, bounded local rate limiting, safe responses/errors, and supporting documentation. No live Binance
@@ -165,9 +177,9 @@ The broader direction remains an alert-first application. Binance public market 
 - **User Story:** `docs/user-stories/US-0004-create-one-time-price-alert.md`
 - **Documentation Pull Request:** #27 - merged
 - **Implementation Issues:** #28, #29, #30, #31, #32, and #33
-- **Implementation dependency:** Issues #28 and #29 are merged; Issue #30 is ready for review once its pull request opens.
+- **Implementation dependency:** Issues #28 through #30 are merged; Issue #31 is implemented in the current draft pull request.
 - **Implementation order:** #28, #29, #30, #31, #32, then #33
-- **Solution status:** Issues #28 through #30 have approved solutions; later issues await solutions.
+- **Solution status:** Issues #28 through #31 have approved solutions; later issues await solutions.
 - **Verification status:** No catalog verification pass has been requested or run.
 
 ## Important User Stories
@@ -244,15 +256,15 @@ Important unresolved decisions include:
 - **Exchange integration:** Not implemented
 - **Initial market:** Binance Spot, USDT quote asset
 - **Supported symbols:** BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, XRPUSDT (metadata pending explicit sync)
-- **Live price stream:** Not implemented
+- **Live price stream:** Issue #31 implements an optional centralized Binance Spot aggregate-trade stream with durable latest-symbol state; it has not been started or verified.
 - **Stored candle ranges:** None
 - **Known data gaps:** Not applicable
 - **Reconciliation status:** Not implemented
 
 ## Next Recommended Steps
 
-1. Review and merge the Issue #30 price-alert API pull request.
-2. Implement the approved centralized live-price source in Issue #31.
+1. Review and merge the Issue #31 centralized live-price stream pull request.
+2. Implement Issue #32 only after its approved solution is available.
 3. Request dedicated verification passes only when the maintainer wants them.
 
 ## Handoff Notes

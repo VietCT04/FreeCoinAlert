@@ -313,3 +313,8 @@ Issue #30 adds bounded in-memory create/delete request windows and a PostgreSQL 
 same-user active-alert creation. It needs no new process, environment variable, scheduler, migration, provider
 contact, or worker. Shared rate limiting and trusted-proxy design are required before multiple replicas or public
 launch; operators should observe safe creation, idempotency-conflict, and delete-rejection categories.
+# Live-price stream operations
+
+Run the optional local market profile with `pnpm dev:market`, or run the process directly with `pnpm dev:market-stream`; use `pnpm dev:market-logs` for its Compose logs. The default `pnpm dev` stack does not start the stream or contact Binance.
+
+The process uses a PostgreSQL session advisory lock for `freecoinalert:market-stream:binance:spot`, so only one stream can run against an MVP database. It refreshes the controlled catalog at startup and at most every six hours, reconnects when the ready set changes, and uses 1, 2, 4, 8, 16, then at most 30-second reconnect delays with up to 25% jitter. A healthy connection resets backoff after 60 seconds and is proactively replaced before Binance's 24-hour connection limit.
