@@ -15,6 +15,8 @@ from freecoinalert_api.db.models import (  # noqa: F401
     MarketCandle,
     MarketSymbolState,
     NotificationOutbox,
+    SignalPreset,
+    SignalSubscription,
     SupportedMarket,
     TelegramConnection,
     TelegramLinkToken,

@@ -1,6 +1,10 @@
 # FreeCoinAlert API
 
 The API is the Python and FastAPI foundation for FreeCoinAlert. It includes user and
+
+## Signal presets and subscriptions
+
+The API exposes the seeded, server-controlled `GET /signal-presets` catalog and authenticated `GET`, `POST`, and `DELETE` `/signal-subscriptions` boundaries. Subscription creation requires the normal browser session and CSRF token, accepts only a ready supported Binance Spot market plus a preset code/version, and is limited to 20 active subscriptions per user. This implementation does not calculate SMA or RSI, create signal occurrences, stream a feed, or contact Telegram.
 authentication-session persistence, unauthenticated process health, account
 registration, sign-in, current-user lookup, logout, authenticated Telegram link-token,
 connection-state, and disconnect APIs, plus a separately runnable Telegram update processor.

@@ -2,6 +2,10 @@
 
 ## Purpose
 
+## Signal catalog boundary
+
+The API owns the versioned signal-preset catalog and subscription lifecycle. Route handlers enforce session and CSRF boundaries, the subscription service coordinates validation and transactions, and repositories encapsulate preset/subscription persistence. No indicator engine, market-data provider work, WebSocket feed, or Telegram path is introduced by this boundary.
+
 This document defines the initial system boundaries, component responsibilities, primary data flows, and architectural constraints for FreeCoinAlert.
 
 ## One-Time Price Alert Persistence Boundary

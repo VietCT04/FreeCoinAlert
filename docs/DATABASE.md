@@ -1,5 +1,11 @@
 # Database
 
+## Signal preset catalog and subscriptions
+
+`signal_presets` stores immutable server-controlled strategy versions. Each row has a public `(code, version)` identity, a SHA-256 configuration hash, fixed strategy type, timeframe, direction, period, optional exact numeric threshold, close-price input, and lifecycle timestamps. The initial migration seeds eight active version-1 presets: price/SMA 200 cross above/below and RSI 14 cross above 70/below 30 for `1h` and `4h`.
+
+`signal_subscriptions` links a user, a controlled supported market, and an exact preset row. Its unique combination enables idempotent creation; disable is a lifecycle update rather than physical deletion. Existing subscriptions remain tied to their exact preset version so later versions cannot rewrite historical meaning.
+
 ## Purpose
 
 This document defines the initial data domains, schema rules, timestamp conventions, idempotency requirements, migration expectations, and unresolved storage decisions.

@@ -1,5 +1,9 @@
 # Strategies
 
+## Versioned preset catalog
+
+Issue #50 introduces catalog persistence only, not indicator calculation. The initial immutable presets use confirmed-candle closes: `price_sma_cross` has fixed period 200 and no threshold; `rsi_threshold_cross` has fixed period 14 and a threshold of exactly 70 for cross-above or 30 for cross-below. Each has `1h` or `4h` timeframe. A changed meaning must be represented by a new version, never by modifying a published row. Active versions accept new subscriptions; superseded versions do not but existing active subscriptions continue; disabled versions stop future evaluation and disable their subscriptions when that operational transition is performed.
+
 ## Purpose
 
 This document defines platform signal templates, custom-rule definitions, supported calculation concepts, validation, deterministic evaluation, shared calculation, and strategy versioning.

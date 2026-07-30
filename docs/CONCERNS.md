@@ -2,6 +2,10 @@
 
 This file records unresolved risks, assumptions, and decisions requiring human review.
 
+## Signal preset lifecycle and scaling
+
+Issue #50 seeds the approved catalog and records subscription lifecycles, but does not add preset administration or a runtime transition workflow for superseding or disabling a preset. Issue #52 must honor disabled preset versions and reconcile active subscriptions with `preset_disabled`. The application-local subscription rate limiter is intentionally not coordinated across replicas; a shared limiter requires a separate approved infrastructure decision.
+
 Do not hide important uncertainty only in code comments or pull-request discussion. Add it here when it affects product behavior, security, reliability, data quality, cost, or future compatibility.
 
 ## Open Concerns

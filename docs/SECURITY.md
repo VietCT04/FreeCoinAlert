@@ -2,6 +2,10 @@
 
 ## Purpose
 
+## Signal subscription boundaries
+
+Subscription ownership is derived solely from the authenticated browser principal. State-changing enable and disable operations require the existing CSRF boundary and accept no user, market database, or preset database identifiers. Unknown and foreign subscription IDs use the same safe not-found response. The catalog exposes no internal UUIDs or configuration hashes. Request limits use only the direct client address and authenticated user; `X-Forwarded-For` is not trusted before a proxy design is approved.
+
 This document defines the initial security boundaries and minimum controls for authentication, authorization, Telegram linking, custom strategy rules, external integrations, secrets, abuse prevention, and logging.
 
 ## Security Principles

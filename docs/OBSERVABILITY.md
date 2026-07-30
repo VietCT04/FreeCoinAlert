@@ -2,6 +2,10 @@
 
 ## Purpose
 
+## Signal catalog and subscriptions
+
+Structured events for this slice are `signal.preset.catalog_loaded`, `signal.subscription.enabled`, `signal.subscription.enable_replayed`, `signal.subscription.reactivated`, `signal.subscription.disabled`, and `signal.subscription.rejected`. Safe fields may include subscription and authenticated-user IDs, symbol, preset code/version, outcome category, and duration. Request bodies, cookies, CSRF tokens, and unrestricted persistence errors are excluded.
+
 This document defines logs, metrics, health checks, freshness signals, alert-delivery monitoring, and incident-oriented diagnostics.
 
 ## Observability Principles

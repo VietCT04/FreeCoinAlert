@@ -2,6 +2,14 @@
 
 ## Current Project State
 
+## Latest completed work
+
+### 2026-07-30 — Issue #50: versioned preset catalog and subscriptions
+
+- Added immutable versioned signal-preset and user-subscription persistence with a migration that seeds eight approved version-1 presets.
+- Added public preset listing and authenticated, CSRF-protected subscription enable/list/disable APIs with ownership controls, exact decimal thresholds, idempotent reactivation, advisory-lock limit enforcement, and bounded local rate limits.
+- Updated related documentation. Indicator calculation, occurrences, feed delivery, Telegram behavior, and frontend work remain out of scope.
+
 FreeCoinAlert has a pnpm monorepo, Next.js frontend, FastAPI backend, PostgreSQL persistence, local Docker Compose stack, authenticated user accounts, private Telegram linking, durable Telegram notification delivery, a controlled Binance Spot catalog, centralized live aggregate-trade ingestion, one-time price-crossing alerts, and an authenticated frontend alert flow.
 
 US-0001 through US-0004 are implementation-complete in merged pull requests. No dedicated end-to-end verification pass has been requested or run for the complete product flow. Binance and Telegram integrations have been implemented but have not been contacted or exercised through a maintainer-requested verification pass.

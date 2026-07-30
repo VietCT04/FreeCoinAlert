@@ -2,6 +2,10 @@
 
 ## Purpose
 
+## Preset subscriptions
+
+Signal subscriptions are distinct from one-time price alerts. They are durable user-owned selections for the future website signal feed, and do not themselves calculate indicators, create occurrences, or enqueue Telegram notifications. Historical signal occurrences added later are global market events; users may view retained matching history for a subscription they currently have or previously had, including occurrences before activation. Those entries must be described as historical signal occurrences, not historical deliveries.
+
 This document defines alert types, lifecycle, evaluation modes, state, cooldown behavior, reproducibility, event creation, and duplicate prevention.
 
 ## Alert Categories
