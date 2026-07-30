@@ -19,7 +19,7 @@ The broader direction remains an alert-first application. Binance public market 
 
 - **Date:** 2026-07-30
 - **GitHub Issue:** #30 - Implement authenticated one-time price alert API
-- **Pull Request:** Pending creation
+- **Pull Request:** #42 - Implement authenticated price alert API (draft)
 - **Summary:** Added session-authenticated alert create/list/read/soft-delete routes, exact-decimal validation,
   catalog and connected-Telegram gates, idempotency, opaque cursor pagination, transactionally enforced active
   limit, bounded local rate limiting, safe responses/errors, and supporting documentation. No live Binance
