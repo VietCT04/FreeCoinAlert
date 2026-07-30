@@ -101,6 +101,13 @@ disconnect limit, are bounded in-process controls. Before public deployment or m
 replicas, replace the authentication and Telegram limiters with a shared trusted-proxy-aware
 design; they use `request.client.host` and do not trust `X-Forwarded-For`.
 
+The public, credential-free catalog synchronization boundary consumes `BINANCE_SPOT_BASE_URL` (default
+`https://api.binance.com`) and `MARKET_CATALOG_MAX_AGE_SECONDS` (default `86400`). Normal API startup does
+not contact Binance. An operator may explicitly run `pnpm market:sync`; it requests only the five approved
+Spot USDT symbols, commits only after complete validation, and returns non-zero with a safe category on
+provider, parsing, or persistence failure. It makes at most one bounded `Retry-After` retry and never runs
+as an automatic schedule under this issue.
+
 ## Process Model
 
 ### Telegram UI Verification Boundary
@@ -172,6 +179,9 @@ Scheduled responsibilities are expected to include:
 The selected scheduler must prevent uncontrolled duplicate concurrent runs.
 
 Every scheduled job should be idempotent or protected by a safe locking strategy.
+
+Catalog metadata synchronization is intentionally an explicit manual command until a later approved issue
+selects its scheduling and operational ownership.
 
 ## Database Backups
 

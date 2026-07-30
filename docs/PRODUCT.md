@@ -50,6 +50,8 @@ The MVP assumes users understand basic concepts such as trading pairs, timeframe
 ### Market Data
 
 - Binance is the first exchange integration.
+- The initial market catalog is Binance Spot with USDT-quoted `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, and `XRPUSDT` only.
+- New alerts can use a symbol only after its provider price rules have been safely synchronized and remain fresh.
 - One-minute closed candles are persisted as the canonical historical interval.
 - Larger timeframes are derived internally.
 - Real-time price events are used for immediate price alerts.
@@ -103,8 +105,6 @@ The MVP is successful when a user can:
 ## Pending Product Decisions
 
 - Final product name and public domain.
-- Initial supported Binance market: Spot only or Spot plus USD-M Futures.
-- Initial supported symbol list.
 - Maximum active alerts per user.
 - Whether the MVP is permanently free or introduces paid limits later.
 - Data-retention period for alert history and one-minute candles.

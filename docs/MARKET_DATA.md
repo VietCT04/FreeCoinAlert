@@ -149,6 +149,33 @@ The system needs controlled metadata for:
 
 Do not expose or accept arbitrary strings as supported symbols without validation.
 
+## Supported Spot Market Catalog
+
+Issue #28 fixes the initial product catalog to Binance Spot, USDT quote asset, and exactly `BTCUSDT`,
+`ETHUSDT`, `BNBUSDT`, `SOLUSDT`, and `XRPUSDT`. The canonical exchange and market identifiers are
+`binance` and `spot`; provider symbols are uppercase while stream symbols are lowercase. This is a product
+allowlist, not permission to ingest every Binance symbol.
+
+The API seeds the five rows without guessed provider metadata. An explicit `market:sync` command uses one
+centralized unauthenticated HTTPX client to request only those symbols from Binance Spot
+`/api/v3/exchangeInfo`. Normal API startup does not contact Binance, and this issue adds neither WebSocket
+ingestion nor automatic scheduling.
+
+Only `symbol`, status, base/quote assets, Spot permission, and `PRICE_FILTER` minimum, maximum, and tick
+are retained. Decimal strings are parsed as `Decimal` and stored as PostgreSQL `NUMERIC(38,18)`; no binary
+floating point, full provider payload, private metadata, orders, balances, or account information is kept.
+Zero minimum or maximum disables that bound, while a zero tick makes a market unavailable.
+
+A market is ready for new alert creation only when it remains product-enabled, `trading`, freshly checked
+within `MARKET_CATALOG_MAX_AGE_SECONDS` (default 86400), and has valid minimum, maximum, and positive tick
+rules. Stale or disabled metadata remains stored but is unavailable for new alerts. The later alert API
+must resolve this ready catalog record rather than trusting client exchange, market, or symbol strings.
+
+If the provider response is malformed, incomplete, rate limited, unavailable, or cannot be persisted, the
+sync rolls back and leaves the last valid catalog unchanged. A bounded single retry honors a numeric
+`Retry-After`; there are no unbounded retries. `HALT`, `BREAK`, missing, and structurally unsupported
+symbols are recorded with stable unavailable state and never activate an alert.
+
 ## Data Scope
 
 Do not ingest every Binance symbol by default.
@@ -185,8 +212,6 @@ Unit tests must not depend on a live Binance connection.
 
 ## Pending Decisions
 
-- Initial market type: Spot only or additional markets.
-- Initial symbols.
 - Whether derived candles are persisted.
 - Retention and partitioning.
 - Scheduling mechanism.
