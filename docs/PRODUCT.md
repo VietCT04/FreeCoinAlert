@@ -106,6 +106,10 @@ The MVP is successful when a user can:
 
 ## Pending Product Decisions
 
+## Implemented Preset Signal Subscriptions
+
+The platform exposes eight fixed, versioned indicator-signal presets for ready Binance Spot markets: SMA 200 price crosses above/below and RSI 14 crosses above 70/below 30, each on `1h` and `4h` confirmed candles. Users select only a market and an active preset version; formulas, inputs, periods, thresholds, directions, and timeframes remain server controlled. A user may keep up to 20 active subscriptions. Subscriptions are for the website signal feed and do not require Telegram. This slice creates neither calculations, occurrences, live feeds, nor delivery.
+
 - Final product name and public domain.
 - Maximum active alerts per user.
 - Whether the MVP is permanently free or introduces paid limits later.

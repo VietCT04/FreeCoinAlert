@@ -238,6 +238,14 @@ Remaining responsibilities:
 
 ### Signal Templates
 
+### Signal Presets and Subscriptions
+
+`GET /signal-presets` is public and returns active versions only, ordered by timeframe, strategy type, direction, and code. It returns the stable `code` and `version`, fixed parameters, and `Cache-Control: public, max-age=60`; database IDs, hashes, and internal lifecycle timestamps are not exposed.
+
+`GET /signal-subscriptions` requires authentication and lists the current user's active and disabled subscriptions, newest first, with safe market and preset snapshots. `POST /signal-subscriptions` requires authentication and CSRF and accepts only `exchange`, `marketType`, `symbol`, `presetCode`, and `presetVersion`. It creates an active subscription (`201`), replays an active combination (`200`), or reactivates a disabled combination (`200`). `DELETE /signal-subscriptions/{subscription_id}` requires authentication and CSRF, is ownership-scoped and idempotently disables the row (`204`). Authenticated responses use `Cache-Control: no-store`.
+
+Only ready supported Binance Spot markets and active `1h`/`4h` preset versions are accepted. There is no Telegram requirement and no user-editable strategy input. Enables are limited to 20 requests per authenticated user and 40 per direct client IP per 15 minutes; disables are limited to 30 per authenticated user. Rate limiting is application-local and returns `429 SIGNAL_SUBSCRIPTION_RATE_LIMITED` with `Retry-After`.
+
 Expected responsibilities:
 
 - List active platform-provided templates.

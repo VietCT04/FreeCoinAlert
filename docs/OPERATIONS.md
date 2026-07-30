@@ -2,6 +2,10 @@
 
 ## Purpose
 
+## Signal subscriptions
+
+The application-local signal-subscription limiter is bounded to prevent unbounded memory growth, but its counters are not shared across replicas. A future multi-replica deployment requires an approved shared rate-limit design. The initial preset catalog is seeded by the database migration; it does not contact an external provider at runtime.
+
 This document defines environment configuration, local startup, deployment portability, persistent data, backups, recovery, scheduling, release practices, and operational ownership.
 
 ## Current Direction
