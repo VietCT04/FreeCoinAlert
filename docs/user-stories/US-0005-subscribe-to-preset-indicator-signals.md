@@ -81,4 +81,10 @@ The exact initial list requires an approved technical solution, but the first ve
 
 ## Follow-up Issues
 
-To be created after this user story is approved and added to the repository.
+- #48 - Add canonical candle and timeframe persistence
+- #49 - Add Binance candle ingestion, bootstrap, and reconciliation
+- #50 - Add versioned preset catalog and user subscriptions
+- #51 - Add shared SMA 200 and RSI 14 calculation core
+- #52 - Evaluate preset strategies and persist signal events
+- #53 - Add historical feed and live in-app event stream
+- #54 - Add frontend preset subscriptions and live notification feed
