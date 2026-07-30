@@ -23,6 +23,12 @@ class AuthenticationSettings(BaseSettings):
     market_state_write_interval_seconds: int = Field(default=1, gt=0)
     market_stream_reconnect_max_seconds: int = Field(default=30, gt=0)
     candle_retention_days: int = Field(default=180, gt=0)
+    candle_ws_max_age_seconds: int = Field(default=180, gt=0)
+    candle_data_max_lag_seconds: int = Field(default=180, gt=0)
+    candle_bootstrap_days: int = Field(default=150, ge=35, le=180)
+    candle_reconciliation_lookback_hours: int = Field(default=24, gt=0, le=168)
+    candle_recent_reconciliation_seconds: int = Field(default=900, gt=0)
+    candle_recent_reconciliation_hours: int = Field(default=6, gt=0, le=168)
 
     model_config = SettingsConfigDict(
         env_file=".env",

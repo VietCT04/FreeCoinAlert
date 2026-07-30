@@ -239,3 +239,9 @@ Issue #32 emits safe structured categories for initialization, relation change, 
 creation or duplicate suppression, invariant failure, market disablement, notification queueing, and registry
 refresh success/failure. Metrics should track registry size, evaluation duration, relation changes, triggers,
 duplicate suppression, disabled or failed alerts, queued jobs, delivery outcomes, refresh lag, and backpressure.
+# Candle freshness and safe events
+
+Observe closed-candle receipt, persistence, duplicates, corrections, complete/incomplete aggregates,
+gap counts, REST retries/rate limits, queue backpressure, and candle age per symbol. Candle freshness
+uses `CANDLE_DATA_MAX_LAG_SECONDS=180`; safe logs use stable categories and never include full provider
+payloads or unrestricted headers.

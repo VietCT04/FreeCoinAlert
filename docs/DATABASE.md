@@ -282,3 +282,9 @@ Issue #31 adds `market_symbol_states`, keyed by `supported_market_id` with casca
 Issue #32 adds migration `20260730_0007`, permitting `telegram_price_alert` alongside
 `telegram_test` in the durable outbox. The existing unique alert-event and user-scoped outbox idempotency
 constraints are the authoritative duplicate boundary for a price crossing.
+# Candle operational state
+
+Issue #49 adds `candle_sync_runs` for bounded bootstrap, reconciliation, recent-reconciliation, and
+retention-cleanup run progress, plus `candle_symbol_states` as the latest operational snapshot per
+supported market. These tables do not replace immutable candle history. Candle states are `starting`,
+`live`, `stale`, `gapped`, or `error`; `live` requires a complete recent `1m` candle and no known gap.

@@ -72,8 +72,8 @@ US-0005 is approved. PR #47 documents preset indicator subscriptions, historical
 - **Documentation Pull Request:** #47 - merged
 - **Implementation Issues:** #48, #49, #50, #51, #52, #53, and #54
 - **Implementation order:** #48, #49, #50, #51, #52, #53, then #54
-- **Solution status:** Issue #48 is approved and implemented in the current draft pull request; Issues #49 through #54 still require approved solutions.
-- **Implementation status:** Issue #48 is implementation-complete in the current draft pull request; remaining issues are not started.
+- **Solution status:** Issues #48 and #49 have approved solutions; #48 is merged and #49 is implementation-complete in the current draft pull request.
+- **Implementation status:** Candle persistence and centralized closed-candle ingestion, bounded bootstrap/reconciliation paths, aggregation, and operational state are implemented; Issues #50 through #54 are not started.
 
 Issue map:
 
@@ -102,10 +102,10 @@ Signal occurrence, in-app feed visibility, notification sound playback, and Tele
 - **Live source:** Centralized aggregate-trade stream implemented but not started or verified
 - **Price-alert evaluation:** Implemented but not exercised through a dedicated verification pass
 - **Canonical candle storage:** Implemented as database and repository boundaries; not populated or verified
-- **Closed-candle ingestion:** Not implemented
-- **Historical candle bootstrap:** Not implemented
-- **Timeframe aggregation:** `1h` and `4h` persistence rules implemented; scheduling and calculation execution are not implemented
-- **Gap reconciliation:** Not implemented
+- **Closed-candle ingestion:** Implemented in the singleton market stream; not started or verified
+- **Historical candle bootstrap:** Explicit bounded command implemented; not executed or verified
+- **Timeframe aggregation:** `1h` and `4h` aggregation paths implemented; not started or verified
+- **Gap reconciliation:** Explicit and recent bounded paths implemented; not executed or verified
 - **Indicator calculations:** Not implemented
 - **Preset signal events:** Not implemented
 - **Historical and live in-app feed:** Not implemented
@@ -127,9 +127,8 @@ Important unresolved US-0005 decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge the Issue #48 candle-persistence pull request.
-2. Propose and approve the Issue #49 technical solution for kline ingestion, bootstrap, reconciliation, and aggregate scheduling.
-3. Continue Issues #50 through #54 in the documented order after approval.
+1. Review and merge the Issue #49 candle-ingestion pull request.
+2. Continue Issues #50 through #54 in the documented order after approval.
 4. Request dedicated verification passes only when the maintainer wants provider contact, startup, migrations, browser interaction, tests, or other verification.
 
 ## Handoff Notes

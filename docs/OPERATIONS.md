@@ -331,3 +331,10 @@ Issue #33 requires no frontend service or configuration. While visible, the auth
 alert page every 30 seconds for active alerts; pending delivery uses two-second refreshes for at most one minute,
 then 15-second refreshes with a manual action. It prevents overlapping requests and stops when alerts are terminal
 or the session ends. A maintainer-requested browser/API pass remains necessary before release.
+# Candle maintenance
+
+Use `pnpm market:candles-bootstrap` only to explicitly bootstrap the approved catalog, and
+`pnpm market:candles-reconcile` only for bounded repair. `CANDLE_BOOTSTRAP_DAYS` defaults to 150
+(minimum 35, maximum 180); reconciliation defaults to 24 hours (maximum seven days). The market
+profile remains the only always-running market process. No bootstrap, reconciliation, or retention
+command was run during implementation.

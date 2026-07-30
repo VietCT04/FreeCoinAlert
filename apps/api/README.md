@@ -97,6 +97,13 @@ by `python -m freecoinalert_api.telegram.poller`; normal API startup does not re
 
 `CANDLE_RETENTION_DAYS` defaults to 180 and is consumed as the future explicit cutoff for candle-revision cleanup. This issue creates the persistence and cleanup boundary only; it does not run cleanup, ingest Binance klines, bootstrap history, aggregate windows, or calculate indicators.
 
+Issue #49 adds closed-only Binance `1m` kline ingestion to the existing market stream, derived `1h` and
+`4h` aggregation, and explicit `market:candles-bootstrap` / `market:candles-reconcile` commands. Its
+safe settings are `CANDLE_WS_MAX_AGE_SECONDS=180`, `CANDLE_DATA_MAX_LAG_SECONDS=180`,
+`CANDLE_BOOTSTRAP_DAYS=150`, `CANDLE_RECONCILIATION_LOOKBACK_HOURS=24`, and recent-reconciliation
+settings of 900 seconds and six hours. It does not calculate indicators or signals; no provider command
+was executed while implementing it.
+
 `BINANCE_SPOT_BASE_URL` defaults to `https://api.binance.com` and has no credentials. The public
 catalog considers metadata stale after `MARKET_CATALOG_MAX_AGE_SECONDS` (default `86400`). Normal API
 startup never contacts Binance. Run `uv run python -m freecoinalert_api.market_data.catalog_sync` only

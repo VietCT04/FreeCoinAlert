@@ -300,3 +300,8 @@ Issue #33 keeps alert, catalog, Telegram-readiness, pagination, and idempotency 
 authenticated mutation uses credentialed fetch and the in-memory CSRF token. The UI submits canonical fields from
 the controlled catalog only and never stores or renders user IDs, Telegram identifiers, market row IDs, provider
 event IDs, outbox IDs, cookies, or internal state reasons.
+# Public candle provider boundary
+
+Historical candle requests use Binance's unauthenticated public Spot kline endpoint for the controlled
+catalog only. No API key, signed request, user-selected symbol, provider payload dump, or provider
+response-header dump is permitted.
