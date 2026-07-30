@@ -281,3 +281,9 @@ refresh logic without browser interaction, API calls, or configured Telegram/Bin
 
 **Why it matters:** A maintainer-directed pass is required to confirm cross-origin credential behavior, CSRF errors,
 catalog availability, pagination, visibility refresh, concurrent deletion handling, and safe delivery wording.
+# C-010: Candle maintenance requires an explicit operational pass
+
+Issue #49 adds bounded provider, bootstrap, reconciliation, aggregation, and operational-state paths,
+but they were not contacted or executed by maintainer direction. A dedicated operational verification
+pass should exercise corrections, rate-limit behavior, restart resume, retention ordering, and freshness
+state transitions before production use.

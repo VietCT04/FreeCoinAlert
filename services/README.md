@@ -19,3 +19,6 @@ normalized events only; alert evaluation and notification delivery are not part 
 
 Issue #32 adds the ordered one-time price-alert evaluator to that same market-stream process. It creates durable
 trigger events and Telegram outbox jobs, while the existing notification worker remains responsible for delivery.
+
+Issue #49 adds closed-candle ingestion, aggregation, and bounded candle maintenance to the existing
+market-stream process; it does not create a second always-running service.

@@ -310,3 +310,8 @@ Issue #33 adds focused catalog and alert browser modules to the existing Next.js
 React state/effects/refs, the established authentication provider, and the Telegram connection read boundary
 remain the only client-side dependencies. The browser is a typed consumer of the API's safe catalog and alert
 contracts; it does not own lifecycle evaluation, decimal persistence, authorization, or provider connectivity.
+# Candle-data boundary
+
+The existing singleton `market-stream` owns Binance Spot aggregate-trade and candle connectivity
+under one advisory lock. It has a bounded confirmed-candle queue for operational state and safe
+observability only. Future preset evaluation is a later sink; provider payloads do not enter strategy code.

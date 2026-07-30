@@ -218,3 +218,7 @@ Maintain deterministic fixtures for:
 - Rule depth and complexity limits.
 - Custom alert edit/version behavior.
 - Template publication and administration workflow.
+# Candle availability boundary
+
+Issue #49 provides confirmed canonical and derived candles only. It does not calculate SMA or RSI or
+evaluate signals. The future preset evaluator must reject stale, gapped, or error candle states.

@@ -229,3 +229,16 @@ immutable event records that reconnect observation.
 Issue #33 renders only the safe alert-read market-data summary. A stale or disconnected state explains that
 evaluation is paused or resumes after reconnection; unavailable explains that the alert is not evaluated. The
 browser does not infer freshness from its clock, subscribe to Binance, or expose current-price data.
+# Binance candle ingestion and repair
+
+Issue #49 extends the single Binance Spot market-stream connection with two streams per ready
+allowlisted symbol: `@aggTrade` and `@kline_1m`. Only provider-confirmed closed (`x=true`)
+one-minute klines enter persistence; open kline updates are ignored. The stream normalizes decimals
+before strategy boundaries, persists canonical `1m` revisions, and builds UTC-aligned complete `1h`
+and `4h` windows from current source rows. It has no indicator or signal-evaluation responsibility.
+
+`market:candles-bootstrap` requests the bounded 150-day default history in chronological pages of at
+most 1,000 minutes. `market:candles-reconcile` repairs only missing bounded ranges; the stream also
+requests a six-hour recent repair at startup and no more often than every 900 seconds. REST uses the
+public `/api/v3/klines` endpoint, one request at a time, 10-second timeouts, bounded retries, and
+safe 429/418 handling. These commands are explicit operator actions and were not executed here.

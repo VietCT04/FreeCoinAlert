@@ -21,11 +21,16 @@ from freecoinalert_api.db.session import get_async_engine, get_async_session_fac
 from freecoinalert_api.market_data.binance_websocket import (
     BinanceWebSocketEventError,
     build_combined_stream_url,
+    parse_closed_one_minute_candle,
     parse_aggregate_trade,
 )
 from freecoinalert_api.market_data.catalog import is_market_ready, utc_now
 from freecoinalert_api.market_data.catalog_sync import synchronize_catalog
 from freecoinalert_api.market_data.pipeline import PriceEventPipeline
+from freecoinalert_api.market_data.candles.ingestion import CandleIngestionService
+from freecoinalert_api.market_data.candles.pipeline import ConfirmedCandlePipeline
+from freecoinalert_api.market_data.candles.reconciliation import reconcile_recent
+from freecoinalert_api.market_data.candles.state import CandleStateRecorder
 from freecoinalert_api.market_data.state import MarketStateRecorder
 
 logger = logging.getLogger(__name__)
@@ -52,6 +57,11 @@ class BinanceMarketStream:
         self._registry = ActiveAlertRegistry()
         self._evaluator = PriceAlertEvaluator(self._registry)
         self._last_market_reconciliation = 0.0
+        self._last_candle_reconciliation = 0.0
+        self._candle_ingestion = CandleIngestionService()
+        self._candle_recorder = CandleStateRecorder(
+            max_lag_seconds=self.settings.candle_data_max_lag_seconds,
+        )
 
     async def run(self) -> int:
         logger.info("market.stream.starting exchange=binance market_type=spot")
@@ -98,6 +108,13 @@ class BinanceMarketStream:
                     reconnect_attempt += 1
                     continue
 
+            if self._last_candle_reconciliation == 0.0:
+                await reconcile_recent(
+                    hours=self.settings.candle_recent_reconciliation_hours,
+                    acquire_lock=False,
+                )
+                self._last_candle_reconciliation = time.monotonic()
+
             generation = uuid.uuid4()
             started_at = time.monotonic()
             try:
@@ -131,7 +148,9 @@ class BinanceMarketStream:
     ) -> None:
         url = build_combined_stream_url(self.settings.binance_spot_ws_base_url, markets)
         pipeline = PriceEventPipeline([self._recorder, self._evaluator])
+        candle_pipeline = ConfirmedCandlePipeline([self._candle_recorder])
         consumer = asyncio.create_task(pipeline.consume(self.stop_event))
+        candle_consumer = asyncio.create_task(candle_pipeline.consume(self.stop_event))
         freshness = asyncio.create_task(self._monitor_freshness(markets))
         observed_symbols: set[str] = set()
         self._last_accepted_ids.clear()
@@ -165,6 +184,7 @@ class BinanceMarketStream:
                             markets,
                             generation,
                             pipeline,
+                            candle_pipeline,
                             observed_symbols,
                         ),
                         timeout=PROACTIVE_RECONNECT_SECONDS,
@@ -173,6 +193,7 @@ class BinanceMarketStream:
                     raise MarketStreamError("proactive_reconnect") from error
         except asyncio.QueueFull as error:
             pipeline.log_backpressure()
+            candle_pipeline.log_backpressure()
             raise MarketStreamError("backpressure") from error
         finally:
             freshness.cancel()
@@ -182,6 +203,12 @@ class BinanceMarketStream:
                 consumer.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await consumer
+            if self.stop_event.is_set():
+                await candle_consumer
+            else:
+                candle_consumer.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await candle_consumer
             with contextlib.suppress(asyncio.CancelledError):
                 await freshness
 
@@ -193,6 +220,7 @@ class BinanceMarketStream:
         markets: dict[str, SupportedMarket],
         generation: uuid.UUID,
         pipeline: PriceEventPipeline,
+        candle_pipeline: ConfirmedCandlePipeline,
         observed_symbols: set[str],
     ) -> None:
         async for raw_message in websocket:  # type: ignore[union-attr]
@@ -208,8 +236,24 @@ class BinanceMarketStream:
                     max_age_seconds=self.settings.market_event_max_age_seconds,
                     future_tolerance_seconds=self.settings.market_event_future_tolerance_seconds,
                 )
-            except BinanceWebSocketEventError as error:
-                logger.warning("market.event.invalid category=%s", error.category)
+            except BinanceWebSocketEventError:
+                try:
+                    candle_event = parse_closed_one_minute_candle(
+                        raw_message,
+                        markets=markets,
+                        received_at=datetime.now(UTC),
+                        connection_generation=generation,
+                        max_age_seconds=self.settings.candle_ws_max_age_seconds,
+                        future_tolerance_seconds=self.settings.market_event_future_tolerance_seconds,
+                    )
+                except BinanceWebSocketEventError as error:
+                    logger.warning("market.event.invalid category=%s", error.category)
+                    continue
+                if candle_event is None:
+                    logger.info("market.candle.ignored_open")
+                    continue
+                for confirmed in await self._candle_ingestion.persist_closed_candle(candle_event):
+                    candle_pipeline.enqueue(confirmed)
                 continue
 
             previous_id = self._last_accepted_ids.get(event.symbol)
@@ -288,6 +332,14 @@ class BinanceMarketStream:
             if time.monotonic() - self._last_market_reconciliation >= 60:
                 await self._evaluator.reconcile_markets()
                 self._last_market_reconciliation = time.monotonic()
+            if time.monotonic() - self._last_candle_reconciliation >= self.settings.candle_recent_reconciliation_seconds:
+                asyncio.create_task(
+                    reconcile_recent(
+                        hours=self.settings.candle_recent_reconciliation_hours,
+                        acquire_lock=False,
+                    )
+                )
+                self._last_candle_reconciliation = time.monotonic()
             try:
                 await asyncio.wait_for(self.stop_event.wait(), timeout=2)
             except TimeoutError:
