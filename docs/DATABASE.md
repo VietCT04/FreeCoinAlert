@@ -160,7 +160,8 @@ Alembic owns schema changes in `apps/api/src/freecoinalert_api/migrations`. Migr
 `20260728_0001` creates `users` before `auth_sessions`. `20260730_0002` then creates
 Telegram connections, link tokens, processed updates, and their constraints and indexes.
 `20260730_0003` adds the notification outbox, `20260730_0004` adds the seeded supported-market
-catalog, and `20260730_0005` adds one-time price alerts and immutable alert events. Each downgrade
+catalog, `20260730_0005` adds one-time price alerts and immutable alert events, and
+`20260730_0008` adds canonical and derived market candles. Each downgrade
 removes its owned schema in reverse order. The local Compose command applies
 migrations for development only. Production migration review and application remain an explicit release
 operation.
@@ -178,43 +179,15 @@ operation.
 - Avoid storing secrets in plaintext.
 - Document retention and deletion behavior before production launch.
 
-## Canonical Candle Rule
+## Market Candle Persistence
 
-One-minute closed candles are the canonical stored market-data interval.
+Issue #48 adds `market_candles` for Binance Spot supported markets. It persists exactly `1m`, `1h`, and `4h` candles. `1m` is the canonical closed provider candle; `1h` and `4h` are stored derived windows of 60 and 240 current complete `1m` candles. `open_time` is the inclusive UTC boundary and `close_time` the exclusive boundary. The current-row key is `(supported_market_id, timeframe, open_time)`; each historical revision is additionally unique by revision number.
 
-The uniqueness rule must be equivalent to:
+Rows use `complete`, `incomplete`, `invalid`, or `superseded` status. Strategy reads are limited to current complete rows. Incomplete and invalid rows require a safe reason and have no OHLCV or trade values. Superseded rows retain their canonical values, are not current, and point to the immediately preceding revision; corrected complete rows are inserted rather than overwritten. Repeated identical canonical input is a no-op.
 
-```text
-(exchange, market_type, symbol, open_time)
-```
+All prices and volumes use `NUMERIC(38,18)` and Python `Decimal`; binary floating point is prohibited. Complete values are finite, prices are positive, volumes are non-negative, and OHLC ordering is checked. Canonical `1m` rows retain Binance close identity and timestamps. Derived rows retain the lowercase SHA-256 fingerprint of their ordered current source candle IDs and revisions, with no provider identity fields.
 
-If multiple intervals are stored later, include `interval` in the key.
-
-Required candle fields are expected to include:
-
-- Exchange
-- Market type
-- Symbol
-- Open time
-- Close time
-- Open
-- High
-- Low
-- Close
-- Base volume
-- Quote volume when available
-- Trade count when available
-- Ingestion or update timestamp
-
-Numeric types and precision must be selected deliberately. Do not use binary floating-point storage for values that require exact decimal representation.
-
-An unfinished candle must not overwrite a confirmed closed candle.
-
-## Aggregated Candles
-
-Larger timeframes should initially be derived from canonical one-minute candles.
-
-Whether derived candles are persisted or computed depends on measured query and evaluation needs. The live and historical paths must share the same aggregation implementation regardless of persistence choice.
+Indexes support current complete strategy range reads and timeframe retention/range maintenance. Repository operations provide locked upserts and replacements, bounded ordered reads, missing-minute range compaction, affected derived-window lookup, and explicit-cutoff cleanup. They do not ingest provider data, calculate indicators, create events, or commit transactions.
 
 ## Alert and Event Idempotency
 
@@ -271,16 +244,9 @@ Indexes must be justified by actual queries. Avoid speculative indexes that incr
 
 ## Partitioning and Retention
 
-Candle volume may become large. Before broad symbol ingestion, define:
+The initial historical bootstrap target is 150 days and candle retention is 180 days, configured as `CANDLE_RETENTION_DAYS=180`. The additional coverage supports a 200-period `4h` warm-up before the earliest retained signal event. The bounded cleanup repository operation accepts an explicit UTC cutoff; Issue #49 owns scheduling and execution. Signal events will remain immutable snapshots when source candles age out.
 
-- Supported symbol count
-- Retention period
-- Expected yearly row count
-- Partitioning strategy
-- Backup and restore implications
-- Archival policy
-
-Monthly time partitioning is a candidate, not an approved final design.
+Partitioning, backup/recovery objectives, and archival policy remain open before broader ingestion.
 
 ## Migration Rules
 
@@ -307,10 +273,7 @@ claim, attempt, and sent/failed timestamp constraints protect its transitions.
 
 - Email normalization and validation policy.
 - Session lifetime, cookie attributes, and session-token generation policy.
-- Decimal precision for market values.
-- Whether aggregated candles are persisted.
-- Candle retention and partitioning.
-- Backup frequency and recovery objectives.
+- Partitioning, backup frequency, recovery objectives, and archival policy for retained candles.
 - Data-deletion behavior for account removal.
 # Market symbol state snapshots
 

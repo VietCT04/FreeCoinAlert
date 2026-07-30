@@ -95,6 +95,8 @@ Telegram username characters. If it is absent, link creation returns a safe `503
 by `python -m freecoinalert_api.telegram.poller`; normal API startup does not require it.
 `TELEGRAM_UPDATE_RETENTION_DAYS` defaults to 30.
 
+`CANDLE_RETENTION_DAYS` defaults to 180 and is consumed as the future explicit cutoff for candle-revision cleanup. This issue creates the persistence and cleanup boundary only; it does not run cleanup, ingest Binance klines, bootstrap history, aggregate windows, or calculate indicators.
+
 `BINANCE_SPOT_BASE_URL` defaults to `https://api.binance.com` and has no credentials. The public
 catalog considers metadata stale after `MARKET_CATALOG_MAX_AGE_SECONDS` (default `86400`). Normal API
 startup never contacts Binance. Run `uv run python -m freecoinalert_api.market_data.catalog_sync` only

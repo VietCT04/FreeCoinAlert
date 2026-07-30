@@ -99,6 +99,8 @@ Used by default for indicators. The evaluator receives a completed candle sequen
 
 Intrabar indicator evaluation must be introduced as a separate mode rather than silently changing candle-close behavior.
 
+Issue #48 provides only the persistence boundary for future candle-close inputs. Strategy reads must use current, complete `1m`, `1h`, or `4h` rows ordered by UTC `open_time`; incomplete, invalid, and superseded rows are never valid inputs. No indicator calculation or preset evaluation is introduced by that issue.
+
 ## Deterministic Evaluation
 
 Given the same:

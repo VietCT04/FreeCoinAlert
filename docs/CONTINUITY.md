@@ -6,9 +6,15 @@ FreeCoinAlert has a pnpm monorepo, Next.js frontend, FastAPI backend, PostgreSQL
 
 US-0001 through US-0004 are implementation-complete in merged pull requests. No dedicated end-to-end verification pass has been requested or run for the complete product flow. Binance and Telegram integrations have been implemented but have not been contacted or exercised through a maintainer-requested verification pass.
 
-US-0005 is approved. Draft PR #47 documents preset indicator subscriptions, historical signal notifications, a live in-app feed, and an autoplay-safe notification sound. Implementation Issues #48 through #54 are open and do not yet have approved technical solution comments.
+US-0005 is approved. PR #47 documents preset indicator subscriptions, historical signal notifications, a live in-app feed, and an autoplay-safe notification sound. Issue #48 now has the approved candle-persistence implementation; Issues #49 through #54 remain pending their approved solutions and documented order.
 
 ## Latest Completed Work
+
+- **Date:** 2026-07-30
+- **GitHub Issue:** #48 - Add canonical candle and timeframe persistence
+- **Pull Request:** Current draft
+- **Summary:** Added the SQLAlchemy/Alembic `market_candles` persistence boundary for canonical closed `1m` candles and `1h`/`4h` derived windows, exact decimal constraints, current/revision state, bounded gap and range repository operations, and 180-day retention configuration. It does not contact Binance, schedule aggregation, bootstrap history, calculate indicators, evaluate presets, or expose APIs.
+- **Verification status:** No migration, database command, provider request, application or Compose startup, test, build, lint, format, type check, or other verification command was run by maintainer direction.
 
 - **Date:** 2026-07-30
 - **GitHub Issue:** #33 - Add frontend one-time price alert flow
@@ -63,11 +69,11 @@ US-0005 is approved. Draft PR #47 documents preset indicator subscriptions, hist
 ### US-0005: Subscribe to Preset Indicator Signals
 
 - **User Story:** `docs/user-stories/US-0005-subscribe-to-preset-indicator-signals.md`
-- **Documentation Pull Request:** #47 - draft
+- **Documentation Pull Request:** #47 - merged
 - **Implementation Issues:** #48, #49, #50, #51, #52, #53, and #54
 - **Implementation order:** #48, #49, #50, #51, #52, #53, then #54
-- **Solution status:** No technical solution has been approved or posted for any US-0005 issue.
-- **Implementation status:** Not started
+- **Solution status:** Issue #48 is approved and implemented in the current draft pull request; Issues #49 through #54 still require approved solutions.
+- **Implementation status:** Issue #48 is implementation-complete in the current draft pull request; remaining issues are not started.
 
 Issue map:
 
@@ -95,10 +101,10 @@ Signal occurrence, in-app feed visibility, notification sound playback, and Tele
 - **Supported symbols:** BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, XRPUSDT
 - **Live source:** Centralized aggregate-trade stream implemented but not started or verified
 - **Price-alert evaluation:** Implemented but not exercised through a dedicated verification pass
-- **Canonical candle storage:** Not implemented
+- **Canonical candle storage:** Implemented as database and repository boundaries; not populated or verified
 - **Closed-candle ingestion:** Not implemented
 - **Historical candle bootstrap:** Not implemented
-- **Timeframe aggregation:** Not implemented
+- **Timeframe aggregation:** `1h` and `4h` persistence rules implemented; scheduling and calculation execution are not implemented
 - **Gap reconciliation:** Not implemented
 - **Indicator calculations:** Not implemented
 - **Preset signal events:** Not implemented
@@ -110,8 +116,6 @@ See [`CONCERNS.md`](CONCERNS.md).
 
 Important unresolved US-0005 decisions include:
 
-- Initial candle timeframes and retention
-- Canonical candle and aggregate schema
 - Binance kline ingestion and historical bootstrap boundaries
 - Reconciliation cadence and correction semantics
 - Initial preset catalog, versions, symbols, and timeframes
@@ -123,9 +127,9 @@ Important unresolved US-0005 decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge documentation PR #47.
-2. Propose and approve technical solutions for Issues #48 through #54, beginning with #48.
-3. Implement the issues in the documented order after approval.
+1. Review and merge the Issue #48 candle-persistence pull request.
+2. Propose and approve the Issue #49 technical solution for kline ingestion, bootstrap, reconciliation, and aggregate scheduling.
+3. Continue Issues #50 through #54 in the documented order after approval.
 4. Request dedicated verification passes only when the maintainer wants provider contact, startup, migrations, browser interaction, tests, or other verification.
 
 ## Handoff Notes
