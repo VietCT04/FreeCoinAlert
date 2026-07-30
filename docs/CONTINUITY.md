@@ -20,7 +20,7 @@ The broader direction remains an alert-first application. Binance public market 
 
 - **Date:** 2026-07-30
 - **GitHub Issue:** #29 - Add one-time price alert persistence
-- **Pull Request:** Pending creation
+- **Pull Request:** #41 - Add one-time price alert persistence (draft)
 - **Summary:** Added PostgreSQL one-time price-alert and immutable alert-event schema, exact-decimal
   constraints, snapshot and lifecycle invariants, locked repository operations, and the Alembic migration.
   No API route, Binance stream, evaluator, outbox write, Telegram behavior, or frontend was added.
