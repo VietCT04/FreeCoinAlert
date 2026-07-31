@@ -43,7 +43,7 @@ The repository has not received a maintainer-requested end-to-end verification p
   - #63 — Documentation ownership, navigation, and concise handoff
   - #64 — Contributor workflow enforcement
 - **Implementation order:** #61, #62, #63, then #64
-- **Status:** Core product and system contracts are being rewritten; runtime-domain, navigation, and contributor-workflow documentation remain next.
+- **Status:** Core product and system contracts are merged. Runtime and domain documentation is active; navigation and contributor-workflow documentation remain next.
 
 ## Current Blockers and Concerns
 
@@ -56,8 +56,8 @@ See [`CONCERNS.md`](CONCERNS.md) for unresolved technical and product risks.
 
 ## Next Recommended Steps
 
-1. Complete and merge the core current-state documentation update.
-2. Complete the runtime-domain, navigation, and contributor-workflow documentation updates in order.
+1. Complete the runtime-domain documentation update.
+2. Complete the navigation and contributor-workflow documentation updates in order.
 3. Implement the historical/live signal feed.
 4. Implement the frontend preset and notification-sound experience after the feed.
 5. Run dedicated verification only when explicitly requested by the maintainer.

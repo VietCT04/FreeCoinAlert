@@ -1,255 +1,56 @@
 # Observability
 
-## Purpose
+## Purpose and Current Scope
 
-## Signal catalog and subscriptions
+FreeCoinAlert currently provides structured application logs and persisted operational state. It has no metrics exporter, dashboard, tracer, alerting rules, request IDs, or SLO monitoring.
 
-Structured events for this slice are `signal.preset.catalog_loaded`, `signal.subscription.enabled`, `signal.subscription.enable_replayed`, `signal.subscription.reactivated`, `signal.subscription.disabled`, and `signal.subscription.rejected`. Safe fields may include subscription and authenticated-user IDs, symbol, preset code/version, outcome category, and duration. Request bodies, cookies, CSRF tokens, and unrestricted persistence errors are excluded.
+## Health Endpoint and Its Limits
 
-This document defines logs, metrics, health checks, freshness signals, alert-delivery monitoring, and incident-oriented diagnostics.
+`GET /health` returns API process liveness (`status: ok`, service name) only. It does not check PostgreSQL, market freshness, candle continuity, alert evaluation, Telegram configuration, or notification delivery.
 
-## Observability Principles
+## Persistent Operational State
 
-- A running HTTP process is not enough to call the system healthy.
-- Monitor user outcomes as well as process availability.
-- Use structured logs with stable event names and correlation identifiers.
-- Avoid logging every market tick in production.
-- Do not log secrets or unnecessary personal data.
-- Distinguish temporary provider degradation from permanent application failure.
+`market_symbol_states` holds the latest accepted market-stream state; `candle_symbol_states` holds candle freshness/quality state; `candle_sync_runs` records bounded maintenance progress; signal evaluation state records warming, ready, stale, or disabled calculation state; notification outbox rows record delivery processing. See [DATABASE.md](DATABASE.md) for schema and constraints.
 
-## Health Dimensions
+## Structured Log Events by Subsystem
 
-### API Health
+| Subsystem | Events / categories emitted |
+| --- | --- |
+| Auth | Authentication and origin/rate-limit failures through safe HTTP error handling. |
+| Market catalog | Synchronization success/failure and provider failure category. |
+| Market stream | reconnecting, queue backpressure, singleton-not-acquired, malformed/rejected input, and state updates. |
+| Candles | reconciliation completed/failed/skipped and candle quality outcomes. |
+| Price alerts | evaluator initialization, trigger, duplicate suppression, and safe evaluation failure. |
+| Signal evaluator | `signal.evaluation.data_stale`, `insufficient_history`, `initialized`, `succeeded`, `signal.event.created`, and `duplicate_suppressed`. |
+| Telegram | update received/duplicate, link succeeded/rejected, confirmation sent/failed, polling failure. |
+| Notification worker | claim, send, retry, terminal failure, recovery, and provider outcome categories. |
 
-`GET /health` is API liveness/process health only. It confirms that the FastAPI process can serve the endpoint, without checking dependencies.
+The exact field set is implementation detail; logs use IDs and safe categories rather than credentials or provider payloads.
 
-It is not readiness for PostgreSQL, market-data ingestion, alert evaluation, Telegram delivery, or any future worker. It must not claim that alerts are operating correctly when market data or notification processing is stale.
+## Status and Freshness Semantics
 
-### Local Compose Health Checks
+Market data accepts aggregate trades only inside the configured age/future tolerance. Stream disconnection or stale market state pauses price-alert evaluation. Candle `stale`, `gapped`, or `error` state prevents preset signal creation. Notification `queued`, `sending`, `retrying`, `sent`, and `failed` represent platform processing, while `sent` means Telegram acceptance rather than device receipt. Connection `degraded` is a safe availability state. Detailed lifecycle meaning is in [MARKET_DATA.md](MARKET_DATA.md), [ALERTS.md](ALERTS.md), and [TELEGRAM.md](TELEGRAM.md).
 
-The local `web` container health check confirms that the Next.js development server responds on port `3000`. The `api` check calls its process-health endpoint on port `8000`. The `db` check uses `pg_isready` to confirm that PostgreSQL accepts connections. These checks are local container liveness signals only; they do not prove application database connectivity, migrations, end-to-end product readiness, backups, or production readiness.
+## Counters and Measurements Actually Emitted
 
-### Market-Data Health
+The implementation records counters and timestamps in operational rows (latest event identity/time, candle state, maintenance progress, evaluator state, attempt counts, claim times, and provider message IDs). It does not expose Prometheus metrics, aggregate counters, latency histograms, dashboards, or alert thresholds.
 
-Track:
+## Sensitive-Data Redaction
 
-- Binance WebSocket connection state
-- Time of last event received
-- Time of last closed candle stored per supported symbol
-- Reconnect count
-- Subscription count
-- Known candle gaps
+Do not log session tokens, password values/hashes, raw Telegram link tokens, bot tokens, chat IDs, database URLs, webhook secrets, or complete provider payloads. User-facing failures use stable safe categories.
 
-Issue #48 introduces no worker metrics or health endpoint. Future market-data observability must distinguish complete, incomplete, invalid, and superseded candle revisions; report the latest current complete `1m` candle, bounded missing ranges, derived-window source counts, and revision replacements without recording raw provider payloads.
-- Reconciliation backlog and failures
-- REST rate-limit responses
+## Incident Indicators
 
-Define a documented freshness threshold per stream type.
+Investigate a missing/old market event, disconnected stream, stale/gapped/error candle state, skipped or failed reconciliation, warming/stale evaluator state, queued/retrying/failed outbox growth, degraded/disconnected Telegram connection, or 429/418/provider categories in logs. These are operator indicators, not automated incident alerts.
 
-### Alert-Engine Health
+## Troubleshooting Links
 
-Track:
+Use [OPERATIONS.md](OPERATIONS.md) for recovery actions, [MARKET_DATA.md](MARKET_DATA.md) for data-quality semantics, and [TELEGRAM.md](TELEGRAM.md) for provider delivery behavior.
 
-- Events evaluated
-- Evaluation latency
-- Rules skipped because data was incomplete or stale
-- Trigger count
-- Duplicate events prevented
-- Evaluation failures by rule type
-- Active alert count by market and timeframe
+## Missing Observability and Unresolved Gaps
 
-### Notification Health
+Cross-process metrics, dashboards, tracing, production readiness/dependency health, automated alerting, and verified alert-delivery monitoring are absent. These risks are tracked in [CONCERNS.md](CONCERNS.md).
 
-Track:
+## Verification Status
 
-- Pending, claimed, sent, retrying, and permanently failed jobs
-- Oldest pending job age
-- Delivery latency
-- Telegram rate-limit responses
-- Bot-blocked and unavailable-chat failures
-- Duplicate deliveries prevented
-
-### Database Health
-
-Track:
-
-- Connection availability
-- Query latency on critical paths
-- Connection-pool use
-- Storage growth
-- Migration state
-- Candle write failures
-- Outbox backlog
-- Partition or disk capacity when relevant
-
-### Future Historical-Job Health
-
-Track separately from live processing:
-
-- Queued and running jobs
-- Job duration
-- Resource use
-- Failure category
-- Data-coverage failures
-- Whether live alert service levels are affected
-
-## Structured Logging
-
-### Supported-Market Catalog
-
-The explicit catalog-sync command emits safe structured events `market.catalog.sync_started`,
-`market.catalog.sync_succeeded`, `market.catalog.sync_failed`, and `market.catalog.symbol_unavailable`.
-They may include exchange, market type, symbol, stable provider-status category, row count, retry delay,
-and duration. They must never include raw `/exchangeInfo` payloads, unrestricted exception text, headers,
-credentials, cookies, Telegram data, or provider secrets.
-
-Recommended fields include:
-
-- Timestamp in UTC
-- Severity
-- Service or process
-- Environment
-- Event name
-- Request, alert, candle, job, or correlation ID
-- Exchange, market, symbol, and timeframe when relevant
-- Safe error category
-- Duration
-
-Do not log:
-
-- Passwords
-- Sessions or access tokens
-- Telegram bot token or webhook secret
-- Raw one-time link tokens
-- Database credentials
-- Full chat IDs unless strictly required and protected
-
-Authentication session rejection and logout events use the safe event names
-`auth.session.rejected` and `auth.logout.success`. Successful logout events may include
-internal user and session UUIDs for audit correlation. They must never include raw
-cookies, session tokens, CSRF tokens, request headers, passwords, or authentication
-request bodies.
-
-## Audit Events
-
-Sensitive user actions should be auditable, including:
-
-- Telegram connected or disconnected
-- Alert created, updated, paused, resumed, or deleted
-- Template version changed for a subscription
-- Administrative symbol or template changes
-- Account-security changes
-
-Audit data must have a retention and access policy before production.
-
-## Alerts for Operators
-
-Operational alerts should eventually cover:
-
-- WebSocket disconnected beyond threshold
-- Market data stale
-- Candle gaps unresolved
-- Reconciliation repeatedly failing
-- Binance REST 429 or 418 responses
-- Notification backlog age above threshold
-- Telegram delivery failure spike
-- Database unavailable
-- Disk or storage near capacity
-- Error-rate spike
-
-Thresholds must be based on measured behavior and user impact.
-
-## Dashboards
-
-A minimal operational dashboard should answer:
-
-- Is live market data current?
-- Are all supported symbols receiving closed candles?
-- Are alerts being evaluated?
-- Are notification jobs being delivered?
-- Is a backlog growing?
-- Are external providers rate limiting or failing?
-- Are database and storage resources healthy?
-
-## Error Tracking
-
-An error-tracking service may be used, but the application should not depend on a specific provider.
-
-Group errors by safe category and include enough context to reproduce the failure without exposing secrets.
-
-## Data-Quality Visibility
-
-Maintain explicit states for:
-
-- Complete
-- Missing ranges detected
-- Repair in progress
-- Repair failed
-- Unsupported or disabled
-
-Do not hide data gaps only inside logs. Persistent gaps should appear in operational status and `CONCERNS.md` when they represent ongoing risk.
-
-## Testing and Verification
-
-Verify that:
-
-- Health endpoints report dependency failure accurately.
-- Stale market data is distinguishable from a healthy socket process.
-- Metrics do not contain unbounded user-controlled labels.
-- Logs redact secrets.
-- Notification backlog and retry states are visible.
-- Duplicate-prevention counters behave as expected.
-
-## Pending Decisions
-
-## Issue #22 Notification Events
-
-The worker emits structured `notification.queued`, `notification.claimed`, `notification.sent`,
-`notification.retry_scheduled`, `notification.failed`, `notification.outcome_unknown`, and
-`telegram.connection.degraded` events. Safe fields include internal notification, user, and
-connection IDs, attempt count, and stable failure category. Logs exclude tokens, raw Telegram
-identifiers, message text, provider URLs, and provider responses.
-
-- Logging and metrics libraries.
-- Error-tracking provider.
-- Metrics storage and dashboard provider.
-- Freshness and backlog thresholds.
-- On-call or notification destination for operator alerts.
-- Audit-log retention.
-
-## Issue #21 Telegram Processor Events
-
-The processor emits `telegram.update.received`, `telegram.update.duplicate`,
-`telegram.link.succeeded`, `telegram.link.rejected`, `telegram.confirmation.sent`,
-`telegram.confirmation.failed`, and `telegram.polling.failed`. Safe fields may include an update
-ID and internal connection or user identifier after resolution. Events must not include raw links,
-token hashes, full updates, full message text, bot tokens, or provider exception bodies.
-
-## Issue #30 Price Alert API Events
-
-The alert API emits `alert.price.created`, `alert.price.create_replayed`, `alert.price.creation_rejected`,
-`alert.price.deleted`, and `alert.price.delete_rejected`. Safe fields may include internal alert/user UUIDs,
-canonical symbol, direction, and stable result category. Do not log request bodies, idempotency keys, sessions,
-CSRF tokens, Telegram identifiers, provider identifiers, or unrestricted persistence errors.
-# Live-price stream signals
-
-The market stream emits safe structured events for startup, connection, reconnection, disconnect, singleton rejection, accepted/invalid/stale/duplicate/out-of-order events, sequence jumps, pipeline backpressure, symbol live state, and symbol stale state. Fields are limited to exchange, market type, symbol, provider event ID, connection generation, queue depth, event age, reconnect attempt, and stable error categories. Raw provider payloads, full WebSocket URLs, user and alert data, and credentials are never logged.
-
-Operational state records connection status, latest accepted event, state-write failures, catalog-refresh outcomes, and freshness. These are operational signals, not a current-price API or alert-delivery guarantee.
-
-## Price-Alert Evaluation Signals
-
-Issue #32 emits safe structured categories for initialization, relation change, old-event suppression, trigger
-creation or duplicate suppression, invariant failure, market disablement, notification queueing, and registry
-refresh success/failure. Metrics should track registry size, evaluation duration, relation changes, triggers,
-duplicate suppression, disabled or failed alerts, queued jobs, delivery outcomes, refresh lag, and backpressure.
-# Candle freshness and safe events
-
-Observe closed-candle receipt, persistence, duplicates, corrections, complete/incomplete aggregates,
-gap counts, REST retries/rate limits, queue backpressure, and candle age per symbol. Candle freshness
-uses `CANDLE_DATA_MAX_LAG_SECONDS=180`; safe logs use stable categories and never include full provider
-payloads or unrestricted headers.
-
-## Signal evaluator observability
-
-Issue #52 uses structured `signal.evaluation.*`, `signal.event.*`, and `signal.backfill.*` events for initialization, safe data suspension, success, duplicate suppression, creation, rebuilds, and failures. Safe fields are market, preset code/version, timeframe, candle revision, relation transition, and bounded counts; calculation payloads, candle sequences, subscriptions, and unrestricted exceptions are excluded.
+This inventory is based on static code inspection. No logs, health endpoint, processes, or operational tables were exercised.

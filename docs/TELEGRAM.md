@@ -1,290 +1,61 @@
 # Telegram
 
-## Purpose
+## Purpose and Current Scope
 
-This document defines Telegram account linking, bot-update handling, destination ownership, notification delivery, retries, disconnection, and user-facing behavior.
+Telegram is the sole implemented notification provider. It supports one private-chat destination per user, browser-issued deep links, long polling, test messages, and durable price-alert delivery. Exact HTTP contracts are in [API.md](API.md); persisted fields are in [DATABASE.md](DATABASE.md).
 
-## Initial Scope
+## Configuration and Optional Startup
 
-Telegram is the primary notification channel for the MVP.
+`TELEGRAM_BOT_USERNAME` is public optional configuration for browser links. `TELEGRAM_BOT_TOKEN` is secret and required by the poller and notification worker, not API startup. The Compose `telegram` profile starts `telegram-updates` and `notification-worker`; neither is part of the default stack.
 
-The initial product should support a user's private chat with the FreeCoinAlert bot. Group and channel destinations require a later explicit decision.
+## Browser Linking Flow
 
-## Connection Flow
+An authenticated, CSRF-protected link request creates `https://t.me/<username>?start=<token>`. The browser receives only a safe `linking` response and expiry. Link creation rejects missing configuration, an already connected/degraded destination, or unavailable persistence. A new link replaces outstanding unused links.
 
-### Authenticated Browser Flow
+## Link-Token Security and Lifecycle
 
-The authenticated root route exposes the minimum Telegram panel. A user can request a one-time bot
-deep link, open the FreeCoinAlert bot, refresh safe connection state, queue a test notification, and
-disconnect after an explicit inline confirmation. The interface never requests or displays a numeric
-chat ID or Telegram user ID.
+Tokens are securely random, URL-safe values. Only their SHA-256 hash is stored. A token expires after `TELEGRAM_LINK_TTL_SECONDS` (600 by default), is single use, and can be revoked by replacement or disconnect. A token belongs to a user, not a connection. Missing, expired, consumed, revoked, or ownership-conflicting tokens are recorded as safe outcomes without exposing an internal user ID.
 
-During linking, the browser keeps the deep link only in memory and polls safe connection state every
-two seconds for no more than ten minutes. It stops polling after terminal status or expiry, pauses
-while hidden, and refreshes on focus. Test-notification polling is similarly bounded to one minute.
-Queued status means the durable outbox accepted the request; `sent` means Telegram accepted the Bot API
-request, not that a device received it.
+## Telegram Update Poller
 
-Recommended flow:
+The optional poller uses long polling with `concurrent_updates(False)`, requests only message updates, and does not drop pending updates. It accepts private `/start <token>` and addressed `/start@<bot_username> <token>` commands. It records `update_id` before processing, so duplicate updates are ignored. A successful link is committed before one confirmation attempt; an uncertain or failed confirmation is recorded but not retried. Processed-update cleanup runs at startup when due, with 30-day retention by default. A Telegram webhook conflict stops polling safely.
 
-1. An authenticated user selects **Connect Telegram**.
-2. The API creates a securely random, short-lived, single-use token.
-3. The web application opens a deep link equivalent to:
+## Connection Lifecycle
 
-```text
-https://t.me/<bot_username>?start=<token>
-```
+Persisted states are `connected`, `degraded`, and `disconnected`; `linking` and `not_connected` are safe derived API states. A matching disconnected destination can reactivate; a different user or destination creates an ownership conflict. Disconnect is idempotent, marks the saved connection `disconnected` with a safe reason, and revokes outstanding tokens. Safe responses never include IDs, chat IDs, token hashes, or raw tokens.
 
-4. The user starts the bot.
-5. Telegram sends the `/start <token>` update.
-6. The backend validates and consumes the token.
-7. The Telegram chat is linked to the authenticated user.
-8. The bot sends a confirmation message.
+## Test Notifications
 
-The user must not be required to find or type a chat ID.
+An authenticated CSRF-protected request with a UUID idempotency key creates a `telegram_test` outbox job without a body. It is limited to three new requests per user per 15 minutes; an idempotent replay returns the original safe job. It requires a connected, non-degraded destination. `queued`, `sending`, `retrying`, `sent`, and `failed` describe provider-processing state, not device receipt.
 
-## Link Token Rules
+## Price-Alert Notifications
 
-A connection token must:
+The price-alert trigger transaction creates its immutable alert event and a `telegram_price_alert` outbox row. The worker formats the stored snapshot as a plain UTC message. A triggered alert is final regardless of sending, retrying, or failing delivery.
 
-- Use cryptographically secure randomness.
-- Expire within a short documented period.
-- Be usable once.
-- Be bound to the authenticated user who created it.
-- Not expose the internal user ID.
-- Be invalidated after successful use.
-- Be stored as a hash where practical.
-- Be rejected after expiration, use, or revocation.
+## Notification Outbox
 
-Creating tokens should be rate-limited.
+Outbox jobs hold the owned user/destination reference, kind, idempotency key, immutable payload, status, attempts, claim/next-attempt timestamps, safe failure category, and provider message ID. The uniqueness scope is `(user_id, idempotency_key)` across notification kinds. The user FK cascades deletion; the connection FK restricts deletion.
 
-Issue #20 creates the API link with 32 cryptographically random bytes encoded as a
-43-character URL-safe Base64 token without padding. It stores only the SHA-256 binary hash,
-expires it after `TELEGRAM_LINK_TTL_SECONDS` (600 seconds locally), and exposes the raw token
-only once inside the returned deep link. Issuing a replacement or disconnecting revokes all
-outstanding unconsumed tokens, including expired rows, in the same transaction. The API does
-not claim a connection is complete until a later update-processing issue confirms `/start`.
+## Worker Claim, Send, Retry, and Recovery
 
-Link creation requires the existing authenticated browser session and CSRF header, with five
-requests per fifteen minutes per user and ten per direct client IP. `GET /telegram/connection`
-returns only safe connection state; `DELETE /telegram/connection` is CSRF-protected,
-idempotently disconnects the current user's saved destination, and prevents future delivery
-code from using it until a same-owner reconnection. There is no frontend flow, bot client,
-webhook, polling, `/start` parsing, confirmation, or test notification under this issue.
+The optional worker claims eligible jobs in short transactions using lock-safe claims, then releases the database lock before the network request. It rechecks that the destination is still connected and owned. Confirmed sends record the provider message ID. Known temporary failures move to `retrying` using bounded backoff; permanent failures become `failed`. Timeouts and uncertain provider outcomes become an outcome-unknown failure to avoid duplicate messages. Expired claims can be recovered by a later worker. No queue broker is used.
 
-## Update Processing
+## Delivery Status and User-Facing Meaning
 
-Telegram updates may be received through webhook or long polling depending on environment.
+`queued`, `sending`, and `retrying` mean the platform has not confirmed delivery. `sent` means Telegram accepted the send request, not that the device displayed it. `failed` is a safe terminal processing failure. Connection degradation maps to safe user-facing unavailable/degraded status rather than provider details.
 
-Production should generally prefer a webhook with HTTPS and Telegram's supported secret-token mechanism.
+## Disconnect and Provider-Failure Behavior
 
-Required behavior:
+Disconnect prevents future delivery through that destination. Provider blocking, invalid chats, missing configuration, transport failure, and rate limiting are categorized safely and do not reveal Telegram internals. A failed Telegram send never changes a price alert back to active.
 
-- Process updates idempotently using the Telegram update identifier.
-- Reject malformed or unsupported commands safely.
-- Avoid logging full sensitive payloads.
-- Separate public webhook handling from internal business logic.
-- Do not create duplicate connections from repeated updates.
+## Stored and Prohibited Telegram Data
 
-Issue #19 stores only the `BIGINT` update identifier, a constrained processing outcome,
-optional connection reference, operational timestamps, and optional confirmation-sent
-timestamp. The update marker must be inserted in the same transaction as future linking
-state changes so a rollback leaves the update retryable. Processed updates are eligible
-for deletion after 30 days; the future processor may invoke bounded cleanup with an
-explicit UTC cutoff. There is no webhook, polling, parsing, or Bot API integration yet.
+Stored identity is limited to Telegram user ID, private chat ID, optional username, connection timestamps/status/reason, processed update ID/outcome, token hash/lifecycle, and provider message IDs. Raw link tokens, bot tokens, webhook secrets, user-supplied chat IDs, and provider payloads are neither returned nor logged.
 
-## Stored Connection Data
+## Not Supported
 
-Store the minimum needed information:
+Groups, channels, multiple destinations, user-supplied chat IDs, webhooks, scheduled polling infrastructure, and additional notification channels are not implemented.
 
-- User ID
-- Telegram chat ID
-- Connection status
-- Telegram username only when useful for display or support
-- Telegram user ID when required to validate private-chat ownership
-- Connected and last-verified timestamps
-- Last delivery failure category when operationally useful
+## Verification Status
 
-Do not expose raw chat IDs unnecessarily.
-
-## Ownership
-
-- A user may view, test, update, or disconnect only destinations linked to their own account.
-- A chat must not be silently reassigned between application users.
-- Reconnecting an already linked chat requires an explicit safe rule.
-- Administrative inspection must be authorized and audited when introduced.
-
-The initial persistence rule permits one private-chat connection record per user.
-Telegram user IDs and chat IDs are unique and are never silently transferred to a
-different FreeCoinAlert user, even after disconnection. Account deletion cascades to the
-connection and releases those identifiers; cross-account recovery is deferred.
-
-## Test Notification
-
-A test-notification action should:
-
-- Require authentication.
-- Operate only on the current user's destination.
-- Be rate-limited.
-- Use the normal durable notification path where practical.
-- Report whether the message was queued rather than claiming delivery before Telegram confirms the send request.
-
-## Alert Message Content
-
-## Issue #22 Test Delivery
-
-The test-notification endpoint queues a fixed versioned payload; the worker constructs the
-approved static test message and does not accept user-authored text. The worker claims at most ten
-rows with `FOR UPDATE SKIP LOCKED`, commits before provider contact, and rechecks that the owned
-connection remains `connected`. Temporary failures retry after 5 seconds, 30 seconds, 2 minutes,
-and 10 minutes before the final fifth-attempt failure. Provider rate limits defer to Telegram's
-retry time. Timeout or stale-processing outcomes fail as
-`telegram_delivery_outcome_unknown` rather than risk a duplicate send. Permanent destination
-failures degrade the connection and block new tests until reconnect or disconnect.
-
-An alert message should clearly show:
-
-- Symbol and market
-- Signal or condition name
-- Timeframe when relevant
-- Trigger price
-- Evaluation mode, especially candle close
-- Trigger time
-- A safe link back to the application when available
-
-Example:
-
-```text
-BTCUSDT MACD Alert
-
-MACD crossed above the signal line.
-Timeframe: 15m
-Evaluation: Candle close
-Price: 118,420.50 USDT
-Triggered: 2026-07-28 09:15 UTC
-```
-
-Do not claim that the alert predicts future price movement.
-
-## Durable Delivery
-
-Telegram messages must be created through the notification outbox.
-
-The notification worker should:
-
-1. Claim a pending job safely.
-2. Send the message.
-3. Record Telegram's response identifier where useful.
-4. Mark the job sent.
-5. Retry temporary failures with bounded backoff.
-6. Mark permanent failures explicitly.
-
-Do not send directly within the alert-evaluation transaction.
-
-## Failure Categories
-
-Distinguish at least:
-
-- Temporary network or provider failure
-- Telegram rate limit
-- Bot blocked by user
-- Chat not found or unavailable
-- Invalid bot configuration
-- Invalid message content
-- Unknown provider failure
-
-Respect Telegram retry guidance when present.
-
-When the bot is blocked or a destination becomes permanently unavailable:
-
-- Mark the connection degraded or disconnected according to the approved state model.
-- Stop endless retries.
-- Surface the problem in the web application.
-
-## Duplicate Prevention
-
-A notification job must have a stable idempotency relationship to its alert event and destination.
-
-Repeated worker execution, API timeouts, or provider retries must not create duplicate messages when the outcome is already known.
-
-When the provider outcome is uncertain, record the uncertainty rather than blindly retrying without a defined policy.
-
-## Disconnect Flow
-
-The user should be able to disconnect Telegram from the web application.
-
-Disconnecting should:
-
-- Require authentication.
-- Disable future delivery to that destination.
-- Preserve historical alert and delivery records according to retention policy.
-- Invalidate outstanding linking tokens.
-- Define whether active alerts are paused, remain active without a channel, or are disabled.
-
-The exact product behavior requires a focused issue.
-
-## Secrets
-
-Never commit or log:
-
-- Telegram bot token
-- Telegram webhook secret
-- Raw one-time linking tokens
-
-Use environment variables or an approved secret manager.
-
-## Testing Expectations
-
-Use mocked Telegram clients and deterministic updates for:
-
-- Successful linking
-- Expired and reused tokens
-- Duplicate updates
-- Ownership enforcement
-- Test-notification rate limiting
-- Temporary delivery retry
-- Bot-blocked permanent failure
-- Disconnect behavior
-
-Normal tests must not send real Telegram messages.
-
-## Pending Decisions
-
-- Webhook versus long polling for each environment.
-- One destination versus multiple destinations per user.
-- Private chats only versus group support.
-- Connection and delivery status enums.
-- Message formatting and localization.
-- Behavior of active alerts after Telegram disconnects.
-
-## Issue #21 Local Update Processing
-
-Issue #21 adds a local-only `python-telegram-bot` long-polling process. It requests message
-updates sequentially and accepts only a private `/start <token>` or addressed
-`/start@<configured_bot_username> <token>` command with exactly one 43-character URL-safe token.
-The processor inserts the `update_id` idempotency row, locks the token and connection state,
-commits a stable outcome, then attempts one safe confirmation. It never retries an uncertain
-confirmation and never rolls back a valid link because delivery fails. Processed updates receive
-bounded 30-day cleanup at startup and at most once per 24 hours. Webhooks, groups, and channels
-remain out of scope.
-
-## One-Time Price Alert Requirement
-
-Issue #30 activates a price alert only when the authenticated owner has a `connected` private destination.
-Missing or disconnected destinations return `ALERT_TELEGRAM_NOT_CONNECTED`; degraded destinations return
-`ALERT_TELEGRAM_DEGRADED`. The alert API exposes no Telegram identity and does not queue a message, send content,
-or define future-disconnect behavior for an already active alert.
-
-## Price Alert Delivery
-
-Issue #32 adds the internal `telegram_price_alert` outbox kind. Its versioned payload contains only immutable
-symbol, asset, direction, exact target and observed prices, trigger time, and alert-event ID. The worker formats
-plain text from that payload and rechecks the bound destination before contacting Telegram. An unavailable or
-degraded connection records `telegram_connection_unavailable`; the alert remains terminally `triggered` and is
-never rearmed.
-
-## Browser Price-Alert Readiness
-
-Issue #33 reuses the authenticated Telegram connection boundary to gate new alerts. The browser asks users to
-connect or reconnect through the existing Telegram section and never requests a chat ID or username. It displays
-only safe queued/sending/retrying/sent/failed/outcome-unknown delivery wording after an alert has triggered.
+Linking, long polling, provider sends, retries, and device receipt were not exercised; implementation was inspected statically.

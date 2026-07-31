@@ -1,242 +1,70 @@
 # Strategies
 
-## Versioned preset catalog
+## Purpose and Current Scope
 
-Issue #50 introduces catalog persistence only, not indicator calculation. The initial immutable presets use confirmed-candle closes: `price_sma_cross` has fixed period 200 and no threshold; `rsi_threshold_cross` has fixed period 14 and a threshold of exactly 70 for cross-above or 30 for cross-below. Each has `1h` or `4h` timeframe. A changed meaning must be represented by a new version, never by modifying a published row. Active versions accept new subscriptions; superseded versions do not but existing active subscriptions continue; disabled versions stop future evaluation and disable their subscriptions when that operational transition is performed.
+The server owns fixed, versioned preset definitions and provider-neutral Decimal calculations over canonical complete candles. Users cannot choose parameters or submit expressions.
 
-## Shared SMA and RSI calculation core
+## Versioned Preset Catalog
 
-Issue #51 adds the pure calculation boundary used by future live and historical evaluation. It accepts only ordered, current complete `1h` or `4h` candle values through an immutable provider-neutral contract; it does not read a database, call Binance, inspect users or subscriptions, evaluate crossings, or persist signal events.
+Active seeded presets use close input and calculation version 1:
 
-`sma_close_v1` uses the latest 200 consecutive close prices and returns each rolling SMA after the 200th candle. `rsi_wilder_close_v1` uses Wilder's 14-change initialization, so its first value requires 15 consecutive closes. SMA values and RSI gain/loss averages are quantized to 18 decimal places; RSI values are quantized to 8, using a local Decimal context of precision 50 and `ROUND_HALF_EVEN`. Flat RSI is exactly 50, gain-only is 100, and loss-only is 0. A changed formula, input, rounding, warm-up, or progression requires a new calculation version and preset version.
+| Code | Public name | Version | Timeframe | Type | Parameters / direction | Calculation version |
+| --- | --- | ---: | --- | --- | --- | --- |
+| `price_sma_200_cross_above_1h` | Price crosses above SMA 200 | 1 | `1h` | `price_sma_cross` | period 200, above | `sma_close_v1` |
+| `price_sma_200_cross_below_1h` | Price crosses below SMA 200 | 1 | `1h` | `price_sma_cross` | period 200, below | `sma_close_v1` |
+| `rsi_14_cross_above_70_1h` | RSI 14 crosses above 70 | 1 | `1h` | `rsi_threshold_cross` | period 14, threshold 70, above | `rsi_wilder_close_v1` |
+| `rsi_14_cross_below_30_1h` | RSI 14 crosses below 30 | 1 | `1h` | `rsi_threshold_cross` | period 14, threshold 30, below | `rsi_wilder_close_v1` |
+| `price_sma_200_cross_above_4h` | Price crosses above SMA 200 | 1 | `4h` | `price_sma_cross` | period 200, above | `sma_close_v1` |
+| `price_sma_200_cross_below_4h` | Price crosses below SMA 200 | 1 | `4h` | `price_sma_cross` | period 200, below | `sma_close_v1` |
+| `rsi_14_cross_above_70_4h` | RSI 14 crosses above 70 | 1 | `4h` | `rsi_threshold_cross` | period 14, threshold 70, above | `rsi_wilder_close_v1` |
+| `rsi_14_cross_below_30_4h` | RSI 14 crosses below 30 | 1 | `4h` | `rsi_threshold_cross` | period 14, threshold 30, below | `rsi_wilder_close_v1` |
 
-Each calculation shares the immutable key `supported_market_id + timeframe + strategy_type + calculation_version + period + close`. Direction and RSI threshold are intentionally excluded so paired presets share one indicator result. Missing, duplicate, unordered, mixed, incomplete, invalid, or non-contiguous candles return typed `invalid_input` or `gap_detected`; insufficient history returns `insufficient_history`. Corrections are rebuilt from a complete current series by Issue #52 rather than mutating calculation state.
+Published preset parameters and formulas are server controlled and immutable for their version.
 
-## Preset signal evaluation
+## Shared Calculation Contract
 
-Issue #52 evaluates active and superseded preset versions from complete, current `1h` and `4h` candles in the singleton market-stream process. A market occurrence is global: it is not copied per subscription or user. The first valid point initializes persisted state without an event. Later price/SMA crosses require previous close `<=` SMA and current close `>` SMA (or the inverse for below); RSI uses the same inclusive previous and strict current relation against 70 or 30. Equality does not itself trigger, while equality to the selected side does.
+Calculations are shared by supported market, timeframe, strategy type, calculation version, period, and close input. This lets subscriptions reuse one calculation without changing their pinned preset meaning.
 
-Each state records exact Decimal comparison values and server-generated calculation state with Decimal strings. Signal-event rows snapshot the immutable market, preset, candle, calculation, and comparison values. Replays are idempotent; a corrected candle revision requires a safe rebuild and can invalidate an older event without altering it. Incomplete, stale, gapped, invalid, or insufficient history suspends evaluation.
+## Candle Input Requirements
 
-## Purpose
+Inputs are one market and one `1h` or `4h` timeframe, current complete candles, strictly ordered in UTC and contiguous at exact timeframe boundaries. Every close is finite and positive. Invalid identity, ordering, completeness, or a gap produces a typed `invalid_input` or `gap_detected` result.
 
-This document defines platform signal templates, custom-rule definitions, supported calculation concepts, validation, deterministic evaluation, shared calculation, and strategy versioning.
+## SMA 200 Version 1
 
-## Terminology
+`sma_close_v1` requires 200 confirmed closes. It sums exactly 200 Decimal closes, divides using the shared Decimal policy, and emits the SMA at each following confirmed candle. Incremental state retains 200 closes and a rolling sum; advancing removes the oldest close and adds the next.
 
-- **Indicator**: a derived value such as RSI, EMA, MACD, or average volume.
-- **Condition**: a comparison or crossing relationship between values.
-- **Rule**: one condition or a logical composition of conditions.
-- **Signal template**: a platform-published, reusable, versioned rule with user-facing metadata.
-- **User alert**: a configured instance of a template or a validated custom rule for a symbol, timeframe, and destination.
-- **Strategy**: in future historical analysis, a signal plus complete entry, execution, exit, risk, fee, and slippage assumptions.
+## Wilder RSI 14 Version 1
 
-A signal alone is not a complete trading strategy and does not have a meaningful win rate.
+`rsi_wilder_close_v1` requires 15 confirmed closes (14 changes). Initial average gain and loss are the arithmetic averages of the first 14 non-negative gains/losses. Later values use Wilder averaging: `(previous average * 13 + current gain or loss) / 14`. Equal gain/loss yields `50.00000000`; zero loss yields `100.00000000`; zero gain yields `0.00000000`. Other values are calculated at Decimal precision 50, half-even quantized to eight decimals, and bounded 0–100.
 
-## Initial Indicators and Conditions
+## Calculation Outcomes and Warm-Up
 
-Candidate MVP support:
+Results are `success`, `insufficient_history`, `invalid_input`, `gap_detected`, or `unsupported_version`. A signal evaluator records warming for a non-success calculation and emits no occurrence.
 
-- Current price
-- Percentage price change
-- RSI
-- EMA
-- MACD line and signal line
-- Candle volume
-- Average volume
+## Crossing Conditions
 
-Candidate operators:
+Price/SMA and RSI/threshold directions compare previous and current left/right values with equality-aware rules described in [ALERTS.md](ALERTS.md). The calculation produces values; the evaluator owns occurrence creation.
 
-- Greater than
-- Greater than or equal
-- Less than
-- Less than or equal
-- Cross above
-- Cross below
-- Logical `AND`
-- Logical `OR`
+## Incremental and Batch Consistency
 
-Exact support and parameter limits require focused issues and tests.
+Batch series and incremental initialization/advance use the same candle validation, Decimal arithmetic, formulas, and calculation versions. They are required to produce the same semantic result for the same complete contiguous history.
 
-## Custom Rule Format
+## Candle Revision Behavior
 
-Users must not submit executable code.
+Calculation keys include candle ID and revision. A revision makes the affected evaluator state stale and requires a rebuild; it does not mutate an immutable signal occurrence.
 
-Rules use a constrained, versioned JSON-compatible format.
+## Versioning and Historical Meaning
 
-Example:
+Signal events snapshot preset code/version, strategy type, calculation version, period, threshold, input, and values. A future preset version cannot silently change historical meaning.
 
-```json
-{
-  "schemaVersion": 1,
-  "type": "CROSS_ABOVE",
-  "left": {
-    "type": "MACD_LINE",
-    "fastPeriod": 12,
-    "slowPeriod": 26,
-    "signalPeriod": 9
-  },
-  "right": {
-    "type": "MACD_SIGNAL",
-    "fastPeriod": 12,
-    "slowPeriod": 26,
-    "signalPeriod": 9
-  }
-}
-```
+## Unsupported Strategy Features
 
-The API must validate the complete rule before saving or activation.
+MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, and backtesting are not implemented.
 
-## Validation
+## Future Historical Compatibility
 
-Validate:
+Any future historical analysis must use canonical candles and these versioned calculations, preserve UTC ordering and completeness, and disclose assumptions. It must not call Binance per user request.
 
-- Schema version
-- Supported node types
-- Indicator parameter ranges
-- Required relationships such as fast period less than slow period
-- Rule depth
-- Condition count
-- Logical nesting
-- Type compatibility between operands
-- Supported timeframe and evaluation mode
-- Maximum calculation complexity
-- Numeric precision and threshold ranges
+## Verification Status
 
-Reject unknown fields when doing so improves safety and compatibility.
-
-## Evaluation Modes
-
-### Real-Time Price
-
-Used for immediate price conditions. The evaluator receives a current price event and relevant prior state.
-
-### Candle Close
-
-Used by default for indicators. The evaluator receives a completed candle sequence or updated deterministic indicator state.
-
-Intrabar indicator evaluation must be introduced as a separate mode rather than silently changing candle-close behavior.
-
-Issue #48 provides only the persistence boundary for future candle-close inputs. Strategy reads must use current, complete `1m`, `1h`, or `4h` rows ordered by UTC `open_time`; incomplete, invalid, and superseded rows are never valid inputs. No indicator calculation or preset evaluation is introduced by that issue.
-
-## Deterministic Evaluation
-
-Given the same:
-
-- Strategy or rule version
-- Ordered input candles or price events
-- Prior evaluation state
-- Numeric precision and rounding rules
-
-The evaluator must produce the same result in live processing and historical analysis.
-
-Avoid hidden dependencies on wall-clock time, provider ordering outside the stored sequence, or mutable platform defaults.
-
-## Shared Strategy Core
-
-The same package must provide:
-
-- Candle aggregation
-- Indicator calculations
-- Condition evaluation
-- Crossover behavior
-- Logical composition
-- Rule validation models
-- Evaluation result models
-
-Do not maintain separate MACD, RSI, or aggregation implementations for live alerts and historical analysis.
-
-## Shared Calculations
-
-Where practical, calculate a unique indicator combination once.
-
-A calculation identity should include:
-
-```text
-exchange + market + symbol + timeframe + indicator + parameters
-```
-
-User conditions then evaluate against the shared value.
-
-Sharing must not weaken isolation or correctness. Cache invalidation, ordering, and restart state need explicit design.
-
-## Signal Templates
-
-A template should include:
-
-- Stable template identity
-- Immutable version
-- Name and description
-- Rule definition
-- Supported markets and timeframes
-- Default parameters and cooldown
-- Explanation of evaluation mode
-- Publication status
-- Creation timestamp
-
-Existing user subscriptions remain pinned to the selected version.
-
-Changing a template's behavior requires a new version. Do not silently modify historical meaning.
-
-## Custom Rule Versioning
-
-Store:
-
-- Rule schema version
-- Complete normalized rule definition
-- Indicator and operator versions when algorithm changes would affect results
-- Creation and update timestamps
-
-When a user edits an active custom alert, the implementation must define whether it mutates the alert, creates a new alert version, or resets evaluation state.
-
-## Numeric and Indicator Consistency
-
-For every indicator, document and test:
-
-- Input ordering
-- Warm-up requirements
-- Initialization method
-- Missing-candle behavior
-- Decimal or floating-point approach
-- Rounding for display versus evaluation
-- Equality semantics
-- Reference fixture values
-
-Do not select an indicator library without verifying that its live incremental and historical batch behavior are consistent.
-
-## User-Facing Explanation
-
-The alert builder must explain:
-
-- What the condition means
-- Timeframe
-- Candle-close versus real-time evaluation
-- Required warm-up when relevant
-- Cooldown
-- That indicators are informational and do not guarantee future movement
-
-## Testing Expectations
-
-Maintain deterministic fixtures for:
-
-- RSI, EMA, MACD, and volume calculations
-- Warm-up boundaries
-- Cross above and cross below
-- Equality cases
-- Logical rule nesting
-- Validation limits
-- Live incremental versus historical batch equivalence
-- Template-version pinning
-
-## Pending Decisions
-
-- Exact rule schema.
-- Initial indicator set and parameter limits.
-- Numeric precision and reference library.
-- Rule depth and complexity limits.
-- Custom alert edit/version behavior.
-- Template publication and administration workflow.
-# Candle availability boundary
-
-Issue #49 provides confirmed canonical and derived candles only. It does not calculate SMA or RSI or
-evaluate signals. The future preset evaluator must reject stale, gapped, or error candle states.
+Implementations were inspected statically. Numeric equivalence, incremental execution, and historical/live runs are unverified.

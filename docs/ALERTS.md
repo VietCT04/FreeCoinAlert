@@ -1,271 +1,71 @@
-# Alerts
+# Alerts and Signal Occurrences
 
-## Purpose
+## Purpose and Terminology
 
-## Preset subscriptions
+One-time price alerts are user-owned, terminal alert rules. Preset signal occurrences are global market facts produced from confirmed candles; subscriptions control a user's visibility, not a per-user copy of an occurrence. Formula details are owned by [STRATEGIES.md](STRATEGIES.md); Telegram delivery is owned by [TELEGRAM.md](TELEGRAM.md).
 
-Signal subscriptions are distinct from one-time price alerts. They are durable user-owned selections for the future website signal feed, and do not themselves calculate indicators, create occurrences, or enqueue Telegram notifications. Historical signal occurrences added later are global market events; users may view retained matching history for a subscription they currently have or previously had, including occurrences before activation. Those entries must be described as historical signal occurrences, not historical deliveries.
+## One-Time Price Alerts
 
-This document defines alert types, lifecycle, evaluation modes, state, cooldown behavior, reproducibility, event creation, and duplicate prevention.
+### Creation Preconditions
 
-## Alert Categories
+Creation accepts only a ready controlled market, an exact positive decimal target aligned to its price rule, `cross_above` or `cross_below`, an authenticated owner, CSRF protection, and a UUID idempotency key. The owner must have a connected Telegram destination. Creation does not contact Binance or initialize evaluation.
 
-### Immediate Price Alerts
+### Lifecycle
 
-Examples:
+An alert starts `active`; `triggered`, `disabled`, `deleted`, and `failed` are terminal. Deleting an active or disabled alert is a soft deletion, excludes it from normal listing and evaluation, and preserves immutable history. At most 20 alerts may be active for one user.
 
-- Price is above a threshold.
-- Price is below a threshold.
-- Price crosses above a threshold.
-- Price crosses below a threshold.
+### Initialization and Crossing Semantics
 
-These may evaluate from real-time ticker or trade events.
+The first accepted price event stores relation `below`, `equal`, or `above` without triggering. Later events use equality-aware crossing: above requires prior relation below or equal and current above; below requires prior relation above or equal and current below. Repeated same-side observations do not trigger. Per-alert stored provider event identity prevents replay after restarts; a fresh post-reconnect observation can record a crossing from persisted relation.
 
-Crossing alerts require previous-state tracking. A stream of prices remaining above a threshold must not repeatedly trigger `cross above`.
+### Trigger Transaction
 
-### Candle-Close Indicator Alerts
+The evaluator locks the still-active alert and atomically writes one immutable alert event, terminal `triggered` lifecycle state, and `telegram_price_alert` outbox row. Event identity is `binance:spot:<SYMBOL>:aggTrade:<provider_event_id>` and the database permits one event per alert. Telegram delivery failure never re-arms the alert.
 
-Examples:
+### Delivery Separation
 
-- RSI falls below 30 on `1h`.
-- MACD crosses above its signal line on `1h`.
-- EMA 20 crosses above EMA 50 on `4h`.
-- Volume exceeds a defined multiple of its moving average.
+An occurrence is not delivery. Price-alert reads expose a safe market-data and notification summary; notification worker status does not change the terminal alert state.
 
-These evaluate only after the relevant candle closes in the initial product.
+## Preset Signal Subscriptions
 
-Intrabar indicator evaluation is a later feature requiring explicit user-facing semantics.
+### Subscription Lifecycle
 
-## Alert Definition
+Subscriptions select an available fixed preset version for a ready market. They start enabled, can be disabled, and may be reactivated; the chosen version remains pinned. They have no Telegram prerequisite. At most 20 subscriptions per user may be enabled.
 
-An alert must identify:
+### Evaluation Preconditions
 
-- Owner
-- Exchange
-- Market type
-- Symbol
-- Timeframe
-- Evaluation mode
-- Strategy template version or custom rule definition
-- Notification destination
-- Cooldown
-- Status
-- Rule-schema version
-- Creation and update timestamps
+The singleton market stream evaluates only current complete `1h` and `4h` candles. It groups work by market/timeframe/preset calculation key, refuses unsafe `stale`, `gapped`, or `error` candle state, and stores a restart-safe evaluation state. Insufficient history leaves the state warming.
 
-The backend validates the complete definition before activation.
+### Initialization and Crossing Semantics
 
-## Lifecycle
+The first successful calculation initializes prior values and relation without creating an event. Later calculations use the same equality-aware directional crossing rule: cross above is prior left `<=` prior right and current left `>` current right; cross below is prior left `>=` prior right and current left `<` current right.
 
-Suggested states:
+### Global Signal Occurrences
 
-- `DRAFT` when incomplete alert editing is introduced
-- `ACTIVE`
-- `PAUSED`
-- `DISABLED`
-- `DELETED` or soft-deleted, depending on later retention decisions
+A crossing writes one immutable global `preset_crossed` event keyed by market, preset/version, candle open time, and candle revision. It snapshots market and preset facts, calculation version, previous/current values, close, and whether it was backfilled. It is not copied per subscriber and creates no Telegram job.
 
-The exact enum must be approved with the schema issue.
+### Candle Corrections and Invalidations
 
-State transitions must be explicit. A disabled alert caused by invalid market data or delivery failure must not silently reactivate.
+When a candle changes revision, the affected evaluation state is marked stale with `candle_correction_rebuild_required`. Immutable occurrences remain intact; a historical rebuild may add invalidation records and replacement revisions.
 
-### One-Time Price-Cross Lifecycle
+## Deduplication and Restart Safety
 
-Issue #29 fixes the initial one-time price-cross states as `active`, `triggered`, `disabled`,
-`deleted`, and `failed`. A new alert is `active` and has no crossing state until its first accepted
-market observation. The first observation initializes `below`, `equal`, or `above` without triggering.
-Later accepted observations may change that relation; repeated observations on the same relation do
-not need to write state.
+Price alerts deduplicate by alert and provider-event identity; global signals deduplicate their immutable trigger identity. Stored relation, last provider/candle identity, and database constraints make repeated inputs and restarts safe. Catch-up is bounded by `SIGNAL_LIVE_CATCHUP_MAX_DAYS` (7).
 
-`triggered`, `disabled`, `deleted`, and `failed` are terminal. `triggered` records exactly one immutable
-event and can never return to `active`. `disabled` records a stable product reason such as
-`user_disabled` or `market_disabled`; delivery failure is not an alert failure. User-facing deletion
-soft-deletes only pending active alerts, excludes them from normal lists and evaluation, and retains
-the row and any immutable history.
+## Ownership and Visibility
 
-## Evaluation State
+Price alerts and their events are visible only to their owner. Signal subscriptions are user-owned; global signal event visibility is filtered through the user's current or historical subscription state. No signal-feed API or frontend feed is implemented.
 
-## Browser One-Time Price Alert Flow
+## Current Limits
 
-Issue #33 places the minimal authenticated price-alert form and stacked alert cards on the root route after the
-Telegram connection section. It offers only available catalog markets, exact string target input, cross-above or
-cross-below direction, creation, first-page refresh, cursor-based load-more, and explicit deletion of eligible
-active or disabled alerts. It does not display a ticker or chart, edit or reactivate alerts, expose internal
-identifiers, or conflate a terminal trigger with Telegram delivery state.
+- Maximum active price alerts per user: 20.
+- Maximum enabled signal subscriptions per user: 20.
+- Signal event history default: 90 days; retention default: 365 days.
 
-Depending on rule type, an alert may need durable state such as:
+## Not Supported
 
-- Previous comparison result
-- Previous indicator values
-- Last evaluated candle
-- Last triggered time
-- Last trigger identity
-- Current side of a price threshold
-- Cooldown end time
+Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, website notifications, sound, and a signal feed are not implemented.
 
-State must survive process restarts when losing it could cause duplicate or missed alerts.
+## Verification Status
 
-## Crossovers
-
-A crossover occurs when the relative ordering changes between two consecutive evaluated points.
-
-For `cross above`:
-
-```text
-previous_left <= previous_right
-and
-current_left > current_right
-```
-
-The implementation must define behavior when values are equal or unavailable and use the same behavior in live and historical evaluation.
-
-## Cooldown
-
-Cooldown prevents repeated user notifications after triggers that remain active or occur frequently.
-
-Cooldown is not a substitute for correct crossover or deduplication logic.
-
-The product must show:
-
-- Cooldown duration
-- Whether cooldown starts at trigger creation or successful delivery
-- Whether events are recorded but notifications suppressed during cooldown
-
-The initial decision should be made by a focused issue.
-
-## Alert Events
-
-A trigger creates an immutable alert event containing enough information to reproduce and explain it:
-
-- User alert ID
-- Strategy or rule version
-- Exchange, market, and symbol
-- Timeframe and evaluation mode
-- Candle open time or real-time event reference
-- Trigger price
-- Relevant indicator snapshot
-- Trigger identity
-- Creation timestamp
-
-Do not mutate historical event meaning after a strategy template is updated.
-
-## Deduplication
-
-A logical trigger must have one stable deduplication key.
-
-For candle-close alerts, the key should include the alert, strategy version, candle, and trigger identity.
-
-For price alerts, the key must account for crossing state and restart behavior.
-
-Database constraints should enforce uniqueness where possible.
-
-For the initial one-time price alert, the event key is
-`binance:spot:<SYMBOL>:aggTrade:<provider_event_id>`. The database permits only one event per alert
-and also uniquely stores that alert-scoped trigger identity. The future evaluator must lock the alert,
-ignore aggregate-trade IDs that are not greater than the persisted ID, and create the event within its
-coordinating transaction.
-
-## Notification Creation
-
-When an alert triggers:
-
-1. Validate that the alert is still active.
-2. Create the alert event.
-3. Create the notification-outbox record.
-4. Commit both atomically.
-5. Allow the notification worker to send independently.
-
-A triggered alert and a delivered notification are separate states.
-
-## Shared Calculation
-
-Do not calculate the same indicator separately for every user.
-
-Share calculations using a key equivalent to:
-
-```text
-exchange + market + symbol + timeframe + indicator + parameters
-```
-
-User rules then compare shared outputs against their own thresholds or conditions.
-
-Correctness is more important than optimization; introduce shared caches only with clear invalidation and consistency rules.
-
-Issue #51 provides the pure indicator values only. Future crossing evaluation must compare the confirmed close and
-SMA at their 18-decimal scale, or RSI at its 8-decimal scale against the exact 30 or 70 threshold. It must not
-infer a crossing, persist an event, or notify a user from calculation alone.
-
-## Failure Behavior
-
-- If market data is stale or incomplete, do not evaluate rules as though data were current.
-- If an aggregate candle is incomplete, do not evaluate candle-close strategies from it.
-- If notification delivery fails, preserve the alert event and retry the delivery job according to policy.
-- If a rule becomes invalid after a supported-market change, disable it explicitly and inform the user when possible.
-
-## User-Facing Requirements
-
-Before activation, show:
-
-- Symbol and market
-- Timeframe
-- Exact condition
-- Evaluation mode
-- Cooldown
-- Telegram destination
-
-Alert history should distinguish:
-
-- Triggered and delivered
-- Triggered and pending
-- Triggered and retrying
-- Triggered but permanently failed
-
-## Testing Expectations
-
-Prioritize tests for:
-
-- Above/below and crossing semantics
-- Equality behavior
-- Restart and reconnect state
-- Candle-close-only evaluation
-- Cooldown boundaries
-- Duplicate event processing
-- Atomic event and outbox creation
-- Shared calculation consistency
-
-## Pending Decisions
-
-- Exact alert statuses.
-- Initial cooldown defaults and limits.
-- Behavior for events suppressed during cooldown.
-- Whether users can edit active alerts or changes create a new version.
-- Maximum active alerts per user.
-- Data-staleness threshold for suspending evaluation.
-
-## One-Time Price Alert API
-
-Issue #30 adds authenticated create, owned list/read, and CSRF-protected soft-delete behavior. Creation requires
-a connected Telegram destination, a canonical ready market, exact target validation, UUID idempotency, and fewer
-than 20 active rows. Deleted alerts are excluded from normal lists; active and disabled rows become terminal
-`deleted` with `user_deleted`, while triggered and failed rows cannot be deleted or reactivated. The API does
-not inspect a price: a future first accepted market event initializes relation without triggering. Event and
-outbox creation remain future evaluator work.
-
-## One-Time Price Evaluation
-
-Issue #32 evaluates accepted ordered `PriceEvent` values inside the singleton market-stream process. Active
-alerts are grouped in an in-memory registry by supported market, refreshed every two seconds with a five-second
-overlap and rebuilt every 60 seconds. The first accepted price records `below`, `equal`, or `above` without a
-trigger. `cross_above` triggers only from below/equal to above; `cross_below` triggers only from above/equal to
-below. Same-side observations do not write the alert row.
-
-Each candidate re-locks and revalidates the durable active alert. A successful crossing atomically creates the
-immutable event, terminal `triggered` transition, and one Telegram outbox job. The event identity is
-`binance:spot:<SYMBOL>:aggTrade:<provider_event_id>`; reconnect observations use the first accepted fresh price,
-not an invented outage-time value. Delivery failure never re-arms a triggered alert. Markets that are no longer
-ready disable their active alerts with `market_disabled`; impossible persisted evaluation state fails the alert with
-`evaluation_invariant`.
-
-## Global preset signal events
-
-Issue #52 records one immutable market occurrence per market, preset version, candle, and candle revision. It is not a user alert or a delivery: subscriptions later filter visibility and delivery without duplicating the occurrence. Initial valid comparisons only initialize state; exact equality-aware crossings produce events atomically with durable state, and replays are suppressed by database uniqueness.
+The lifecycle and evaluator code were inspected statically. Live crossings, restart/catch-up, correction rebuild, and delivery behavior are unverified.
