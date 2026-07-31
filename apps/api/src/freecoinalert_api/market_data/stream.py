@@ -31,6 +31,8 @@ from freecoinalert_api.market_data.candles.ingestion import CandleIngestionServi
 from freecoinalert_api.market_data.candles.pipeline import ConfirmedCandlePipeline
 from freecoinalert_api.market_data.candles.reconciliation import reconcile_recent
 from freecoinalert_api.market_data.candles.state import CandleStateRecorder
+from freecoinalert_api.signals.evaluator import PresetSignalEvaluator
+from freecoinalert_api.signals.reconciliation import reconcile_disabled_presets
 from freecoinalert_api.market_data.state import MarketStateRecorder
 
 logger = logging.getLogger(__name__)
@@ -62,6 +64,7 @@ class BinanceMarketStream:
         self._candle_recorder = CandleStateRecorder(
             max_lag_seconds=self.settings.candle_data_max_lag_seconds,
         )
+        self._signal_evaluator = PresetSignalEvaluator()
 
     async def run(self) -> int:
         logger.info("market.stream.starting exchange=binance market_type=spot")
@@ -148,7 +151,9 @@ class BinanceMarketStream:
     ) -> None:
         url = build_combined_stream_url(self.settings.binance_spot_ws_base_url, markets)
         pipeline = PriceEventPipeline([self._recorder, self._evaluator])
-        candle_pipeline = ConfirmedCandlePipeline([self._candle_recorder])
+        candle_pipeline = ConfirmedCandlePipeline(
+            [self._candle_recorder, self._signal_evaluator]
+        )
         consumer = asyncio.create_task(pipeline.consume(self.stop_event))
         candle_consumer = asyncio.create_task(candle_pipeline.consume(self.stop_event))
         freshness = asyncio.create_task(self._monitor_freshness(markets))
@@ -331,6 +336,7 @@ class BinanceMarketStream:
             await self._registry.refresh_if_due()
             if time.monotonic() - self._last_market_reconciliation >= 60:
                 await self._evaluator.reconcile_markets()
+                await reconcile_disabled_presets()
                 self._last_market_reconciliation = time.monotonic()
             if time.monotonic() - self._last_candle_reconciliation >= self.settings.candle_recent_reconciliation_seconds:
                 asyncio.create_task(

@@ -294,3 +294,7 @@ Issue #49 adds `candle_sync_runs` for bounded bootstrap, reconciliation, recent-
 retention-cleanup run progress, plus `candle_symbol_states` as the latest operational snapshot per
 supported market. These tables do not replace immutable candle history. Candle states are `starting`,
 `live`, `stale`, `gapped`, or `error`; `live` requires a complete recent `1m` candle and no known gap.
+
+## Signal evaluation and events
+
+Issue #52 adds `signal_evaluation_states` for restart-safe per-market/preset warming, ready, stale, error, and disabled state. `signal_events` contains immutable global preset occurrences, uniquely deduplicated by market, preset, candle, and revision; `signal_event_invalidations` preserves correction or invariant invalidations without mutating events. Calculation-state JSON is server-generated and stores Decimal values as strings.

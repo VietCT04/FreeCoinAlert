@@ -249,3 +249,7 @@ Observe closed-candle receipt, persistence, duplicates, corrections, complete/in
 gap counts, REST retries/rate limits, queue backpressure, and candle age per symbol. Candle freshness
 uses `CANDLE_DATA_MAX_LAG_SECONDS=180`; safe logs use stable categories and never include full provider
 payloads or unrestricted headers.
+
+## Signal evaluator observability
+
+Issue #52 uses structured `signal.evaluation.*`, `signal.event.*`, and `signal.backfill.*` events for initialization, safe data suspension, success, duplicate suppression, creation, rebuilds, and failures. Safe fields are market, preset code/version, timeframe, candle revision, relation transition, and bounded counts; calculation payloads, candle sequences, subscriptions, and unrestricted exceptions are excluded.

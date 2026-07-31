@@ -1,1 +1,1 @@
-"""Server-controlled signal preset catalog and subscriptions."""
+"""Global closed-candle preset evaluation and immutable signal events."""

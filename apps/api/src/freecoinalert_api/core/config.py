@@ -29,6 +29,9 @@ class AuthenticationSettings(BaseSettings):
     candle_reconciliation_lookback_hours: int = Field(default=24, gt=0, le=168)
     candle_recent_reconciliation_seconds: int = Field(default=900, gt=0)
     candle_recent_reconciliation_hours: int = Field(default=6, gt=0, le=168)
+    signal_live_catchup_max_days: int = Field(default=7, gt=0, le=7)
+    signal_history_days: int = Field(default=90, gt=0, le=180)
+    signal_event_retention_days: int = Field(default=365, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",

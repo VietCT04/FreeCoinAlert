@@ -324,3 +324,5 @@ contracts; it does not own lifecycle evaluation, decimal persistence, authorizat
 The existing singleton `market-stream` owns Binance Spot aggregate-trade and candle connectivity
 under one advisory lock. It has a bounded confirmed-candle queue for operational state and safe
 observability only. Future preset evaluation is a later sink; provider payloads do not enter strategy code.
+
+Issue #52 makes preset evaluation that next sink: confirmed-candle persistence and aggregation feed one singleton evaluator, which persists global evaluation state and immutable market signal events. Browser feed delivery and Telegram notification creation remain separate future boundaries.

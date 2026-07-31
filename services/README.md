@@ -22,3 +22,5 @@ trigger events and Telegram outbox jobs, while the existing notification worker 
 
 Issue #49 adds closed-candle ingestion, aggregation, and bounded candle maintenance to the existing
 market-stream process; it does not create a second always-running service.
+
+Issue #52 adds the global preset signal evaluator as a confirmed-candle sink in that same process. It persists state and immutable market occurrences only; browser feed delivery, per-user visibility, and Telegram jobs remain separate work.

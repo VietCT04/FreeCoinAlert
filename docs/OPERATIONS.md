@@ -342,3 +342,7 @@ Use `pnpm market:candles-bootstrap` only to explicitly bootstrap the approved ca
 (minimum 35, maximum 180); reconciliation defaults to 24 hours (maximum seven days). The market
 profile remains the only always-running market process. No bootstrap, reconciliation, or retention
 command was run during implementation.
+
+## Signal event operations
+
+`pnpm signals:backfill` is the explicit future operator command for bounded historical signal rebuilding. It must acquire the market-stream advisory lock, uses `SIGNAL_HISTORY_DAYS=90` (maximum 180), and must never contact Binance. `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` bounds automatic restart catch-up; signal-event retention is documented as `SIGNAL_EVENT_RETENTION_DAYS=365` without automatic deletion in this issue.

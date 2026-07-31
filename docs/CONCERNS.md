@@ -293,3 +293,10 @@ Issue #49 adds bounded provider, bootstrap, reconciliation, aggregation, and ope
 but they were not contacted or executed by maintainer direction. A dedicated operational verification
 pass should exercise corrections, rate-limit behavior, restart resume, retention ordering, and freshness
 state transitions before production use.
+
+# C-011: Signal evaluator operational rebuild needs a dedicated verification pass
+
+Issue #52 adds durable global preset state, immutable events, and an explicit backfill command boundary,
+but no migration, provider, process, database, backfill, test, or verification command was run by maintainer
+direction. Before production, a dedicated pass must exercise complete historical rebuilding, corrected candle
+invalidations, seven-day live catch-up, and database uniqueness under replay.
