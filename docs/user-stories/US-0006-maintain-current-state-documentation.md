@@ -115,4 +115,15 @@ Historical information belongs in GitHub issues, pull requests, ADRs, changelogs
 
 ## Follow-up Issues
 
-To be linked after the documentation pull request is opened.
+- #61 — Rewrite core product and system contracts as current state
+- #62 — Rewrite runtime and domain behavior as current state
+- #63 — Establish documentation ownership, navigation, and concise handoff
+- #64 — Enforce current-state documentation in contributor workflow
+
+Implementation order:
+
+```text
+#61 → #62 → #63 → #64
+```
+
+Each implementation issue requires an explicitly approved technical solution comment before work begins.
