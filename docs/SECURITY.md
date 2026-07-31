@@ -1,315 +1,53 @@
 # Security
 
-## Purpose
+## Purpose and Security Scope
 
-## Signal subscription boundaries
+This document records implemented security boundaries and limitations for the alert-only product. It does not claim a security review or runtime verification.
 
-Subscription ownership is derived solely from the authenticated browser principal. State-changing enable and disable operations require the existing CSRF boundary and accept no user, market database, or preset database identifiers. Unknown and foreign subscription IDs use the same safe not-found response. The catalog exposes no internal UUIDs or configuration hashes. Request limits use only the direct client address and authenticated user; `X-Forwarded-For` is not trusted before a proxy design is approved.
+## Assets and Trust Boundaries
 
-This document defines the initial security boundaries and minimum controls for authentication, authorization, Telegram linking, custom strategy rules, external integrations, secrets, abuse prevention, and logging.
+Sensitive assets are password hashes, session and CSRF tokens, Telegram bot credentials and destinations, database credentials, and user-owned records. The browser is untrusted. Binance is a public market-data provider; Telegram is an external delivery provider. PostgreSQL is the durable trust boundary.
 
-## Security Principles
+## Authentication and Session Security
 
-- Treat all client input and external-provider input as untrusted.
-- Enforce ownership and permissions server-side.
-- Store the minimum sensitive data required.
-- Never commit secrets.
-- Use constrained rule definitions instead of executing customer code.
-- Make sensitive external-event processing idempotent.
-- Prefer deny-by-default behavior for unsupported markets, symbols, indicators, operators, and parameters.
-
-## One-Time Price Alert Persistence
+Passwords are validated at 15–128 characters and stored using pwdlib’s recommended Argon2id policy. Sessions use `secrets.token_urlsafe(32)` tokens; only SHA-256 token hashes are stored. A session has a random CSRF token, expiry from `SESSION_TTL_SECONDS` (default seven days), and revocation timestamp. The `freecoinalert_session` cookie is HTTP-only, `SameSite=Lax`, path `/`, and conditionally Secure. Sign-out revokes a live session and clears the cookie.
 
-Issue #29 keeps one-time price alerts user-owned at the database boundary. User-facing alert reads
-always filter by the authenticated user's ID; future evaluator mutations use row locking rather than
-client-provided ownership. Alert creation idempotency is scoped to the owner and uses a future API
-provided key, never a session or CSRF token.
+## CSRF, CORS, Origin, and Browser Storage
 
-Snapshots and immutable trigger events retain only the market identifiers, exact prices, timestamps,
-and aggregate-trade reference needed for reproducibility. They do not retain Binance payloads,
-Telegram responses, message content, session data, or secrets. Soft deletion preserves immutable
-history, while a future account-deletion workflow must order alert-event deletion before alert deletion
-because event rows restrict the alert foreign key.
+Authenticated mutations compare `X-CSRF-Token` with the session token using constant-time comparison. Registration/login accept only `WEB_ORIGIN` or the API origin when `Origin` is present. CORS is one configured origin with credentials and a narrow method/header list. The web client keeps authentication and CSRF values in memory; no sensitive session or linking token is intentionally persisted in browser storage.
 
-## Authentication
+## Authorization and Ownership
 
-Issue #11 establishes persistence only. `users` stores a password hash, never a raw
-password, and enforces unique `email_normalized` identity. `auth_sessions` stores only
-a unique session-token hash, explicit expiry, and optional revocation time. It permits
-multiple concurrent sessions per user and cascades their deletion when the owning user
-is deleted. The CSRF token may be stored directly because it cannot authenticate a user
-without the HTTP-only session cookie.
+The server derives the principal from the session. Alert, subscription, Telegram, and notification repositories use that ID for ownership checks. Client-supplied user identifiers do not select resources. API responses are shaped to avoid exposing another user’s resource details.
 
-Registration and sign-in normalize email identity, use Argon2id password hashes, and
-establish a seven-day fixed-expiry browser session. `GET /auth/me` resolves the session
-only from the HTTP-only `freecoinalert_session` cookie. It maps a SHA-256 token hash to
-one unrevoked, unexpired session and its owning user, without extending expiry or writing
-last-seen state. Missing, malformed, invalid, expired, and revoked cookies are rejected
-consistently and may be cleared.
+## Input Validation and Abuse Controls
 
-The immutable `AuthenticatedPrincipal` is the reusable ownership boundary. It contains
-only the authenticated user UUID and session UUID. Future user-owned endpoints must
-derive ownership from that principal and never treat a client-supplied user ID as proof.
+Pydantic forbids unknown fields in security-sensitive request bodies; UUIDs, exact decimals, catalogue availability, and lifecycle transitions are validated server-side. Authentication, alert, signal, and Telegram actions use bounded 15-minute in-memory rate-limit buckets. These controls are process-local, not distributed abuse protection.
 
-The browser authentication flow uses credentialed `fetch` requests to the configured API
-origin. It keeps only the safe current user and session-bound CSRF token in React memory;
-it never reads the HTTP-only session cookie or writes authentication data to browser
-persistent storage, query parameters, or frontend-created cookies. A refresh restores
-that memory state only through `GET /auth/me`.
+## Telegram Security
 
-Cookie-authenticated POST, PUT, PATCH, and DELETE endpoints must use the reusable CSRF
-dependency. It accepts `X-CSRF-Token` only as a header and compares it in constant time
-to the session-bound CSRF token. Logout revokes only the current session after a valid
-CSRF check, clears the cookie, and is intentionally idempotent for absent, invalid,
-expired, or revoked sessions. Concurrent sessions remain allowed; expiry is absolute and
-sessions are not rotated or extended on ordinary requests.
+The bot token is environment configuration and is never returned by HTTP APIs. Link values are random, short-lived, single-use values stored as hashes. Processed Telegram update IDs are persisted for idempotency. Connections retain only the provider identity and delivery fields required for the feature. Provider errors are normalized before user-facing responses and logs must not contain bot tokens or raw link values.
 
-The implemented approach provides:
+## Binance and Market-Data Security
 
-- Secure password or identity-provider handling.
-- Session expiration and revocation.
-- CSRF protection when cookie-based sessions are used.
-- Secure cookie settings where applicable.
-- Rate limiting for sign-up and sign-in attempts.
-- A reliable current-user identity for authorization decisions.
+Binance Spot REST/WebSocket access is public and centralized. The product neither requests nor stores customer exchange API keys. Provider input is normalized and freshness/order/data-quality guarded before it changes alert or candle state.
 
-The backend must derive the user from the authenticated principal. A client-provided user identifier is never proof of identity or ownership.
+## Database and Secret Handling
 
-## Authorization
+`DATABASE_URL`, Telegram bot token, and local passwords are environment configuration. Tokens are hashed where replay is not needed; passwords are Argon2id hashes. Exact decimal values use `NUMERIC`, avoiding float-based financial persistence. Database deletion/backup policy remains an operational concern documented in [DATABASE.md](DATABASE.md).
 
-Users may access only their own:
+## Logging and Error Redaction
 
-- Alert definitions
-- Telegram connections
-- Alert events
-- Notification settings and delivery records
-- Future historical-analysis jobs and results
+Structured logs may contain lifecycle identifiers and safe failure codes. They must not include passwords, session or CSRF tokens, Telegram bot/link tokens, database URLs, raw provider payloads, or unnecessary personal data. API errors return stable safe codes/messages rather than internal exceptions.
 
-Administrative endpoints, when introduced, require explicit admin authorization.
+## Frontend Information Exposure
 
-Internal worker operations must not be exposed as unauthenticated public endpoints.
+The frontend receives only response DTOs for its authenticated principal and public catalogue/preset data. It does not receive password hashes, session hashes, internal signal calculation state, provider secrets, or other users’ data.
 
-## Telegram Linking
+## Current Limitations and Unresolved Risks
 
-The web application must not ask users to type a Telegram chat ID manually.
+Rate limits are process-local. There is no documented production backup, account-deletion, distributed rate-limit, security-review, penetration-test, or provider-verification outcome. Runtime CORS/cookie deployment values require an explicit operational review before exposure beyond the configured origin.
 
-Issue #19 persists the minimum private-chat linking state only. It stores a SHA-256
-link-token hash as `BYTEA`, never a raw token or deep link, and treats the Telegram
-update ID as a transactional idempotency key. Token expiry is checked at use time; a
-token may not be both consumed and revoked. Issue #20 adds browser-session-authenticated
-link-token, state, and disconnect APIs, but no bot transport or update processing.
+## Verification Status
 
-The recommended flow uses a short-lived, single-use deep-link token.
-
-Required controls:
-
-- Generate tokens with cryptographically secure randomness.
-- Bind each token to the authenticated requesting user.
-- Expire tokens within a short documented period.
-- Invalidate tokens after successful use.
-- Prevent replay.
-- Do not encode raw internal user IDs in the token.
-- Store a token hash where practical.
-- Process Telegram updates idempotently.
-- Validate webhook authenticity using Telegram's supported secret mechanism when webhooks are used.
-
-The link-creation response exposes the raw token only as part of one HTTPS Telegram URL; it
-must not be logged, returned as a separate field, persisted, or added to browser storage. It
-uses 32 random bytes, URL-safe Base64 without padding, and a ten-minute local default. Each
-replacement and disconnect revokes outstanding unconsumed tokens transactionally. The bot
-username is public configuration, but bot tokens and webhook secrets remain excluded.
-
-## Telegram Data
-
-Store only data needed to deliver and manage alerts, such as:
-
-- Telegram chat ID
-- Connection state
-- Telegram username when product requirements justify it
-- Connection and verification timestamps
-
-Do not expose chat IDs unnecessarily in the frontend or logs.
-
-The initial ownership boundary allows one connection record per user and permanently
-reserves its Telegram user and chat identifiers to that owner until the FreeCoinAlert
-account is deleted. A connected or degraded user must disconnect before linking another
-chat, while a disconnected record may reactivate only for the same owner. Cross-account
-transfer requires a later approved account-recovery design.
-
-## Customer Strategy Rules
-
-Customers must not be allowed to submit executable Python, JavaScript, SQL, shell commands, templates with arbitrary execution, or uploaded plugins.
-
-Custom rules must use a validated internal format.
-
-Validation must restrict:
-
-- Supported indicators
-- Supported operators
-- Parameter ranges
-- Timeframes
-- Rule depth
-- Number of conditions
-- Calculation complexity
-- Supported symbols and markets
-
-The backend is authoritative even when the frontend performs the same validation for user experience.
-
-## Exchange Credentials
-
-The alert-only MVP must not request or store customer Binance API keys.
-
-The platform should consume public market data only.
-
-Any future trading integration requires a separate security design and explicit product approval.
-
-## Secret Management
-
-Secrets include:
-
-- Authentication secrets
-- Database credentials
-- Telegram bot token
-- Telegram webhook secret
-- External monitoring tokens
-- Encryption keys
-
-Rules:
-
-- Use environment variables or an approved secret manager.
-- Provide `.env.example` with names only, never real values.
-- Rotate a secret immediately if it is exposed.
-- Avoid printing secrets in logs or error responses.
-- Keep production secrets separate from local and test environments.
-
-## Abuse Prevention
-
-Rate-limit operations that can create cost or spam:
-
-- Authentication attempts
-- Telegram-link token creation
-- Test notifications
-- Alert creation and modification
-- Historical-analysis submission
-- Public endpoints vulnerable to scraping or enumeration
-
-Telegram link creation uses a bounded in-process limit of five requests per authenticated
-user and ten per direct client IP in fifteen minutes; disconnect uses ten per authenticated
-user in the same window. The direct address comes only from `request.client.host`; do not
-trust `X-Forwarded-For` without an approved trusted-proxy design. Replace this local limiter
-with shared rate limiting before multiple API replicas or public launch.
-
-Introduce per-user alert and rule-complexity limits before public launch.
-
-## Input Validation
-
-### Browser Telegram State
-
-The Telegram connection UI uses the existing credentialed session and in-memory CSRF token from the
-authentication provider. It never reads the HTTP-only session cookie and does not persist Telegram deep
-links, linking tokens, idempotency keys, connection IDs, chat IDs, or Telegram user IDs in browser
-storage, frontend-created cookies, URL parameters, analytics, or logs. API ownership remains derived
-from the server-side authenticated principal.
-
-Telegram test notification queueing is limited to three new requests per authenticated user per
-15 minutes. The UUID idempotency key is distinct from session and CSRF credentials, and a
-same-user replay returns its existing safe state. This limiter is application-local and must be
-replaced before multiple API replicas. The worker rechecks ownership and connected state before
-provider contact; its outbox stores no raw chat IDs, message text, provider requests, or responses.
-
-Validate:
-
-- Symbol, exchange, market, and timeframe
-- Decimal values and reasonable thresholds
-- Indicator periods and parameters
-- Cooldown ranges
-- Rule structure and schema version
-- Date ranges for historical analysis
-- Pagination and sorting values
-
-Do not pass user-provided identifiers directly into SQL, shell commands, file paths, or external URLs.
-
-## Logging and Error Handling
-
-- Use structured logs.
-- Do not log passwords, sessions, tokens, secrets, or full sensitive provider payloads.
-- Avoid logging every market tick.
-- Return safe error messages and stable error codes.
-- Correlate errors with a request or event identifier.
-- Preserve enough audit information for sensitive account and alert changes.
-
-## Dependency and Container Security
-
-- Pin and update dependencies intentionally.
-- Review high-severity vulnerabilities.
-- Run application containers as non-root when practical.
-- Keep runtime images minimal.
-- Do not expose database or worker ports publicly unless required.
-- Apply security updates to any VPS or host operating system.
-
-## Security Review Triggers
-
-Update this document and request review when introducing:
-
-- Exchange API keys or trade execution
-- Payments or paid plans
-- Additional notification providers
-- File uploads
-- Public sharing of strategies
-- Arbitrary formulas or scripting
-- Administrative dashboards
-- Multi-tenant organizations
-- New personal data
-
-## Pending Decisions
-
-- Authentication provider.
-- Encryption requirements for Telegram destination identifiers.
-- Initial rate-limit thresholds.
-- Account deletion and data-retention behavior.
-- Audit-log schema and retention.
-- Production secret-management provider.
-
-## Issue #21 Telegram Processor Boundary
-
-The update processor requires secret `TELEGRAM_BOT_TOKEN` only when it runs; normal API startup
-does not require it. It accepts input only from private messages with a sender and a supported
-`/start` command, hashes the raw token, and completes the token, ownership, connection, and
-processed-update transaction before contacting Telegram. It never reassigns a destination or
-reveals its owner. Logs must not contain raw tokens, token hashes, full message bodies or updates,
-bot tokens, cookies, or provider exception bodies.
-
-## One-Time Price Alert API Controls
-
-Issue #30 derives every alert owner from `AuthenticatedPrincipal.user_id`; create and delete reuse the CSRF
-boundary. Request bodies cannot supply an owner, destination, market row, status, evaluator state, timestamp, or
-provider value. A per-user advisory transaction lock serializes creation while enforcing the 20-active-alert cap.
-Creates are limited to 10 per user and 30 per direct IP, and deletes to 30 per user, per 15 minutes. These
-bounded process-local controls use `request.client.host`, do not trust forwarded headers, and need a shared
-trusted-proxy-aware replacement before multiple replicas or public launch. Errors do not disclose foreign
-ownership, Telegram identity, raw idempotency keys, request bodies, session/CSRF values, or SQL details.
-# Public market-stream boundary
-
-The Binance Spot aggregate-trade stream uses only the public combined-stream endpoint and no Binance API keys, private feeds, user streams, or trading endpoints. Symbols are loaded from the controlled catalog rather than environment input, and production Binance URLs must use `wss`. The stream records no user, alert, Telegram, quantity, maker-direction, or raw provider-payload data.
-
-## Price Alert Payload Boundary
-
-Price-alert notification payloads are internal, versioned, and built only from immutable alert-event snapshots.
-They must not include Telegram chat IDs, tokens, provider URLs or raw payloads, cookies, CSRF values, or user-
-written message text. Alert read APIs expose only safe lifecycle, delivery summary, and market-state summary data.
-
-## Browser Price Alert Boundary
-
-Issue #33 keeps alert, catalog, Telegram-readiness, pagination, and idempotency state in React memory. Every
-authenticated mutation uses credentialed fetch and the in-memory CSRF token. The UI submits canonical fields from
-the controlled catalog only and never stores or renders user IDs, Telegram identifiers, market row IDs, provider
-event IDs, outbox IDs, cookies, or internal state reasons.
-# Public candle provider boundary
-
-Historical candle requests use Binance's unauthenticated public Spot kline endpoint for the controlled
-catalog only. No API key, signed request, user-selected symbol, provider payload dump, or provider
-response-header dump is permitted.
-
-## Signal event boundary
-
-Issue #52 accepts only persisted server-controlled presets and complete canonical candles. Evaluation-state JSON and immutable event snapshots are server-generated; no client can submit a calculation payload, event identity, subscription delivery row, or notification request through this boundary.
+Security behavior was inspected statically from code and configuration. No penetration test, provider request, browser flow, migration, or runtime security verification was run.
