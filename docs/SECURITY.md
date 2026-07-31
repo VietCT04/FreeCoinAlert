@@ -309,3 +309,7 @@ event IDs, outbox IDs, cookies, or internal state reasons.
 Historical candle requests use Binance's unauthenticated public Spot kline endpoint for the controlled
 catalog only. No API key, signed request, user-selected symbol, provider payload dump, or provider
 response-header dump is permitted.
+
+## Signal event boundary
+
+Issue #52 accepts only persisted server-controlled presets and complete canonical candles. Evaluation-state JSON and immutable event snapshots are server-generated; no client can submit a calculation payload, event identity, subscription delivery row, or notification request through this boundary.

@@ -265,3 +265,7 @@ immutable event, terminal `triggered` transition, and one Telegram outbox job. T
 not an invented outage-time value. Delivery failure never re-arms a triggered alert. Markets that are no longer
 ready disable their active alerts with `market_disabled`; impossible persisted evaluation state fails the alert with
 `evaluation_invariant`.
+
+## Global preset signal events
+
+Issue #52 records one immutable market occurrence per market, preset version, candle, and candle revision. It is not a user alert or a delivery: subscriptions later filter visibility and delivery without duplicating the occurrence. Initial valid comparisons only initialize state; exact equality-aware crossings produce events atomically with durable state, and replays are suppressed by database uniqueness.

@@ -4,6 +4,13 @@
 
 ## Latest completed work
 
+### 2026-07-31 — Issue #52: preset signal evaluator and events
+
+- Added global closed-candle SMA 200 and RSI 14 preset evaluation in the existing market-stream process, durable per-market/preset state, immutable deduplicated signal events, and separate invalidation records.
+- Added exact equality-aware crossing semantics, safe suspension for unsafe candle data, explicit signal-backfill configuration and command boundary, and the `20260731_0011` migration.
+- Browser feed delivery, user-specific event copies, Telegram notification jobs, and a second evaluator service remain out of scope.
+- No provider, process, migration, backfill, test, build, lint, type-check, or verification command was run by maintainer direction.
+
 ### 2026-07-31 — Issue #51: shared SMA 200 and RSI 14 calculation core
 
 - Added provider-neutral immutable candle, result, state, and shared-calculation-key contracts under `apps/api/src/freecoinalert_api/strategies/`.

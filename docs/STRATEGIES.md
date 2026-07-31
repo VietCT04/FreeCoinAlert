@@ -12,6 +12,12 @@ Issue #51 adds the pure calculation boundary used by future live and historical 
 
 Each calculation shares the immutable key `supported_market_id + timeframe + strategy_type + calculation_version + period + close`. Direction and RSI threshold are intentionally excluded so paired presets share one indicator result. Missing, duplicate, unordered, mixed, incomplete, invalid, or non-contiguous candles return typed `invalid_input` or `gap_detected`; insufficient history returns `insufficient_history`. Corrections are rebuilt from a complete current series by Issue #52 rather than mutating calculation state.
 
+## Preset signal evaluation
+
+Issue #52 evaluates active and superseded preset versions from complete, current `1h` and `4h` candles in the singleton market-stream process. A market occurrence is global: it is not copied per subscription or user. The first valid point initializes persisted state without an event. Later price/SMA crosses require previous close `<=` SMA and current close `>` SMA (or the inverse for below); RSI uses the same inclusive previous and strict current relation against 70 or 30. Equality does not itself trigger, while equality to the selected side does.
+
+Each state records exact Decimal comparison values and server-generated calculation state with Decimal strings. Signal-event rows snapshot the immutable market, preset, candle, calculation, and comparison values. Replays are idempotent; a corrected candle revision requires a safe rebuild and can invalidate an older event without altering it. Incomplete, stale, gapped, invalid, or insufficient history suspends evaluation.
+
 ## Purpose
 
 This document defines platform signal templates, custom-rule definitions, supported calculation concepts, validation, deterministic evaluation, shared calculation, and strategy versioning.

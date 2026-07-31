@@ -247,3 +247,7 @@ most 1,000 minutes. `market:candles-reconcile` repairs only missing bounded rang
 requests a six-hour recent repair at startup and no more often than every 900 seconds. REST uses the
 public `/api/v3/klines` endpoint, one request at a time, 10-second timeouts, bounded retries, and
 safe 429/418 handling. These commands are explicit operator actions and were not executed here.
+
+## Preset evaluation sink
+
+Issue #52 adds the preset evaluator as a confirmed-candle sink in the existing advisory-locked market stream. It evaluates only current complete `1h` and `4h` candles; stale, gapped, or error candle-symbol state suspends signal creation. It introduces no provider request, queue, broker, or second service.

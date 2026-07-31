@@ -216,6 +216,10 @@ The stream uses the public `BINANCE_SPOT_WS_BASE_URL` (default `wss://stream.bin
 
 ## Price-alert evaluator
 
+## Preset signal evaluator
+
+Issue #52 extends the singleton market stream with an internal confirmed-candle sink for global SMA 200 and RSI 14 preset occurrences. It persists restart-safe state and immutable, deduplicated signal events; it does not expose a feed API, create user copies, contact Telegram, or start a new process. `pnpm signals:backfill` is an explicit lock-protected historical operation and was not run during implementation.
+
 The market stream evaluates one-time price crossings after recording each validated `PriceEvent`. It maintains an
 active-alert registry, persists initialization and side changes, and atomically creates the immutable trigger,
 terminal alert state, and `telegram_price_alert` outbox job. The notification worker formats the immutable payload
