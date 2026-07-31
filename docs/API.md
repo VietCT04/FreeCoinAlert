@@ -37,25 +37,31 @@ Authentication errors are `{ "code": string, "message": string, "details": [] }`
 
 ## Telegram
 
-`POST /telegram/link-tokens` returns `201 {connection:{status,linkExpiresAt},telegramUrl}`; it requires configured bot identity, authentication, CSRF, and local user/IP limits. `GET /telegram/connection` returns `200 {connection:{status,username,connectedAt,lastVerifiedAt,linkExpiresAt,statusReason}}`. `DELETE /telegram/connection` returns `204` and is owner-scoped.
+`POST /telegram/link-tokens` accepts no body and returns `201 {connection:{status:"linking",linkExpiresAt},telegramUrl}`. It requires configured bot identity, authentication, CSRF, and local limits of 5 per user and 10 per direct IP per 15 minutes; a limit response is `429 TELEGRAM_LINK_RATE_LIMITED` with `Retry-After`. It returns `503 TELEGRAM_NOT_CONFIGURED` without bot configuration, `409 TELEGRAM_ALREADY_CONNECTED` for a connected/degraded destination, and `503 TELEGRAM_LINK_UNAVAILABLE` for storage conflicts/failure. The raw deep-link token is returned only in `telegramUrl`.
+
+`GET /telegram/connection` returns `200 {connection:{status,username,connectedAt,lastVerifiedAt,linkExpiresAt,statusReason}}` for its authenticated owner, with `linking` derived from an active link token. `DELETE /telegram/connection` needs CSRF, accepts no body, is limited to 10 per user per 15 minutes, revokes outstanding link tokens, and returns `204`; it is idempotent for no connection or a disconnected connection. Storage failure is `503 TELEGRAM_CONNECTION_UNAVAILABLE`.
 
 `POST /telegram/test-notifications` requires `Idempotency-Key` as a UUID and returns `202 {notification:{id,status,createdAt,sentAt,failureCode}}`; a replay returns the same outbox item. `GET /telegram/test-notifications/{id}` returns its own notification only. Invalid idempotency is `400 TELEGRAM_TEST_IDEMPOTENCY_KEY_INVALID`.
 
 ## Supported Markets
 
-`GET /markets` returns `200 {markets:[{exchange,marketType,symbol,baseAsset,quoteAsset,status,priceRules,metadataCheckedAt}]}`. Available rows include `{min,max,tick}` exact-decimal strings; unavailable rows omit price rules. It is public and cached for 60 seconds.
+`GET /markets` returns `200 {markets:[{exchange,marketType,symbol,baseAsset,quoteAsset,status,priceRules,metadataCheckedAt}]}`. Available rows include `{min,max,tick}` exact-decimal strings; unavailable rows return `priceRules: null`. It is public and cached for 60 seconds.
 
 ## One-Time Price Alerts
 
-`POST /alerts/price` needs auth, CSRF, and UUID `Idempotency-Key`; body is `{exchange,marketType,symbol,direction,target_price}` with `direction` `cross_above` or `cross_below`. It returns `201` for a new alert or `200` for an identical replay. The response is `{alert:{id,type:"price_cross",market,direction,targetPrice,status,statusReason,evaluationReady,lastObservedPrice,createdAt,trigger,delivery,marketData}}`.
+`POST /alerts/price` needs auth, CSRF, and an `Idempotency-Key` UUID (maximum 128 characters). Its JSON body forbids unknown fields and is `{exchange,market_type,symbol,direction,target_price}`; direction is `cross_above` or `cross_below`, while target price is a positive plain decimal with at most 18 fraction digits, within the catalogue range, and aligned to the market tick. It returns `201` for a new alert or `200` for an identical replay, each with `{alert:{id,type:"price_cross",market,direction,targetPrice,status,statusReason,evaluationReady,lastObservedPrice,createdAt,trigger,delivery,marketData}}` and `no-store`.
 
-`GET /alerts` accepts `limit`, opaque `cursor`, and optional `status`, returning `{alerts,nextCursor}`. `GET /alerts/{id}` returns one envelope. `DELETE /alerts/{id}` returns `204`; all reads/writes are owner scoped. Creation and deletion have local limits; malformed bodies/IDs and unavailable markets use the price-alert service’s safe stable errors.
+Creation is limited to 10 per user and 30 per direct client IP per 15 minutes, and permits at most 20 active alerts per user. The user needs a connected Telegram destination; disconnected returns `409 ALERT_TELEGRAM_NOT_CONNECTED` and degraded returns `409 ALERT_TELEGRAM_DEGRADED`. Other stable creation errors are `422 ALERT_IDEMPOTENCY_KEY_INVALID`, `422 ALERT_REQUEST_INVALID`, `422 ALERT_TARGET_INVALID`, `422 ALERT_MARKET_UNAVAILABLE`, `409 ALERT_ACTIVE_LIMIT_REACHED`, `409 ALERT_IDEMPOTENCY_CONFLICT` when a replay key has a different request, and `503 ALERT_UNAVAILABLE` for persistence unavailability.
+
+`GET /alerts` accepts an optional `limit` (default `20`, integer `1`–`50` without alternate spelling), an opaque `cursor`, and optional status `active`, `triggered`, `disabled`, or `failed`; it returns `{alerts,nextCursor}` ordered by creation time/id descending. A malformed limit, status, or cursor returns `422 ALERT_REQUEST_INVALID` or `422 ALERT_CURSOR_INVALID`; the cursor encodes the last row’s UTC creation time and UUID. `GET /alerts/{id}` returns one owned alert envelope; a malformed ID is `422 ALERT_REQUEST_INVALID`, missing or foreign IDs are `404 ALERT_NOT_FOUND`. `DELETE /alerts/{id}` needs CSRF, is limited to 30 per user per 15 minutes, returns `204` for a successful or replayed deletion, and returns `409 ALERT_NOT_DELETABLE` for triggered/failed alerts. All alert reads and writes are owner scoped and `no-store`; `503 ALERT_UNAVAILABLE` is the safe storage failure response.
 
 ## Signal Presets and Subscriptions
 
 `GET /signal-presets` returns the public cached `{presets:[{code,version,name,description,strategyType,timeframe,direction,parameters:{period,threshold,priceInput},status:"available"}]}`.
 
-`GET /signal-subscriptions` returns `{subscriptions:[{id,status,statusReason,market,preset,activatedAt,disabledAt}]}` for the principal. `POST /signal-subscriptions` needs auth and CSRF; body is `{exchange,market_type,symbol,preset_code,preset_version}` and returns `201` or `200` when reactivating/idempotently replaying the user’s existing combination. `DELETE /signal-subscriptions/{id}` returns `204`. Invalid subscription input is `422 SIGNAL_PRESET_UNAVAILABLE`; access is owner scoped and enable/disable limits are local.
+`GET /signal-subscriptions` returns `{subscriptions:[{id,status,statusReason,market,preset,activatedAt,disabledAt}]}` for the principal. `POST /signal-subscriptions` needs auth and CSRF; its body forbids unknown fields and is `{exchange,market_type,symbol,preset_code,preset_version}`. It returns `201` for a new row and `200` for an already-active replay or reactivation. It is limited to 20 enables per user and 40 per direct IP per 15 minutes, plus a maximum of 20 active subscriptions per user; rate limiting is `429 SIGNAL_SUBSCRIPTION_RATE_LIMITED` with `Retry-After`. Stable failures are `422 SIGNAL_PRESET_UNAVAILABLE` for malformed input, `404 SIGNAL_PRESET_NOT_FOUND`, `409 SIGNAL_PRESET_UNAVAILABLE`, `422 SIGNAL_MARKET_UNAVAILABLE`, `409 SIGNAL_SUBSCRIPTION_LIMIT_REACHED`, and `503 SIGNAL_SUBSCRIPTION_UNAVAILABLE`.
+
+`DELETE /signal-subscriptions/{id}` needs CSRF, is limited to 30 per user per 15 minutes, returns `204` for the owner (including an already-disabled row), and returns `404 SIGNAL_SUBSCRIPTION_NOT_FOUND` for missing or foreign IDs. All subscription results are owner-scoped and `no-store`.
 
 ## Ownership and Information-Exposure Rules
 

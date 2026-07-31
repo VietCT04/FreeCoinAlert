@@ -34,7 +34,7 @@ An unavailable or stale catalogue cannot be used to create alerts or subscriptio
 
 ## Current Limits
 
-Enforced limits include: 15–128 character passwords; a 7-day default session lifetime; 10 price-alert creations per user and 30 per IP per 15 minutes; 20 subscription enables per user and 40 per IP per 15 minutes; 30 disable operations per user per 15 minutes; and 3 test notifications per user per 15 minutes. A user may have at most 100 subscriptions. Limits are process-local.
+Enforced limits include: 15–128 character passwords; a 7-day default session lifetime; 10 price-alert creations per user and 30 per IP per 15 minutes; 20 subscription enables per user and 40 per IP per 15 minutes; 30 disable operations per user per 15 minutes; and 3 test notifications per user per 15 minutes. Maximum active price alerts per user: 20. Maximum active signal subscriptions per user: 20. Disabled subscription records are not subject to a separate record-count limit. Limits are process-local.
 
 ## Not Supported
 

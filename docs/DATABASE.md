@@ -22,7 +22,7 @@ PostgreSQL is the durable source of truth. Tables use UUID primary keys unless a
 
 ## Telegram Domain
 
-`telegram_connections` is one row per user (user FK CASCADE), with destination identity, username, status (`linking`, `connected`, `degraded`, `disconnected`), link/connection/verification timestamps and safe reason. `telegram_link_tokens` stores hashed short-lived link material, expiry/consumption time, and a connection FK; token hash is unique. `telegram_processed_updates` keys accepted provider update IDs for idempotency and retention cleanup. Link creation, update poller, and disconnect process write these rows. See [TELEGRAM.md](TELEGRAM.md).
+`telegram_connections` is one row per user (user FK CASCADE and unique), with unique Telegram user/chat IDs, username, persisted status (`connected`, `degraded`, `disconnected`), connection/verification/degraded/disconnection timestamps and safe reason. `linking` is an API-derived state when a user has an active token; it is not a database status. `telegram_link_tokens` stores a unique hashed short-lived link value and its user FK CASCADE, expiry, consumption, and revocation timestamps; it has no connection FK. Its partial unique user index permits one unconsumed, unrevoked token per user. `telegram_processed_updates` keys accepted provider update IDs for idempotency and retention cleanup. Link creation, update poller, and disconnect process write these rows. See [TELEGRAM.md](TELEGRAM.md).
 
 ## Notification Domain
 
@@ -40,7 +40,7 @@ PostgreSQL is the durable source of truth. Tables use UUID primary keys unless a
 
 ## One-Time Price-Alert Domain
 
-`price_alerts` is UUID-keyed mutable user intent: user/market FKs, `price_cross` type, direction, exact target, lifecycle (`active`, `triggered`, `disabled`, `failed`), status reason, idempotency key, latest relation/price and trigger timestamps. Unique `(user_id,idempotency_key)` supports safe create replay; owner/status and active-market indexes support UI and stream evaluation.
+`price_alerts` is UUID-keyed mutable user intent: user FK CASCADE, market and Telegram-connection FKs RESTRICT, `price_cross` type, direction, exact target/tick snapshot, lifecycle (`active`, `triggered`, `disabled`, `deleted`, `failed`), status reason, idempotency key, latest relation/price/provider state, and creation/update/trigger/disable/delete/failure timestamps. Lifecycle checks require the matching transition timestamp, including `deleted_at` for `deleted`. Unique `(user_id,idempotency_key)` supports safe create replay; owner/status and active-market indexes support UI and stream evaluation.
 
 `alert_events` is immutable UUID-keyed price-cross history. It references alert, user, Telegram connection, captures a unique provider trigger identity, market/asset/direction/target/price snapshots, provider and observation timing, and reconnect context. Checks constrain event type/direction/identity/provider ID/finite values; unique alert/event identities prevent duplicate notifications. It is inserted with the matching outbox row. See [ALERTS.md](ALERTS.md).
 

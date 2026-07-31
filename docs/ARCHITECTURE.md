@@ -31,7 +31,7 @@ The API routes authenticate browser requests and delegate to domain services. Po
 
 ## Process Ownership and Singleton Boundaries
 
-The market stream uses PostgreSQL advisory lock key `freecoinalert:market-stream` so only one instance owns live ingestion. Signal backfill uses the same singleton boundary. Database rows and unique constraints provide idempotency for retries and restarts; no broker, Redis, or separate microservice is required.
+The market stream uses PostgreSQL advisory lock key `freecoinalert:market-stream:binance:spot` so only one instance owns live ingestion. Signal backfill imports and uses that same singleton boundary. Database rows and unique constraints provide idempotency for retries and restarts; no broker, Redis, or separate microservice is required.
 
 ## Primary Data Flows
 
