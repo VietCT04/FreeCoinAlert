@@ -33,7 +33,9 @@ Authentication errors are `{ "code": string, "message": string, "details": [] }`
 
 ## Authentication
 
-`POST /auth/register` returns `201`, and `POST /auth/login` returns `200`, with `{user:{id,email,createdAt},csrfToken}` and sets the session cookie. Body: `{email,password}`. Registration rejects an existing email with `409 AUTH_REGISTRATION_UNAVAILABLE`; invalid credentials are `401 AUTH_INVALID_CREDENTIALS`; disallowed origin is `403 AUTH_ORIGIN_REJECTED`; limits return `429 AUTH_RATE_LIMITED`. `GET /auth/me` returns the same body. `POST /auth/logout` returns `204`, is idempotent for absent/invalid sessions, and clears the cookie; a live session needs a valid CSRF token.
+`POST /auth/register` returns `201`, and `POST /auth/login` returns `200`, with `{user:{id,email,createdAt},csrfToken}` and sets a host-only session cookie with no `Expires` or `Max-Age`. Body `{email,password}` rejects unknown fields; email is normalized for identity and password must be 15–128 characters. Registration allows 5 attempts per direct IP per 15 minutes. Login allows 10 attempts per direct IP and 5 failed attempts per normalized email/direct-IP pair in the same window. Registration rejects an existing email with `409 AUTH_REGISTRATION_UNAVAILABLE`; invalid credentials are `401 AUTH_INVALID_CREDENTIALS`; invalid bodies/passwords are `422 AUTH_REQUEST_INVALID`; disallowed origin is `403 AUTH_ORIGIN_REJECTED`; limits return `429 AUTH_RATE_LIMITED` with `Retry-After`.
+
+`GET /auth/me` returns the same body for an active unexpired, unrevoked session. Missing, malformed, unknown, expired, or revoked cookies return `401 AUTHENTICATION_REQUIRED` and clear the stale session cookie where that response is produced. `POST /auth/logout` requires a valid `X-CSRF-Token` for a live session, revokes only that session, clears the cookie, and returns `204`; absent/invalid sessions also return `204` and clear the cookie without revealing whether a session existed. A live session with an invalid/missing CSRF header returns `403 AUTH_CSRF_INVALID` and is not revoked. Session expiry is fixed by `SESSION_TTL_SECONDS` (default seven days) and ordinary requests do not extend it.
 
 ## Telegram
 
@@ -41,7 +43,9 @@ Authentication errors are `{ "code": string, "message": string, "details": [] }`
 
 `GET /telegram/connection` returns `200 {connection:{status,username,connectedAt,lastVerifiedAt,linkExpiresAt,statusReason}}` for its authenticated owner, with `linking` derived from an active link token. `DELETE /telegram/connection` needs CSRF, accepts no body, is limited to 10 per user per 15 minutes, revokes outstanding link tokens, and returns `204`; it is idempotent for no connection or a disconnected connection. Storage failure is `503 TELEGRAM_CONNECTION_UNAVAILABLE`.
 
-`POST /telegram/test-notifications` requires `Idempotency-Key` as a UUID and returns `202 {notification:{id,status,createdAt,sentAt,failureCode}}`; a replay returns the same outbox item. `GET /telegram/test-notifications/{id}` returns its own notification only. Invalid idempotency is `400 TELEGRAM_TEST_IDEMPOTENCY_KEY_INVALID`.
+`POST /telegram/test-notifications` requires authentication, `X-CSRF-Token`, UUID `Idempotency-Key`, and no request body. It returns `202 {notification:{id,status,createdAt,sentAt,failureCode}}`; status is `queued`, `sending`, `retrying`, `sent`, or `failed`, and a same-user key replay returns the existing outbox item without another queue entry. New requests are limited to 3 per user per 15 minutes. Invalid/missing idempotency is `400 TELEGRAM_TEST_IDEMPOTENCY_KEY_INVALID`; disconnected and degraded destinations return `409 TELEGRAM_NOT_CONNECTED` and `409 TELEGRAM_CONNECTION_DEGRADED`; storage/queue failure returns `503 TELEGRAM_NOTIFICATION_UNAVAILABLE`.
+
+`GET /telegram/test-notifications/{id}` requires authentication and returns that user’s same safe notification envelope with `no-store`; a missing or foreign ID is `404 TELEGRAM_NOTIFICATION_NOT_FOUND`.
 
 ## Supported Markets
 

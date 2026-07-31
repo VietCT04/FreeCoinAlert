@@ -2,7 +2,7 @@
 
 ## Purpose and Global Conventions
 
-PostgreSQL is the durable source of truth. Tables use UUID primary keys unless a market state has a natural key; timestamps are UTC `TIMESTAMP WITH TIME ZONE`; amounts/prices are `NUMERIC(38,18)`; history is immutable where stated. Alembic manages the ordered schema chain. Exact constraints below are authoritative; runtime domain behavior is linked rather than duplicated.
+PostgreSQL is the durable source of truth. Tables generally use UUID primary keys. Exceptions include provider-owned or domain-natural identities such as `telegram_processed_updates.update_id` and supported-market-keyed operational state rows. Timestamps are UTC `TIMESTAMP WITH TIME ZONE`; amounts/prices are `NUMERIC(38,18)`; history is immutable where stated. Alembic manages the ordered schema chain. Exact constraints below are authoritative; runtime domain behavior is linked rather than duplicated.
 
 ## Schema Overview
 
@@ -26,11 +26,11 @@ PostgreSQL is the durable source of truth. Tables use UUID primary keys unless a
 
 ## Notification Domain
 
-`notification_outbox` is UUID-keyed durable work for a user and Telegram connection. It stores kind, idempotency key, payload snapshot, status (`pending`, `processing`, `retry_wait`, `sent`, `failed`), attempts, scheduling/claim/sent timestamps and safe failure code. User/connection FKs restrict deletion; unique user/kind/idempotency identity prevents replayed test notification work. Worker claim indexes support due work and recovery. Notification creation is transactional with price-alert trigger events.
+`notification_outbox` is UUID-keyed durable work for a user and Telegram connection. It stores kind, idempotency key, payload snapshot, status (`pending`, `processing`, `retry_wait`, `sent`, `failed`), attempts, scheduling/claim/sent timestamps and safe failure code. The user FK cascades deletion, while the Telegram-connection FK restricts deletion. The unique `(user_id, idempotency_key)` constraint prevents idempotency-key reuse across all notification kinds for the same user. Worker claim indexes support due work and recovery. Notification creation is transactional with price-alert trigger events.
 
 ## Supported-Market and Live-State Domain
 
-`supported_markets` stores the controlled `(exchange, market_type, symbol)` catalogue uniquely, base/quote asset, provider status, exact min/max/tick rules, metadata/freshness timestamps and status reason. `market_symbol_states` has one PK/FK row per supported market with status (`starting`, `live`, `stale`, `disconnected`, `error`), last provider event identity/time, exact price, reconnect flag, reason and update time. Nonnegative provider IDs and finite positive prices are constrained. Catalogue sync and market stream write these tables.
+`supported_markets` stores the controlled `(exchange, market_type, symbol)` catalogue uniquely, base/quote asset, provider status, exact min/max/tick rules, metadata/freshness timestamps and status reason. `market_symbol_states` has one PK/FK row per supported market with status (`starting`, `live`, `stale`, `disconnected`, `error`), last provider event identity/time, exact price, connection-generation UUID, reason and update time. Nonnegative provider IDs and finite positive prices are constrained. Catalogue sync and market stream write these tables.
 
 ## Candle Domain
 
