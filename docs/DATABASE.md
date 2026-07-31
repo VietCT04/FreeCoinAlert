@@ -1,300 +1,75 @@
 # Database
 
-## Signal preset catalog and subscriptions
+## Purpose and Global Conventions
 
-`signal_presets` stores immutable server-controlled strategy versions. Each row has a public `(code, version)` identity, a SHA-256 configuration hash, fixed strategy type, timeframe, direction, period, optional exact numeric threshold, close-price input, and lifecycle timestamps. The initial migration seeds eight active version-1 presets: price/SMA 200 cross above/below and RSI 14 cross above 70/below 30 for `1h` and `4h`.
+PostgreSQL is the durable source of truth. Tables use UUID primary keys unless a market state has a natural key; timestamps are UTC `TIMESTAMP WITH TIME ZONE`; amounts/prices are `NUMERIC(38,18)`; history is immutable where stated. Alembic manages the ordered schema chain. Exact constraints below are authoritative; runtime domain behavior is linked rather than duplicated.
 
-`signal_subscriptions` links a user, a controlled supported market, and an exact preset row. Its unique combination enables idempotent creation; disable is a lifecycle update rather than physical deletion. Existing subscriptions remain tied to their exact preset version so later versions cannot rewrite historical meaning.
+## Schema Overview
 
-## Purpose
+| Domain | Tables | Form |
+| --- | --- | --- |
+| Identity | `users`, `auth_sessions` | mutable account/session state |
+| Telegram | `telegram_connections`, `telegram_link_tokens`, `telegram_processed_updates` | connection state + idempotency |
+| Delivery | `notification_outbox` | durable work lifecycle |
+| Markets | `supported_markets`, `market_symbol_states` | catalogue + latest live snapshot |
+| Candles | `market_candles`, `candle_symbol_states`, `candle_sync_runs` | immutable/revisioned candles + operations |
+| Alerts | `price_alerts`, `alert_events` | mutable alert + immutable trigger |
+| Signals | `signal_presets`, `signal_subscriptions`, `signal_evaluation_states`, `signal_events`, `signal_event_invalidations` | versioned definitions, user intent, state, immutable history |
 
-This document defines the initial data domains, schema rules, timestamp conventions, idempotency requirements, migration expectations, and unresolved storage decisions.
+## Authentication Domain
 
-## Status
+`users`: UUID `id`, display and normalized email, Argon2id `password_hash`, `created_at`, `updated_at`; normalized email is unique. `auth_sessions`: UUID `id`, `user_id` CASCADE, unique binary `token_hash`, CSRF token, created/expiry/revocation timestamps; expiry must follow creation and revocation cannot predate creation. User and expiry indexes support principal lookup/cleanup. Sessions are written by auth routes and revoked at sign-out.
 
-Issue #19 extends the initial application schema through Alembic migration
-`20260730_0002`: `telegram_connections`, `telegram_link_tokens`, and
-`telegram_processed_updates`. The API uses SQLAlchemy asynchronous sessions with
-Psycopg 3 and consumes `DATABASE_URL`. The persistence boundary does not create
-Telegram links, call Telegram, or expose Telegram API endpoints.
+## Telegram Domain
 
-Issue #7 provides PostgreSQL `18.4` as the local development database through the
-Compose service named `db`. It binds to `127.0.0.1:${POSTGRES_PORT:-5432}` and persists
-data in the Docker-managed `postgres_data` volume. Compose supplies the API a container
-database URL through `db`; direct-host API development uses `localhost`.
+`telegram_connections` is one row per user (user FK CASCADE), with destination identity, username, status (`linking`, `connected`, `degraded`, `disconnected`), link/connection/verification timestamps and safe reason. `telegram_link_tokens` stores hashed short-lived link material, expiry/consumption time, and a connection FK; token hash is unique. `telegram_processed_updates` keys accepted provider update IDs for idempotency and retention cleanup. Link creation, update poller, and disconnect process write these rows. See [TELEGRAM.md](TELEGRAM.md).
 
-PostgreSQL is the current database direction because the product requires relational ownership, durable jobs, uniqueness constraints, time-based market data, and transactional alert-event creation.
+## Notification Domain
 
-## Data Domains
+`notification_outbox` is UUID-keyed durable work for a user and Telegram connection. It stores kind, idempotency key, payload snapshot, status (`pending`, `processing`, `retry_wait`, `sent`, `failed`), attempts, scheduling/claim/sent timestamps and safe failure code. User/connection FKs restrict deletion; unique user/kind/idempotency identity prevents replayed test notification work. Worker claim indexes support due work and recovery. Notification creation is transactional with price-alert trigger events.
 
-The eventual schema is expected to cover:
+## Supported-Market and Live-State Domain
 
-- Users and user preferences
-- Telegram connections and one-time linking tokens
-- Supported exchanges, markets, symbols, and timeframes
-- Signal templates and immutable template versions
-- User alerts and custom rule definitions
-- Alert evaluation state
-- Alert events
-- Notification outbox jobs and delivery attempts
-- Canonical one-minute candles
-- Market-data gaps and reconciliation runs
-- Future historical-analysis jobs and results
+`supported_markets` stores the controlled `(exchange, market_type, symbol)` catalogue uniquely, base/quote asset, provider status, exact min/max/tick rules, metadata/freshness timestamps and status reason. `market_symbol_states` has one PK/FK row per supported market with status (`starting`, `live`, `stale`, `disconnected`, `error`), last provider event identity/time, exact price, reconnect flag, reason and update time. Nonnegative provider IDs and finite positive prices are constrained. Catalogue sync and market stream write these tables.
 
-Exact tables are created only through focused implementation issues.
-
-## Authentication Persistence
+## Candle Domain
 
-### `users`
-
-`users` is the minimal account identity table:
+`market_candles` is revisioned canonical history: UUID, market FK CASCADE, `1m`/`1h`/`4h` timeframe, UTC window, source kind, status (`complete`, `incomplete`, `invalid`, `superseded`), revision/current flag, optional predecessor, source counts/fingerprint, OHLCV/trade/provider fields, receipt and creation times. Constraints enforce duration/boundaries, revision chain, source shape/count, finite complete values and current/superseded relation. `(supported_market_id,timeframe,open_time,revision)` is unique; a partial unique current-row index and strategy/timeframe-read indexes support canonical lookups and evaluation.
 
-| Column | Rule |
-| --- | --- |
-| `id` | UUID primary key, generated by PostgreSQL with `gen_random_uuid()`. |
-| `email` | Required `VARCHAR(320)` normalized display email. |
-| `email_normalized` | Required `VARCHAR(320)` comparison identity, uniquely constrained. |
-| `password_hash` | Required `VARCHAR(255)` password hash; raw passwords are never stored. |
-| `created_at` / `updated_at` | Required PostgreSQL-generated UTC `TIMESTAMPTZ` values. `updated_at` is set by application persistence operations, not a database trigger. |
+`candle_symbol_states` is one FK-keyed current operational row with candle freshness timestamps, status (`starting`, `live`, `stale`, `gapped`, `error`), nonnegative unresolved-gap count and reason. `candle_sync_runs` records bounded bootstrap, reconciliation, recent reconciliation, or retention cleanup with requested range, current market, row counts, lifecycle (`running`, `succeeded`, `failed`, `cancelled`) and failure code. Candle ingestion, aggregation, and maintenance write these rows. See [MARKET_DATA.md](MARKET_DATA.md).
 
-Email normalization and password hashing are not implemented by this persistence issue;
-later authentication code supplies the display and comparison values.
-
-### `auth_sessions`
-
-`auth_sessions` supports multiple concurrent sessions for one user:
+## One-Time Price-Alert Domain
 
-| Column | Rule |
-| --- | --- |
-| `id` | UUID primary key, generated by PostgreSQL with `gen_random_uuid()`. |
-| `user_id` | Required reference to `users.id`; deleting a user cascades to its sessions. |
-| `token_hash` | Required, unique `BYTEA`; only a session-token hash is stored. |
-| `csrf_token` | Required `VARCHAR(128)`; it may be stored directly because it cannot authenticate without the HTTP-only session cookie. |
-| `created_at` | Required PostgreSQL-generated UTC `TIMESTAMPTZ`. |
-| `expires_at` | Required `TIMESTAMPTZ`, indexed, and strictly later than `created_at`. |
-| `revoked_at` | Nullable `TIMESTAMPTZ`; when set, it cannot predate `created_at`. |
-
-`user_id` is indexed. No IP address, user agent, device name, location, provider data, or
-raw authentication token is stored.
-
-## Telegram Persistence
-
-### `telegram_connections`
-
-`telegram_connections` holds one private-chat destination record per FreeCoinAlert
-user. It stores PostgreSQL `BIGINT` Telegram user and chat identifiers, optional
-`VARCHAR(32)` username metadata, and no names, phone numbers, language data, photos,
-message text, or full Telegram updates. `user_id`, `telegram_user_id`, and
-`telegram_chat_id` are each unique; the latter two are never reassigned to another
-user, including after disconnection. Deleting a user cascades to its connection and
-releases those identifiers.
-
-`status` is constrained to `connected`, `degraded`, or `disconnected`. `connected_at`
-records each activation or reactivation, while `last_verified_at` changes only after
-positive ownership verification. `degraded_at` and `disconnected_at` are set only for
-their respective states. Reactivation clears both state timestamps and `status_reason`,
-which is a stable internal category rather than a raw Telegram error.
-
-### `telegram_link_tokens`
+`price_alerts` is UUID-keyed mutable user intent: user/market FKs, `price_cross` type, direction, exact target, lifecycle (`active`, `triggered`, `disabled`, `failed`), status reason, idempotency key, latest relation/price and trigger timestamps. Unique `(user_id,idempotency_key)` supports safe create replay; owner/status and active-market indexes support UI and stream evaluation.
 
-`telegram_link_tokens` binds one-time link-token hashes to users. It contains a
-PostgreSQL UUID, user reference, unique `BYTEA` SHA-256 `token_hash`, creation and
-expiry timestamps, and nullable consumption and revocation timestamps. Raw tokens and
-deep links are never stored. The table checks expiry and transition timestamps, forbids
-a token from being both consumed and revoked, indexes `user_id` and `expires_at`, and
-uses a partial unique index for one unconsumed, unrevoked token per user. Expired rows
-remain inactive at use time until a later cleanup; the next link-token feature revokes
-outstanding tokens before issuing a replacement.
-
-### `telegram_processed_updates`
+`alert_events` is immutable UUID-keyed price-cross history. It references alert, user, Telegram connection, captures a unique provider trigger identity, market/asset/direction/target/price snapshots, provider and observation timing, and reconnect context. Checks constrain event type/direction/identity/provider ID/finite values; unique alert/event identities prevent duplicate notifications. It is inserted with the matching outbox row. See [ALERTS.md](ALERTS.md).
 
-`telegram_processed_updates` uses Telegram's `BIGINT` `update_id` as its idempotency
-key. It stores only a constrained outcome, an optional connection reference, received
-and processed timestamps, and an optional confirmation-sent timestamp. The connection
-reference becomes null if its connection is deleted. Allowed outcomes are `linked`,
-`already_linked`, `invalid_token`, `expired_token`, `consumed_token`, `revoked_token`,
-`ownership_conflict`, and `unsupported_update`; full provider payloads and command text
-are never stored. Rows are eligible for deletion after 30 days through a future bounded
-cleanup caller, which supplies an explicit UTC cutoff.
+## Preset and Signal Domain
 
-### `supported_markets`
+`signal_presets` is immutable-in-meaning versioned catalogue data: code/version unique, presentation, strategy (`price_sma_cross` or `rsi_threshold_cross`), `1h`/`4h`, direction, period/threshold/close input, status (`active`, `superseded`, `disabled`), configuration hash unique, and lifecycle timestamps. Checks restrict it to SMA 200 and RSI 14 threshold 70/30 definitions.
 
-Issue #28 adds `supported_markets` as the controlled Binance Spot product catalog. It has a PostgreSQL UUID
-key, canonical exchange/market/symbol and lowercase stream-symbol fields, nullable base and quote assets,
-provider status, product enablement, exact `NUMERIC(38,18)` price rules, metadata freshness/disablement
-timestamps, and a stable safe status reason. The table constrains exchange to `binance`, market type to
-`spot`, and provider status to `pending_metadata`, `trading`, `halt`, `break`, `unsupported`, or
-`metadata_error`.
+`signal_subscriptions` stores user intent for a market and preset, with `active`/`disabled` status/reason and activation/disable times. FKs are user CASCADE and market/preset RESTRICT; `(user_id,supported_market_id,signal_preset_id)` is unique. User-list and active-preset indexes support subscription management.
 
-The migration seeds exactly `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, and `XRPUSDT` with pending metadata
-and product enablement. Unique constraints prevent duplicate `(exchange, market_type, symbol)` and stream
-symbol combinations. Price values are finite, non-negative, and ordered when both bounds are present. No
-full provider payload, exchange credential, order rule, quantity rule, or private-market data is stored.
+`signal_evaluation_states` has a unique market/preset pair, status (`warming`, `ready`, `stale`, `error`, `disabled`), safe reason, last candle/revision/open time/relation and values, calculation-state version `1`, JSON calculation state, and timestamps. It is mutable evaluator state; market FK CASCADE and preset/candle FKs RESTRICT. Its status/update index supports maintenance.
 
-### `price_alerts`
+`signal_events` is global immutable history, not per-user copies. It contains an identity-generated stream sequence (unique), market/preset/trigger-candle FKs RESTRICT, unique trigger identity and occurrence tuple, full market/preset/calculation/candle/value snapshots, backfill flag and occurrence/creation timestamps. Occurred, market/preset/occurred, and trigger-candle indexes support retrieval/rebuild. `signal_event_invalidations` records at most one immutable invalidation per event, with reason (`candle_corrected`, `preset_disabled`, `calculation_invariant`) and optional replacement candle/revision; its FKs restrict deletion and an event index supports joins. See [STRATEGIES.md](STRATEGIES.md) and [ALERTS.md](ALERTS.md).
 
-Issue #29 adds durable one-time `price_cross` alerts. Each row belongs to a user, references a
-controlled supported market and Telegram connection, and has a user-scoped creation idempotency
-key. It snapshots the exchange, market type, symbol, assets, and price tick at creation, so later
-catalog changes cannot alter an alert's historical meaning. Exact `NUMERIC(38,18)` target and tick
-values must be finite, positive, and aligned using the captured zero-based price tick.
+## Cross-Domain Transaction Boundaries
 
-The lifecycle is `active`, `triggered`, `disabled`, `deleted`, or `failed`. Only `active` is
-eligible for evaluation; the other states are terminal. Database constraints require exactly the
-matching terminal timestamp and reject contradictory timestamps. User deletion cascades alert rows;
-ordinary user deletion is a soft transition to `deleted`, not a physical row removal.
+Registration/login commit user/session together. Price-alert evaluation inserts event/outbox and transitions the alert atomically. Signal evaluation locks/updates its market-preset state and inserts a deduplicated signal event atomically. Telegram sending changes only outbox delivery state after the occurrence transaction.
 
-`last_relation` (`below`, `equal`, or `above`) and the matching exact observed price, aggregate-trade
-ID, and provider time preserve crossing state through restarts. Those evaluation fields are all null
-before initialization and all present after it. A non-increasing provider ID cannot update the alert.
+## Retention and Cleanup
 
-### `alert_events`
+Canonical candle retention defaults to 180 days; processed Telegram updates default to 30 days; signal-event retention configuration defaults to 365 days but no automatic signal-event deletion process is implemented. Price events, alert records, and account-deletion retention remain governed by their FKs and operational policy.
 
-`alert_events` stores one immutable `price_crossed` trigger for a one-time alert. It preserves the
-alert's market and price meaning, exact target and trigger prices, Binance aggregate-trade identity,
-provider time, observation time, and reconnect flag without storing raw provider payloads or Telegram
-responses. `alert_id` is unique, and `(alert_id, trigger_identity)` provides an explicit additional
-deduplication boundary. Trigger identities use `binance:spot:<SYMBOL>:aggTrade:<provider_event_id>`.
+## Migration Inventory
 
-Alert events are retained with their alerts. Their `alert_id` foreign key uses `RESTRICT`; a future
-full account-deletion service must delete events before deleting alerts, while user ownership itself
-continues to cascade through `user_id`.
+`20260728_0001` users/auth sessions; `20260730_0002` Telegram persistence; `0003` notification outbox; `0004` supported market catalogue; `0005` price alerts/events; `0006` live market state; `0007` price-alert notification kind; `0008` canonical candles; `0009` candle operational state; `0010` signal presets/subscriptions; `20260731_0011` signal evaluation/events/invalidations. The chain head is `20260731_0011`.
 
-## Migration Boundary
+## Backup, Deletion, and Unresolved Storage Concerns
 
-Alembic owns schema changes in `apps/api/src/freecoinalert_api/migrations`. Migration
-`20260728_0001` creates `users` before `auth_sessions`. `20260730_0002` then creates
-Telegram connections, link tokens, processed updates, and their constraints and indexes.
-`20260730_0003` adds the notification outbox, `20260730_0004` adds the seeded supported-market
-catalog, `20260730_0005` adds one-time price alerts and immutable alert events, and
-`20260730_0008` adds canonical and derived market candles. Each downgrade
-removes its owned schema in reverse order. The local Compose command applies
-migrations for development only. Production migration review and application remain an explicit release
-operation.
+Production backup, restore testing, account deletion, and production migration rollout have no implemented operational policy. These are unresolved deployment risks, not claims of existing behavior.
 
-## Global Rules
+## Verification Status
 
-- Store timestamps in UTC.
-- Prefer database-generated identifiers.
-- Define ownership relationships explicitly.
-- Add foreign keys unless a documented high-volume path requires another approach.
-- Use migrations for every schema change.
-- Never edit an already-applied production migration silently.
-- Make externally driven writes idempotent.
-- Keep status transitions explicit.
-- Avoid storing secrets in plaintext.
-- Document retention and deletion behavior before production launch.
-
-## Market Candle Persistence
-
-Issue #48 adds `market_candles` for Binance Spot supported markets. It persists exactly `1m`, `1h`, and `4h` candles. `1m` is the canonical closed provider candle; `1h` and `4h` are stored derived windows of 60 and 240 current complete `1m` candles. `open_time` is the inclusive UTC boundary and `close_time` the exclusive boundary. The current-row key is `(supported_market_id, timeframe, open_time)`; each historical revision is additionally unique by revision number.
-
-Rows use `complete`, `incomplete`, `invalid`, or `superseded` status. Strategy reads are limited to current complete rows. Incomplete and invalid rows require a safe reason and have no OHLCV or trade values. Superseded rows retain their canonical values, are not current, and point to the immediately preceding revision; corrected complete rows are inserted rather than overwritten. Repeated identical canonical input is a no-op.
-
-All prices and volumes use `NUMERIC(38,18)` and Python `Decimal`; binary floating point is prohibited. Complete values are finite, prices are positive, volumes are non-negative, and OHLC ordering is checked. Canonical `1m` rows retain Binance close identity and timestamps. Derived rows retain the lowercase SHA-256 fingerprint of their ordered current source candle IDs and revisions, with no provider identity fields.
-
-Indexes support current complete strategy range reads and timeframe retention/range maintenance. Repository operations provide locked upserts and replacements, bounded ordered reads, missing-minute range compaction, affected derived-window lookup, and explicit-cutoff cleanup. They do not ingest provider data, calculate indicators, create events, or commit transactions.
-
-## Alert and Event Idempotency
-
-Alert events need a reproducible deduplication key based on the trigger type.
-
-A candle-close alert key should be equivalent to:
-
-```text
-user_alert_id + strategy_version + candle_open_time + trigger_identity
-```
-
-A price alert needs an explicit crossing-state model so repeated price events on the same side of a threshold do not create repeated alerts.
-
-The database must prevent duplicate logical alert events when processing is retried.
-
-## Notification Outbox
-
-Creating an alert event and its notification job must occur in one transaction.
-
-Expected outbox fields include:
-
-- Alert event ID
-- Channel
-- Destination reference
-- Status
-- Attempt count
-- Next attempt time
-- Provider message identifier when available
-- Last error category and safe message
-- Created, claimed, sent, and updated timestamps
-
-Workers must claim jobs safely so parallel workers do not send the same job concurrently.
-
-## Strategy Storage
-
-Platform templates must be versioned.
-
-A user alert referencing a platform template must remain pinned to a specific immutable version.
-
-Custom rule definitions must be stored in a validated, deterministic, versioned format. Store the rule-schema version so migrations and historical reproduction remain possible.
-
-## Indexing Direction
-
-Likely access paths include:
-
-- Active alerts by symbol, market, timeframe, and evaluation mode
-- User alerts by user and status
-- Alert events by user and trigger time
-- Pending notification jobs by status and next-attempt time
-- Candles by symbol and time range
-- Missing candle ranges by symbol and date
-
-Indexes must be justified by actual queries. Avoid speculative indexes that increase write cost without supporting known access patterns.
-
-## Partitioning and Retention
-
-The initial historical bootstrap target is 150 days and candle retention is 180 days, configured as `CANDLE_RETENTION_DAYS=180`. The additional coverage supports a 200-period `4h` warm-up before the earliest retained signal event. The bounded cleanup repository operation accepts an explicit UTC cutoff; Issue #49 owns scheduling and execution. Signal events will remain immutable snapshots when source candles age out.
-
-Partitioning, backup/recovery objectives, and archival policy remain open before broader ingestion.
-
-## Migration Rules
-
-Before changing the schema:
-
-1. Read this document and relevant domain docs.
-2. Inspect existing models, migrations, indexes, constraints, and status values.
-3. Make the smallest required change.
-4. Add a migration.
-5. Update shared schemas and API contracts if affected.
-6. Document data migration, rollback, locking, and retention risks.
-7. Update `CONCERNS.md` for meaningful unresolved risk.
-
-## Pending Decisions
-
-## Issue #22 Notification Outbox
-
-Migration `20260730_0003` adds `notification_outbox` for durable Telegram test notifications.
-Each row belongs to one user and restricted Telegram connection, has a per-user UUID idempotency
-key, and stores only the versioned payload (`schemaVersion: 1`, `messageType: telegram_test`).
-It never stores a bot token, chat ID, provider request, or full provider response. The five-state
-queue uses `pending`, `processing`, `retry_wait`, `sent`, and `failed`; ownership, idempotency,
-claim, attempt, and sent/failed timestamp constraints protect its transitions.
-
-- Email normalization and validation policy.
-- Session lifetime, cookie attributes, and session-token generation policy.
-- Partitioning, backup frequency, recovery objectives, and archival policy for retained candles.
-- Data-deletion behavior for account removal.
-# Market symbol state snapshots
-
-Issue #31 adds `market_symbol_states`, keyed by `supported_market_id` with cascading deletion. It stores only the latest operational state (`starting`, `live`, `stale`, `disconnected`, or `error`), latest aggregate event ID, exact positive latest price, provider trade time, receipt time, connection generation, status reason, and update time. This is not trade history, a raw-event queue, or the evaluator transport. High-volume accepted events are written at most once per configured second, while status transitions are written immediately.
-
-Issue #32 adds migration `20260730_0007`, permitting `telegram_price_alert` alongside
-`telegram_test` in the durable outbox. The existing unique alert-event and user-scoped outbox idempotency
-constraints are the authoritative duplicate boundary for a price crossing.
-# Candle operational state
-
-Issue #49 adds `candle_sync_runs` for bounded bootstrap, reconciliation, recent-reconciliation, and
-retention-cleanup run progress, plus `candle_symbol_states` as the latest operational snapshot per
-supported market. These tables do not replace immutable candle history. Candle states are `starting`,
-`live`, `stale`, `gapped`, or `error`; `live` requires a complete recent `1m` candle and no known gap.
-
-## Signal evaluation and events
-
-Issue #52 adds `signal_evaluation_states` for restart-safe per-market/preset warming, ready, stale, error, and disabled state. `signal_events` contains immutable global preset occurrences, uniquely deduplicated by market, preset, candle, and revision; `signal_event_invalidations` preserves correction or invariant invalidations without mutating events. Calculation-state JSON is server-generated and stores Decimal values as strings.
+Schema contents were read from the SQLAlchemy registry and Alembic chain. No migration, database connection, or schema verification command was run.

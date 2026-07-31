@@ -43,7 +43,7 @@ The repository has not received a maintainer-requested end-to-end verification p
   - #63 — Documentation ownership, navigation, and concise handoff
   - #64 — Contributor workflow enforcement
 - **Implementation order:** #61, #62, #63, then #64
-- **Status:** Approved; implementation solutions have not yet been proposed or posted.
+- **Status:** Core product and system contracts are being rewritten; runtime-domain, navigation, and contributor-workflow documentation remain next.
 
 ## Current Blockers and Concerns
 
@@ -56,12 +56,11 @@ See [`CONCERNS.md`](CONCERNS.md) for unresolved technical and product risks.
 
 ## Next Recommended Steps
 
-1. Merge PR #60.
-2. Propose and approve the technical documentation plans for Issues #61 through #64.
-3. Complete the current-state documentation audit in order: #61, #62, #63, then #64.
-4. Implement Issue #53 using its approved solution.
-5. Implement Issue #54 after #53 is merged.
-6. Run dedicated verification only when explicitly requested by the maintainer.
+1. Complete and merge the core current-state documentation update.
+2. Complete the runtime-domain, navigation, and contributor-workflow documentation updates in order.
+3. Implement the historical/live signal feed.
+4. Implement the frontend preset and notification-sound experience after the feed.
+5. Run dedicated verification only when explicitly requested by the maintainer.
 
 ## Handoff Rules
 
