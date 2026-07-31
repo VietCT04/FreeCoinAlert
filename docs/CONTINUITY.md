@@ -36,8 +36,14 @@ The repository has not received a maintainer-requested end-to-end verification p
 ### US-0006: Maintain Current-State Product and Technical Documentation
 
 - **User story:** `docs/user-stories/US-0006-maintain-current-state-documentation.md`
-- **Status:** Approved; documentation PR and focused follow-up issues are being prepared.
-- **Goal:** Make domain documentation describe the complete current system instead of recording issue-by-issue implementation history.
+- **Documentation PR:** #60
+- **Implementation issues:**
+  - #61 — Core product and system contracts
+  - #62 — Runtime and domain behavior
+  - #63 — Documentation ownership, navigation, and concise handoff
+  - #64 — Contributor workflow enforcement
+- **Implementation order:** #61, #62, #63, then #64
+- **Status:** Approved; implementation solutions have not yet been proposed or posted.
 
 ## Current Blockers and Concerns
 
@@ -50,10 +56,12 @@ See [`CONCERNS.md`](CONCERNS.md) for unresolved technical and product risks.
 
 ## Next Recommended Steps
 
-1. Merge the US-0006 documentation story and complete its focused documentation-audit issues.
-2. Implement Issue #53 using its approved solution.
-3. Implement Issue #54 after #53 is merged.
-4. Run dedicated verification only when explicitly requested by the maintainer.
+1. Merge PR #60.
+2. Propose and approve the technical documentation plans for Issues #61 through #64.
+3. Complete the current-state documentation audit in order: #61, #62, #63, then #64.
+4. Implement Issue #53 using its approved solution.
+5. Implement Issue #54 after #53 is merged.
+6. Run dedicated verification only when explicitly requested by the maintainer.
 
 ## Handoff Rules
 
