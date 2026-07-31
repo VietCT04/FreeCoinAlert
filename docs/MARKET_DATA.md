@@ -42,6 +42,11 @@ The initial persistence scope is limited to `1h` and `4h`. A complete derived ro
 
 No empty-minute synthesis or forward fill is allowed. Aggregation scheduling and provider ingestion remain Issue #49 work; the shared live/historical calculation implementation remains a later strategy-core responsibility.
 
+Issue #51 accepts only the current complete `1h` and `4h` values after they have been adapted outside its pure
+calculation package. A strategy input series must be UTC, strictly ordered, contiguous at exact timeframe
+boundaries, and from one supported market and timeframe. A correction requires a caller to discard incremental
+state and rebuild from current complete candles; calculations never repair or overwrite candle data.
+
 ## Missing Source Candles
 
 Do not silently invent market data.

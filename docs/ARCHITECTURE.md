@@ -154,6 +154,11 @@ Responsibilities:
 
 Live alert evaluation and future historical analysis must call the same strategy-core implementation.
 
+Issue #51 begins this boundary in the API package with provider-neutral immutable candle inputs and pure Decimal
+SMA 200 / Wilder RSI 14 functions. It has no database session, provider client, cache, subscription lookup,
+crossing decision, or event persistence. Future coordinators may share results by market, timeframe, fixed
+strategy parameters, and calculation version, while rebuilding from canonical candles after a revision.
+
 ### Alert Engine
 
 Responsibilities:

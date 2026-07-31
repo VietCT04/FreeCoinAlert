@@ -1,10 +1,6 @@
 # FreeCoinAlert API
 
 The API is the Python and FastAPI foundation for FreeCoinAlert. It includes user and
-
-## Signal presets and subscriptions
-
-The API exposes the seeded, server-controlled `GET /signal-presets` catalog and authenticated `GET`, `POST`, and `DELETE` `/signal-subscriptions` boundaries. Subscription creation requires the normal browser session and CSRF token, accepts only a ready supported Binance Spot market plus a preset code/version, and is limited to 20 active subscriptions per user. This implementation does not calculate SMA or RSI, create signal occurrences, stream a feed, or contact Telegram.
 authentication-session persistence, unauthenticated process health, account
 registration, sign-in, current-user lookup, logout, authenticated Telegram link-token,
 connection-state, and disconnect APIs, plus a separately runnable Telegram update processor.
@@ -12,6 +8,12 @@ It also has a durable Telegram test-notification outbox and separately runnable 
 It provides a fixed Binance Spot market catalog with a public read endpoint and an explicit metadata
 synchronization command. It also includes the optional centralized live price stream and its one-time price-alert
 evaluator; alert creation remains an authenticated API concern.
+
+## Signal presets and shared indicator core
+
+The API exposes the seeded, server-controlled `GET /signal-presets` catalog and authenticated `GET`, `POST`, and `DELETE` `/signal-subscriptions` boundaries. Subscription creation requires the normal browser session and CSRF token, accepts only a ready supported Binance Spot market plus a preset code/version, and is limited to 20 active subscriptions per user.
+
+`strategies/` provides pure provider-neutral `sma_close_v1` and `rsi_wilder_close_v1` calculations over immutable complete `1h` or `4h` candles. It uses local Decimal precision 50 with half-even rounding, requires 200 closes for SMA and 15 closes for the first RSI, and returns typed insufficient-history, invalid-input, gap, or unsupported-version outcomes. It does not load candles, call Binance, calculate crossings, persist events, or contact Telegram.
 
 ## Prerequisites
 
