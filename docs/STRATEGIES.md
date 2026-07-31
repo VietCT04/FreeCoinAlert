@@ -4,6 +4,14 @@
 
 Issue #50 introduces catalog persistence only, not indicator calculation. The initial immutable presets use confirmed-candle closes: `price_sma_cross` has fixed period 200 and no threshold; `rsi_threshold_cross` has fixed period 14 and a threshold of exactly 70 for cross-above or 30 for cross-below. Each has `1h` or `4h` timeframe. A changed meaning must be represented by a new version, never by modifying a published row. Active versions accept new subscriptions; superseded versions do not but existing active subscriptions continue; disabled versions stop future evaluation and disable their subscriptions when that operational transition is performed.
 
+## Shared SMA and RSI calculation core
+
+Issue #51 adds the pure calculation boundary used by future live and historical evaluation. It accepts only ordered, current complete `1h` or `4h` candle values through an immutable provider-neutral contract; it does not read a database, call Binance, inspect users or subscriptions, evaluate crossings, or persist signal events.
+
+`sma_close_v1` uses the latest 200 consecutive close prices and returns each rolling SMA after the 200th candle. `rsi_wilder_close_v1` uses Wilder's 14-change initialization, so its first value requires 15 consecutive closes. SMA values and RSI gain/loss averages are quantized to 18 decimal places; RSI values are quantized to 8, using a local Decimal context of precision 50 and `ROUND_HALF_EVEN`. Flat RSI is exactly 50, gain-only is 100, and loss-only is 0. A changed formula, input, rounding, warm-up, or progression requires a new calculation version and preset version.
+
+Each calculation shares the immutable key `supported_market_id + timeframe + strategy_type + calculation_version + period + close`. Direction and RSI threshold are intentionally excluded so paired presets share one indicator result. Missing, duplicate, unordered, mixed, incomplete, invalid, or non-contiguous candles return typed `invalid_input` or `gap_detected`; insufficient history returns `insufficient_history`. Corrections are rebuilt from a complete current series by Issue #52 rather than mutating calculation state.
+
 ## Purpose
 
 This document defines platform signal templates, custom-rule definitions, supported calculation concepts, validation, deterministic evaluation, shared calculation, and strategy versioning.

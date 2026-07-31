@@ -4,6 +4,13 @@
 
 ## Latest completed work
 
+### 2026-07-31 — Issue #51: shared SMA 200 and RSI 14 calculation core
+
+- Added provider-neutral immutable candle, result, state, and shared-calculation-key contracts under `apps/api/src/freecoinalert_api/strategies/`.
+- Implemented pure `sma_close_v1` and `rsi_wilder_close_v1` batch and incremental Decimal calculations, including typed invalid, gap, insufficient-history, and unsupported-version outcomes.
+- Updated the Issue #50 seed hash to include the approved calculation version, and synchronized strategy, alert, market-data, architecture, concern, continuity, and API documentation.
+- No live calculations, migrations, tests, builds, linting, formatting, type checks, or verification commands were run by maintainer direction.
+
 ### 2026-07-30 — Issue #50: versioned preset catalog and subscriptions
 
 - Added immutable versioned signal-preset and user-subscription persistence with a migration that seeds eight approved version-1 presets.
@@ -114,7 +121,7 @@ Signal occurrence, in-app feed visibility, notification sound playback, and Tele
 - **Historical candle bootstrap:** Explicit bounded command implemented; not executed or verified
 - **Timeframe aggregation:** `1h` and `4h` aggregation paths implemented; not started or verified
 - **Gap reconciliation:** Explicit and recent bounded paths implemented; not executed or verified
-- **Indicator calculations:** Not implemented
+- **Indicator calculations:** Shared SMA 200 and Wilder RSI 14 core implemented; not exercised through a verification pass
 - **Preset signal events:** Not implemented
 - **Historical and live in-app feed:** Not implemented
 
@@ -135,9 +142,8 @@ Important unresolved US-0005 decisions include:
 
 ## Next Recommended Steps
 
-1. Review and merge the Issue #49 candle-ingestion pull request.
-2. Continue Issues #50 through #54 in the documented order after approval.
-4. Request dedicated verification passes only when the maintainer wants provider contact, startup, migrations, browser interaction, tests, or other verification.
+1. Continue Issue #52 for preset evaluation and immutable signal occurrences after approval.
+2. Request a dedicated verification pass only when the maintainer wants it.
 
 ## Handoff Notes
 

@@ -191,6 +191,10 @@ User rules then compare shared outputs against their own thresholds or condition
 
 Correctness is more important than optimization; introduce shared caches only with clear invalidation and consistency rules.
 
+Issue #51 provides the pure indicator values only. Future crossing evaluation must compare the confirmed close and
+SMA at their 18-decimal scale, or RSI at its 8-decimal scale against the exact 30 or 70 threshold. It must not
+infer a crossing, persist an event, or notify a user from calculation alone.
+
 ## Failure Behavior
 
 - If market data is stale or incomplete, do not evaluate rules as though data were current.

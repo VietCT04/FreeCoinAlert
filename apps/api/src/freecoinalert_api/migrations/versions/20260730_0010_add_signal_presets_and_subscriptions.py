@@ -86,7 +86,15 @@ def _seed_initial_presets() -> None:
     signal_presets = sa.table("signal_presets", sa.column("code", sa.String), sa.column("version", sa.Integer), sa.column("name", sa.String), sa.column("description", sa.String), sa.column("strategy_type", sa.String), sa.column("timeframe", sa.String), sa.column("direction", sa.String), sa.column("period", sa.Integer), sa.column("threshold", sa.Numeric), sa.column("price_input", sa.String), sa.column("status", sa.String), sa.column("configuration_hash", sa.String))
     for code, name, description, strategy_type, timeframe, direction, period, threshold in rows:
         threshold_value = "none" if threshold is None else str(threshold)
-        canonical = f"{strategy_type}|{timeframe}|{direction}|{period}|{threshold_value}|close|1"
+        calculation_version = (
+            "sma_close_v1"
+            if strategy_type == "price_sma_cross"
+            else "rsi_wilder_close_v1"
+        )
+        canonical = (
+            f"{strategy_type}|{timeframe}|{direction}|{period}|{threshold_value}|"
+            f"close|{calculation_version}"
+        )
         op.execute(signal_presets.insert().values(code=code, version=1, name=name, description=description, strategy_type=strategy_type, timeframe=timeframe, direction=direction, period=period, threshold=threshold, price_input="close", status="active", configuration_hash=sa.text(f"encode(digest('{canonical}', 'sha256'), 'hex')")))
 
 
