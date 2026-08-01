@@ -18,6 +18,18 @@ This document records unresolved current risks and decisions, not feature histor
 
 **Owning document:** [ALERTS.md](ALERTS.md).
 
+### Subscription reactivation can exceed the active limit
+
+**Current fact:** New signal subscription rows are checked against the 20-enabled-subscription limit, but reactivation of an existing disabled row bypasses that count check.
+
+**Risk/impact:** A user with 20 enabled subscriptions and another disabled subscription can reactivate it and exceed the intended active limit.
+
+**Current mitigation:** Subscription creation is serialized per user, and duplicate active combinations are replayed rather than duplicated.
+
+**Follow-up:** Add an active-count check to the reactivation branch in a separately approved implementation change.
+
+**Owning document:** [ALERTS.md](ALERTS.md).
+
 ## Active Security Concerns
 
 ### Process-local abuse limits

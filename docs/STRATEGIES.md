@@ -51,7 +51,7 @@ Batch series and incremental initialization/advance use the same candle validati
 
 ## Candle Revision Behavior
 
-Calculation keys include candle ID and revision. A revision makes the affected evaluator state stale and requires a rebuild; it does not mutate an immutable signal occurrence.
+The shared calculation key contains market, timeframe, strategy type, calculation version, period, and input. The evaluator's temporary cache identity combines that key with candle ID and revision. A revision makes the affected evaluator state stale and requires a rebuild; it does not mutate an immutable signal occurrence.
 
 ## Versioning and Historical Meaning
 

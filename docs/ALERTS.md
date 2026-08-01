@@ -30,7 +30,7 @@ An occurrence is not delivery. Price-alert reads expose a safe market-data and n
 
 ### Subscription Lifecycle
 
-Subscriptions select an available fixed preset version for a ready market. They start enabled, can be disabled, and may be reactivated; the chosen version remains pinned. They have no Telegram prerequisite. At most 20 subscriptions per user may be enabled.
+Subscriptions select an available fixed preset version for a ready market. They start enabled, can be disabled, and may be reactivated; the chosen version remains pinned. They have no Telegram prerequisite. New subscription rows are blocked at 20 enabled subscriptions per user, but reactivating an existing disabled row does not recheck that count and can exceed 20; this is an active implementation limitation.
 
 ### Evaluation Preconditions
 
@@ -59,7 +59,7 @@ Price alerts and their events are visible only to their owner. Signal subscripti
 ## Current Limits
 
 - Maximum active price alerts per user: 20.
-- Maximum enabled signal subscriptions per user: 20.
+- New signal subscription rows are limited to 20 enabled subscriptions per user. Reactivation can exceed that limit; see [CONCERNS.md](CONCERNS.md).
 
 ### Planned feed and history controls
 
