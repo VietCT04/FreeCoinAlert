@@ -1,5 +1,5 @@
 # Packages
 
-This directory contains reusable code that is not independently deployed.
+This directory is reserved for reusable code when an approved implementation issue requires it. It contains no independently runnable package.
 
-Packages are created only when an approved implementation issue requires concrete shared behavior or contracts.
+The current package boundary is described in [Architecture](../docs/ARCHITECTURE.md); repository setup is in the root [README](../README.md).

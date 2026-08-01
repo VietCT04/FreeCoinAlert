@@ -1,5 +1,8 @@
 # Applications
 
-This directory contains deployable browser and API applications.
+This directory contains the repository's runnable web and API applications.
 
-Issue #5 will create the frontend application, and Issue #6 will create the backend API. Do not add application placeholders before their approved implementation issues.
+- [`web`](web/README.md) — Next.js browser application.
+- [`api`](api/README.md) — FastAPI application and runnable background modules.
+
+Use the root [README](../README.md) for local setup and [Operations](../docs/OPERATIONS.md) for detailed commands and runtime profiles.

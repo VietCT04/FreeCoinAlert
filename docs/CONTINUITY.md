@@ -1,77 +1,52 @@
 # Continuity
 
-## Current Project State
+## Current Snapshot
 
-FreeCoinAlert currently includes:
-
-- A pnpm monorepo with a Next.js frontend, FastAPI backend, PostgreSQL, and Docker Compose development stack.
-- Account registration, authenticated sessions, CSRF protection, and sign-out.
-- Private Telegram account linking and durable Telegram notification delivery.
-- A controlled Binance Spot catalog for BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, and XRPUSDT.
-- A centralized singleton market process for aggregate trades and confirmed closed one-minute candles.
-- Exact-decimal canonical `1m` candle persistence and UTC-aligned `1h` and `4h` aggregation.
-- Bounded historical candle bootstrap and reconciliation command paths.
-- User-created one-time price-crossing alerts and the authenticated browser alert flow.
-- Eight immutable versioned SMA 200 and RSI 14 presets with authenticated user subscriptions.
-- Shared provider-neutral SMA 200 and Wilder RSI 14 calculation logic.
-- Global closed-candle preset evaluation with durable state, immutable signal events, and correction invalidations.
-
-US-0001 through US-0004 are implementation-complete.
-
-US-0005 is implemented through Issue #52. The historical/live signal feed and frontend preset feed with notification sound remain open in Issues #53 and #54.
-
-The repository has not received a maintainer-requested end-to-end verification pass. Binance and Telegram integrations, migrations, workers, browser flows, candle bootstrap, reconciliation, and signal backfill must not be described as verified merely because their implementation is merged.
+- Account sessions, CSRF protection, and browser authentication are implemented; see [SECURITY.md](SECURITY.md).
+- Private Telegram linking, test notifications, and durable outbox processing are implemented; see [TELEGRAM.md](TELEGRAM.md).
+- The controlled Binance Spot catalogue and singleton market stream are implemented; see [MARKET_DATA.md](MARKET_DATA.md).
+- Closed `1m` candles and derived `1h`/`4h` candles are implemented; see [MARKET_DATA.md](MARKET_DATA.md).
+- One-time price-crossing alerts and their browser management surface are implemented; see [ALERTS.md](ALERTS.md) and [PRODUCT.md](PRODUCT.md).
+- Fixed SMA 200 and RSI 14 preset subscriptions and global occurrences are implemented; see [STRATEGIES.md](STRATEGIES.md) and [ALERTS.md](ALERTS.md).
+- Signal-feed delivery, frontend preset controls, browser sound, and backtesting are Planned or Not supported; see [PRODUCT.md](PRODUCT.md) and [BACKTESTING.md](BACKTESTING.md).
 
 ## Active Work
 
-### US-0005: Subscribe to Preset Indicator Signals
+- [#53](https://github.com/VietCT04/FreeCoinAlert/issues/53) — Add an authenticated historical and live signal-event feed. It follows the merged preset-occurrence work; its approved solution is available and it has no current blocker.
+- [#54](https://github.com/VietCT04/FreeCoinAlert/issues/54) — Add frontend preset controls and the live notification feed. It must follow #53; the feed API and stream are its current dependency.
+- [#64](https://github.com/VietCT04/FreeCoinAlert/issues/64) — Enforce the current-state documentation workflow. It must follow the merge of this navigation/handoff change; its approved solution is available.
 
-- **Completed:** Issues #48 through #52
-- **Open:**
-  - #53 — Historical feed and live in-app event stream
-  - #54 — Frontend preset subscriptions, live feed, highlighting, and notification sound
-- **Implementation order:** #53, then #54
-- **Solution status:** Approved technical solutions are posted for both open issues.
+## Current Blockers
 
-### US-0006: Maintain Current-State Product and Technical Documentation
+- #54 cannot begin until #53 is merged.
+- #64 cannot begin until this Issue #63 pull request is merged.
 
-- **User story:** `docs/user-stories/US-0006-maintain-current-state-documentation.md`
-- **Documentation PR:** #60
-- **Implementation issues:**
-  - #61 — Core product and system contracts
-  - #62 — Runtime and domain behavior
-  - #63 — Documentation ownership, navigation, and concise handoff
-  - #64 — Contributor workflow enforcement
-- **Implementation order:** #61, #62, #63, then #64
-- **Status:** Core product and system contracts are merged. Runtime and domain documentation is active; navigation and contributor-workflow documentation remain next.
+See [CONCERNS.md](CONCERNS.md) for risks that do not block current work or safe operation.
 
-## Current Blockers and Concerns
+## Verification Status
 
-- Domain documents may contain stale pending statements, issue-specific completion notes, duplicated rules, or contradictions.
-- `AGENTS.md` currently contains duplicated documentation-staleness rules and requires more detailed historical content in this file than the new current-state model permits.
-- Historical/live signal-feed transport and the frontend notification-sound experience are not implemented yet.
-- No complete runtime or provider verification pass has been requested.
+| Area | Availability | Verification | Note |
+| --- | --- | --- | --- |
+| Browser account and price alerts | Implemented | Unverified | No explicit browser or end-to-end pass was requested. |
+| Telegram linking and delivery | Implemented | Unverified | Provider and worker paths were not exercised. |
+| Market data and candles | Implemented | Unverified | Binance, maintenance, and reconciliation paths were not exercised. |
+| Preset signal occurrences | Implemented | Unverified | Feed and user-facing signal delivery are Planned. |
+| Historical analysis | Not supported | Not applicable | No backtesting runtime exists. |
 
-See [`CONCERNS.md`](CONCERNS.md) for unresolved technical and product risks.
+## Next Actions
 
-## Next Recommended Steps
+1. Merge this Issue #63 navigation and handoff change.
+2. Implement #64 using its approved solution.
+3. Implement #53, then #54, using their approved solutions.
+4. Request a dedicated verification pass when the maintainer is ready.
 
-1. Complete the runtime-domain documentation update.
-2. Complete the navigation and contributor-workflow documentation updates in order.
-3. Implement the historical/live signal feed.
-4. Implement the frontend preset and notification-sound experience after the feed.
-5. Run dedicated verification only when explicitly requested by the maintainer.
+## Handoff Constraints
 
-## Handoff Rules
-
-Future contributors must:
-
-- Treat domain documents as descriptions of current implemented behavior, not issue history.
-- Read the authoritative domain documents, the target issue, and its approved solution before changing code.
-- Update every affected authoritative document in the same change as behavior modifications.
-- Replace stale or superseded statements instead of appending issue-specific completion notes.
-- Keep implemented, planned, unresolved, and unverified behavior clearly separated.
-- Keep this file concise: current state, active work, blockers, concerns, and next steps only.
-- Preserve exact-decimal market-data rules, authenticated ownership boundaries, immutable/versioned strategies and events, and separation between signal occurrence and delivery.
-- Never log provider secrets, Telegram secrets, session or CSRF tokens, or sensitive identifiers.
-- Do not run tests or verification commands unless the maintainer explicitly requests them.
+- Follow the documentation ownership and status vocabulary in [docs/README.md](README.md).
+- Read the target issue, approved solution, and relevant authoritative documents before changing behavior.
+- Keep GitHub issues and pull requests as implementation history; do not add completed-work diaries.
+- Update every affected authoritative document and replace stale statements in the same change.
+- Keep README files to setup and navigation, with links to detailed owners.
+- Preserve authenticated ownership, exact-decimal market data, immutable event/version semantics, and separation of occurrence from delivery.
+- Keep provider credentials, session/CSRF tokens, and sensitive identifiers out of logs and documentation examples.
+- Do not run verification commands unless the maintainer explicitly requests a verification pass; see [AGENTS.md](../AGENTS.md).
