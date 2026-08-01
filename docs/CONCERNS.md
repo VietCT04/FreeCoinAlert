@@ -58,6 +58,18 @@ This document records unresolved current risks and decisions, not feature histor
 
 **Owning document:** [ALERTS.md](ALERTS.md).
 
+### Catalog freshness split between API and stream
+
+**Current fact:** API alert and subscription readiness uses `MARKET_CATALOG_MAX_AGE_SECONDS`, while the market stream uses a hardcoded 24-hour maximum instead of that setting.
+
+**Risk/impact:** A setting change can cause the API and stream to disagree about market readiness.
+
+**Current mitigation:** Both values default to 24 hours.
+
+**Follow-up:** Align stream readiness with the configured setting in a separately approved code change.
+
+**Owning document:** [MARKET_DATA.md](MARKET_DATA.md).
+
 ## Active Operational Concerns
 
 ### No scheduler or production deployment automation

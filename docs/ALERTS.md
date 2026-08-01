@@ -50,17 +50,20 @@ When a candle changes revision, the affected evaluation state is marked stale wi
 
 ## Deduplication and Restart Safety
 
-Price alerts deduplicate by alert and provider-event identity; global signals deduplicate their immutable trigger identity. Stored relation, last provider/candle identity, and database constraints make repeated inputs and restarts safe. Catch-up is bounded by `SIGNAL_LIVE_CATCHUP_MAX_DAYS` (7).
+Price alerts deduplicate by alert and provider-event identity; global signals deduplicate their immutable trigger identity. Stored relation, last provider/candle identity, and database constraints make repeated inputs safe. Automatic restart catch-up is not implemented: the evaluator handles only newly supplied confirmed-candle events, and `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration.
 
 ## Ownership and Visibility
 
-Price alerts and their events are visible only to their owner. Signal subscriptions are user-owned; global signal event visibility is filtered through the user's current or historical subscription state. No signal-feed API or frontend feed is implemented.
+Price alerts and their events are visible only to their owner. Signal subscriptions are user-owned current rows; reactivation replaces their activation timestamp and clears the disabled timestamp, so complete historical subscription intervals are not retained. Global signal events are separately persisted but have no feed API or frontend visibility behavior.
 
 ## Current Limits
 
 - Maximum active price alerts per user: 20.
 - Maximum enabled signal subscriptions per user: 20.
-- Signal event history default: 90 days; retention default: 365 days.
+
+### Planned feed and history controls
+
+`SIGNAL_HISTORY_DAYS=90` is currently used only by the placeholder backfill coverage check. `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Any historical signal visibility, feed retention, or subscription-interval semantics are planned rather than current behavior.
 
 ## Not Supported
 

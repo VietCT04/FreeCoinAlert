@@ -38,7 +38,7 @@ Outbox jobs hold the owned user/destination reference, kind, idempotency key, im
 
 ## Worker Claim, Send, Retry, and Recovery
 
-The optional worker claims eligible jobs in short transactions using lock-safe claims, then releases the database lock before the network request. It rechecks that the destination is still connected and owned. Confirmed sends record the provider message ID. Known temporary failures move to `retrying` using bounded backoff; permanent failures become `failed`. Timeouts and uncertain provider outcomes become an outcome-unknown failure to avoid duplicate messages. Expired claims can be recovered by a later worker. No queue broker is used.
+The optional worker claims eligible jobs in short transactions using lock-safe claims, then releases the database lock before the network request. It rechecks that the destination is still connected and owned. Confirmed sends record the provider message ID. Known temporary failures move to `retrying` using bounded backoff; permanent failures become `failed`. Timeouts and uncertain provider outcomes become an outcome-unknown failure to avoid duplicate messages. A later worker detects stale `processing` claims and terminally marks them `failed` as `telegram_delivery_outcome_unknown`; it never requeues them because provider outcome is uncertain. No queue broker is used.
 
 ## Delivery Status and User-Facing Meaning
 

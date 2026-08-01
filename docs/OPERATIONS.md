@@ -38,7 +38,7 @@ The commands invoke `freecoinalert_api.market_data.catalog_sync`, `.market_data.
 
 ## Environment Configuration
 
-`DATABASE_URL` is required and secret. `WEB_ORIGIN` defaults to `http://localhost:3000`; `SESSION_COOKIE_SECURE` defaults false; `SESSION_TTL_SECONDS` defaults 604800. Telegram username/token and TTL/retention are described in [TELEGRAM.md](TELEGRAM.md). Binance URLs are public provider settings. Market settings and defaults are in [MARKET_DATA.md](MARKET_DATA.md). `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7`, `SIGNAL_HISTORY_DAYS=90`, and `SIGNAL_EVENT_RETENTION_DAYS=365` bound signal processing. Environment examples contain names and safe defaults only; never commit secrets.
+`DATABASE_URL` is required and secret. `WEB_ORIGIN` defaults to `http://localhost:3000`; `SESSION_COOKIE_SECURE` defaults false; `SESSION_TTL_SECONDS` defaults 604800. Telegram username/token and TTL/retention are described in [TELEGRAM.md](TELEGRAM.md). Binance URLs are public provider settings. Market settings and defaults are in [MARKET_DATA.md](MARKET_DATA.md). `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration with no automatic catch-up implementation; `SIGNAL_HISTORY_DAYS=90` only bounds the placeholder backfill coverage check; `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Environment examples contain names and safe defaults only; never commit secrets.
 
 ## Database Migrations
 
@@ -81,7 +81,7 @@ Start PostgreSQL before direct API commands. API startup itself does not contact
 - Stale market data: inspect operational state/logs, confirm the sole stream owner, restore it, then use bounded reconciliation if gaps remain.
 - Candle gap or failed repair: use `market:candles-reconcile`; use bootstrap only for the bounded historical range.
 - Telegram configuration missing: provide the username for links and secret token for poller/worker; API remains available without them.
-- Stuck notification claims: restart a single worker after checking the persisted job state; stale claims are recoverable.
+- Stuck notification claims: inspect the persisted job state. The worker detects stale claims and terminally records `telegram_delivery_outcome_unknown`; it does not resume or requeue an uncertain provider send.
 - Provider rate limit: stop repeated commands, honor Retry-After, and wait for the bounded retry path; treat 418 as an incident.
 
 ## Production Gaps
