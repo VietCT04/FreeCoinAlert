@@ -16,6 +16,8 @@ Passwords are validated at 15–128 characters and stored using pwdlib’s recom
 
 Authenticated mutations compare `X-CSRF-Token` with the session token using constant-time comparison. Registration/login accept only `WEB_ORIGIN` or the API origin when `Origin` is present. CORS is one configured origin with credentials and a narrow method/header list. The web client keeps authentication and CSRF values in memory; no sensitive session or linking token is intentionally persisted in browser storage.
 
+The signal UI persists only the literal `true`/`false` sound preference under `freecoinalert.signalSound.enabled.v1`; it never persists events, cursors, IDs, authentication, or Telegram data. Credentialed `EventSource` carries only the safe live-feed snapshots and control events.
+
 ## Authorization and Ownership
 
 The server derives the principal from the session. Alert, subscription, Telegram, and notification repositories use that ID for ownership checks. Client-supplied user identifiers do not select resources. API responses are shaped to avoid exposing another user’s resource details.

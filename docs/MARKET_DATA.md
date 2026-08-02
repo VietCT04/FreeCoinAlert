@@ -24,6 +24,8 @@ Only Binance `x=true` one-minute klines enter canonical persistence; open update
 
 Current candle identity is supported market, timeframe, and UTC open time. Values use `Decimal`/`NUMERIC(38,18)`. Identical confirmed input is idempotent. Changed confirmed input creates a new current revision and supersedes the earlier complete revision; it is never overwritten. Incomplete and invalid rows have no OHLCV values. Source fingerprints digest the ordered current source candle ID/revision pairs.
 
+The browser preset surface consumes only the server-provided supported-market catalogue and the confirmed candle-close signal snapshots. It does not request provider data directly, accept arbitrary symbols, or calculate indicators in the browser.
+
 ## UTC 1h and 4h Aggregation
 
 `1h` windows begin at minute 00; `4h` windows begin at 00:00, 04:00, 08:00, 12:00, 16:00, and 20:00 UTC. Each requires exactly 60 or 240 consecutive current complete `1m` candles. Open is first source open, close is last source close, high/low are extrema, volume and trade count are sums. Missing or nonconsecutive sources create an incomplete aggregate, never synthetic candles.

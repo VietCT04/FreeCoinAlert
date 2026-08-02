@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`apps/web` is the Next.js browser application for account access, Telegram connection, and one-time price-alert management.
+`apps/web` is the Next.js browser application for account access, Telegram connection, one-time price-alert management, fixed preset subscriptions, and the authenticated signal feed.
 
 ## Prerequisites and Setup
 
@@ -26,11 +26,11 @@ pnpm --filter @freecoinalert/web start
 
 ## Current Surfaces
 
-- `/` — authenticated account, Telegram connection, and price-alert surface.
+- `/` — authenticated account, Telegram connection, price-alert, preset-subscription, and signal-history surface.
 - `/sign-in` — browser sign-in.
 - `/sign-up` — browser registration.
 
-Preset-subscription controls and the signal feed are Planned; they are not browser surfaces yet.
+The root signal surface uses native Fetch, EventSource, React state/effects, and the Web Audio API. Preset formulas and parameters remain server-controlled and read-only; browser sound is off by default and is never required for visual updates.
 
 ## Authoritative Documentation
 

@@ -31,6 +31,8 @@ The default Compose stack is web, API, and PostgreSQL. The `telegram` profile st
 
 The API routes authenticate browser requests and delegate to domain services. PostgreSQL persists durable state, immutable event history, and the signal-feed transport cursor. The API process owns a dedicated PostgreSQL listener and bounded in-process SSE connection manager; the listener loads durable rows and fans out only active-subscription sequences to local browser connections. The market stream owns one global Binance Spot aggregate-trade and kline pipeline, canonical candle persistence, aggregation, reconciliation, price-alert evaluation, and preset-signal evaluation. The Telegram poller consumes bot updates idempotently. The notification worker claims durable outbox work and sends Telegram messages.
 
+The authenticated root page composes the account, Telegram, price-alert, preset-catalog, and signal-feed sections. The browser uses native Fetch, EventSource, React state/effects, and Web Audio API without a new frontend state, audio, chart, or component dependency.
+
 ## Process Ownership and Singleton Boundaries
 
 The market stream uses PostgreSQL advisory lock key `freecoinalert:market-stream:binance:spot` so only one instance owns live ingestion. Signal backfill imports and uses that same singleton boundary. Database rows and unique constraints provide idempotency for retries and restarts; no broker, Redis, or separate microservice is required.
@@ -43,6 +45,7 @@ The market stream uses PostgreSQL advisory lock key `freecoinalert:market-stream
 - Candles and signals: confirmed one-minute klines are persisted, `1h`/`4h` candles are derived, and active/superseded presets are evaluated against complete current candles. State prevents replay and immutable signal events deduplicate occurrences.
 - Signal feed: signal occurrence and invalidation transactions append a durable sequence row and publish only that sequence through PostgreSQL `NOTIFY`. Each API replica listens independently, resolves active subscribers, and sends safe snapshots or invalidation updates through credentialed SSE. Historical reads use immutable signal events and subscription ownership; transport rows are only a bounded replay cursor.
 - Subscriptions: users enable a versioned preset for an available supported market; the subscription does not gate global signal evaluation.
+- Browser presentation: the root signal section loads presets, subscriptions, and a feed watermark concurrently after authentication, opens SSE only after the feed baseline, merges by event ID, recovers on reset or visibility changes, and keeps visual/live-sound presentation separate from occurrence and Telegram delivery.
 
 ## Transaction and Durability Boundaries
 

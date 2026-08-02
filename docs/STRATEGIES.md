@@ -59,6 +59,8 @@ Signal events snapshot preset code/version, strategy type, calculation version, 
 
 The authenticated signal feed exposes that immutable snapshot through the user's matching subscription rows. Feed values retain canonical decimal strings, candle revision and UTC boundaries, occurrence/recording times, backfilled state, and safe invalidation status. The feed does not alter calculation semantics or create a per-user signal event.
 
+The browser preset catalog renders these definitions read-only. It does not submit formulas, periods, thresholds, timeframe overrides, directions, or calculation versions; subscription requests identify only the canonical supported market and preset code/version.
+
 ## Unsupported Strategy Features
 
 MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, and backtesting are not implemented.

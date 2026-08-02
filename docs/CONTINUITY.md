@@ -8,16 +8,15 @@
 - Closed `1m` candles and derived `1h`/`4h` candles are implemented; see [MARKET_DATA.md](MARKET_DATA.md).
 - One-time price-crossing alerts and their browser management surface are implemented; see [ALERTS.md](ALERTS.md) and [PRODUCT.md](PRODUCT.md).
 - Fixed SMA 200 and RSI 14 preset subscriptions and global occurrences are implemented; see [STRATEGIES.md](STRATEGIES.md) and [ALERTS.md](ALERTS.md).
-- The authenticated historical/live signal-feed API and SSE transport are the active #53 implementation and remain unmerged and Unverified; frontend preset controls, browser sound, and backtesting remain Planned or Not supported.
+- The authenticated historical/live signal-feed API and SSE transport are implemented and Unverified; the authenticated browser preset catalog, subscription controls, history feed, visibility recovery, and optional browser sound are implemented by the current frontend surface. Backtesting remains Not supported.
 
 ## Active Work
 
-- [#53](https://github.com/VietCT04/FreeCoinAlert/issues/53) - Add an authenticated historical and live signal-event feed. It follows the merged preset-occurrence work; its approved solution is available and it has no current blocker.
-- [#54](https://github.com/VietCT04/FreeCoinAlert/issues/54) - Add frontend preset controls and the live notification feed. It must follow #53; the feed API and stream are its current dependency.
+- [#54](https://github.com/VietCT04/FreeCoinAlert/issues/54) - Add frontend preset controls and the live notification feed on the implemented authenticated feed API. The browser and audio paths remain Unverified.
 
 ## Current Blockers
 
-- #54 cannot begin until #53 is merged.
+- There is no current implementation blocker. A maintainer-requested browser/runtime verification pass remains outstanding.
 
 See [CONCERNS.md](CONCERNS.md) for risks that do not block current work or safe operation.
 
@@ -28,15 +27,15 @@ See [CONCERNS.md](CONCERNS.md) for risks that do not block current work or safe 
 | Browser account and price alerts | Implemented | Unverified | No explicit browser or end-to-end pass was requested. |
 | Telegram linking and delivery | Implemented | Unverified | Provider and worker paths were not exercised. |
 | Market data and candles | Implemented | Unverified | Binance, maintenance, and reconciliation paths were not exercised. |
-| Preset signal occurrences | Implemented | Unverified | Global occurrence evaluation is available; the #53 feed change is not yet merged. |
-| Signal history and live SSE | Planned | Unverified | The authenticated API, durable cursor log, listener, and recovery path are in the active #53 change; no stream or migration was exercised. |
+| Preset signal occurrences | Implemented | Unverified | Global occurrence evaluation and the authenticated feed boundary are available. |
+| Signal history and live SSE | Implemented | Unverified | Durable history, cursor recovery, listener, and stream paths were not exercised. |
+| Browser preset subscriptions and live feed | Implemented | Unverified | Browser, visibility, EventSource, and audio paths were not exercised. |
 | Historical analysis | Not supported | Not applicable | No backtesting runtime exists. |
 
 ## Next Actions
 
-1. Complete and merge #53 using its approved solution.
-2. Implement #54 after #53 is merged, using its approved solution.
-3. Request a dedicated verification pass when the maintainer is ready.
+1. Complete and merge #54 using its approved solution.
+2. Request a dedicated verification pass when the maintainer is ready.
 
 ## Handoff Constraints
 
