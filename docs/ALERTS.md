@@ -42,7 +42,11 @@ The first successful calculation initializes prior values and relation without c
 
 ### Global Signal Occurrences
 
-A crossing writes one immutable global `preset_crossed` event keyed by market, preset/version, candle open time, and candle revision. It snapshots market and preset facts, calculation version, previous/current values, close, and whether it was backfilled. It is not copied per subscriber and creates no Telegram job. Subscription lifecycle and preference changes write separate immutable subscription state events so future fan-out can evaluate eligibility at occurrence time without rewriting the occurrence.
+A crossing writes one immutable global `preset_crossed` event keyed by market, preset/version, candle open time, and candle revision. It snapshots market and preset facts, calculation version, previous/current values, close, and whether it was backfilled. It is not copied per subscriber. A new non-backfilled occurrence also creates one durable dispatch row in the same transaction; recipient outbox jobs are created later by the bounded dispatcher. Subscription lifecycle and preference changes write separate immutable subscription state events so fan-out can evaluate eligibility at occurrence time without rewriting the occurrence.
+
+### Telegram Fan-out Boundary
+
+The dispatcher selects the latest subscription state at or before `signal_event.occurred_at`. Only `active` state with `telegram_delivery_enabled = true` qualifies. It then requires the user's current owned Telegram connection to be `connected` with `connected_at <= occurred_at`. Missing, linking, degraded, disconnected, or later-connected destinations increment the dispatch skip count and create no job. Backfilled events are marked `skipped` as `historical_backfill_not_delivered`; invalidated and older-than-`SIGNAL_TELEGRAM_FANOUT_MAX_AGE_SECONDS` events are skipped without recipient work. Each page advances its subscription cursor only in the same transaction as idempotent outbox inserts. See [TELEGRAM.md](TELEGRAM.md) for the outbox and provider boundary.
 
 ### Candle Corrections and Invalidations
 
@@ -50,7 +54,7 @@ When a candle changes revision, the affected evaluation state is marked stale wi
 
 ## Deduplication and Restart Safety
 
-Price alerts deduplicate by alert and provider-event identity; global signals deduplicate their immutable trigger identity. Stored relation, last provider/candle identity, and database constraints make repeated inputs safe. Automatic restart catch-up is not implemented: the evaluator handles only newly supplied confirmed-candle events, and `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration.
+Price alerts deduplicate by alert and provider-event identity; global signals deduplicate their immutable trigger identity. Signal dispatches deduplicate by signal event, while per-user outbox jobs use both the existing user/idempotency key and a partial user/event uniqueness rule. Stored relation, last provider/candle identity, durable cursors, and database constraints make repeated inputs safe. Automatic evaluator restart catch-up is not implemented: the evaluator handles only newly supplied confirmed-candle events, and `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration.
 
 ## Signal Feed Visibility and Recovery
 
@@ -75,7 +79,7 @@ The browser merges feed entries by immutable signal-event ID, updates invalidati
 
 ## Not Supported
 
-Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, system/mobile push notifications, custom sounds, and charts are not supported. Browser signal-feed controls and optional in-page sound are implemented separately from the Telegram-delivery preference. Preset Telegram delivery, notification fan-out, and browser controls for that preference are not implemented.
+Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, system/mobile push notifications, custom sounds, and charts are not supported. Browser signal-feed controls and optional in-page sound are implemented separately from the Telegram-delivery preference. Durable preset fan-out is implemented, but preset Telegram provider sending and browser controls for that preference are not implemented.
 
 ## Verification Status
 

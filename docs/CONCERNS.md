@@ -6,15 +6,15 @@ This document records unresolved current risks and decisions, not feature histor
 
 ## Active Product Concerns
 
-### Preset Telegram delivery is not implemented
+### Preset Telegram provider delivery is not implemented
 
-**Current fact:** Signal subscriptions now store an explicit Telegram-delivery preference and expose dynamic readiness, but no signal fan-out, notification-outbox job, provider send, or browser preference control exists.
+**Current fact:** Signal subscriptions store an explicit Telegram-delivery preference and expose dynamic readiness. Live occurrence fan-out now creates bounded, occurrence-time-eligible durable `telegram_preset_signal` jobs, but the existing notification worker does not send that kind and browser preference controls do not exist.
 
-**Risk/impact:** A user or future consumer could mistake an enabled preference for a delivered signal, even though occurrences remain browser-visible facts and no Telegram delivery outcome exists.
+**Risk/impact:** A user or future consumer could mistake an enabled preference or queued fan-out job for a delivered signal, even though occurrences remain browser-visible facts and no preset-signal provider delivery outcome exists.
 
-**Current mitigation:** The API and product documentation describe preference, readiness, occurrence, and provider delivery as separate concepts; the preference is disabled by default and enabling requires a connected, non-degraded destination.
+**Current mitigation:** The API and product documentation describe preference, readiness, occurrence, dispatch, outbox, and provider delivery as separate concepts; the preference is disabled by default, enabling requires a connected non-degraded destination, fan-out excludes backfilled/expired/invalidated occurrences, and the current provider worker leaves preset-signal jobs pending.
 
-**Follow-up:** Implement the separately approved occurrence fan-out, worker delivery, and frontend-control issues before presenting preset Telegram delivery as available.
+**Follow-up:** Implement the separately approved #73 worker delivery and #74 frontend-control issues before presenting preset Telegram delivery as available.
 
 **Owning document:** [TELEGRAM.md](TELEGRAM.md) and [PRODUCT.md](PRODUCT.md).
 

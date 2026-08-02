@@ -18,6 +18,7 @@
     "dev:market-stream": "uv run --project apps/api python -m freecoinalert_api.market_data.stream",
     "dev:market-logs": "docker compose --profile market logs --follow market-stream",
     "dev:notification-worker": "uv run --project apps/api python -m freecoinalert_api.notifications.worker",
+    "dev:signal-telegram-dispatcher": "uv run --project apps/api python -m freecoinalert_api.notifications.signal_dispatcher",
     "market:sync": "uv run --project apps/api python -m freecoinalert_api.market_data.catalog_sync",
     "market:candles-bootstrap": "uv run --project apps/api python -m freecoinalert_api.market_data.candles.bootstrap",
     "market:candles-reconcile": "uv run --project apps/api python -m freecoinalert_api.market_data.candles.reconciliation",

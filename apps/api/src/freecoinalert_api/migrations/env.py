@@ -18,6 +18,7 @@ from freecoinalert_api.db.models import (  # noqa: F401
     SignalPreset,
     SignalSubscription,
     SignalSubscriptionStateEvent,
+    SignalTelegramDispatch,
     SignalEvaluationState,
     SignalEvent,
     SignalEventInvalidation,

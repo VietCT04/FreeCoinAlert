@@ -5,6 +5,7 @@ from freecoinalert_api.db.models.price_alert import PriceAlert
 from freecoinalert_api.db.models.signal_preset import SignalPreset
 from freecoinalert_api.db.models.signal_subscription import SignalSubscription
 from freecoinalert_api.db.models.signal_subscription_state_event import SignalSubscriptionStateEvent
+from freecoinalert_api.db.models.signal_telegram_dispatch import SignalTelegramDispatch
 from freecoinalert_api.db.models.signal_evaluation_state import SignalEvaluationState
 from freecoinalert_api.db.models.signal_event import SignalEvent
 from freecoinalert_api.db.models.signal_event_invalidation import SignalEventInvalidation
@@ -31,6 +32,7 @@ __all__ = [
     "SignalPreset",
     "SignalSubscription",
     "SignalSubscriptionStateEvent",
+    "SignalTelegramDispatch",
     "SignalEvaluationState",
     "SignalEvent",
     "SignalEventInvalidation",
