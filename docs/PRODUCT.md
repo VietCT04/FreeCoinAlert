@@ -24,7 +24,7 @@ One-time alerts fire once when a live aggregate-trade price crosses a user-selec
 - Price close crossing above or below SMA 200.
 - Wilder RSI 14 crossing above 70 or below 30.
 
-Each combination has version `1`: four SMA presets and four RSI presets across `1h` and `4h`. A signal occurrence, website visibility, sound playback, and Telegram delivery are separate concepts. Only occurrence evaluation exists now; a signal feed and signal-notification delivery do not.
+Each combination has version `1`: four SMA presets and four RSI presets across `1h` and `4h`. A signal occurrence, authenticated API feed visibility, website UI, sound playback, and Telegram delivery are separate concepts. The historical/live feed API is being added by the active #53 change; the website does not yet expose preset controls or feed UI.
 
 ## User-Visible Status and Failure Semantics
 
@@ -38,11 +38,11 @@ Enforced limits include: 15–128 character passwords; a 7-day default session l
 
 ## Not Supported
 
-FreeCoinAlert does not execute trades, hold funds, request exchange API keys, accept user-authored strategies, expose arbitrary timeframes, provide backtesting or performance claims, offer a signal-event feed, or play notification sounds. It makes no profit or delivery guarantee.
+FreeCoinAlert does not execute trades, hold funds, request exchange API keys, accept user-authored strategies, expose arbitrary timeframes, provide backtesting or performance claims, or play notification sounds. It makes no profit or delivery guarantee. The website does not yet provide a signal-feed UI.
 
 ## Planned Capabilities
 
-Historical and live signal-feed delivery, frontend preset controls, and browser notification sound are planned but unavailable. See the runtime-domain documents for their current boundaries.
+Frontend preset controls and browser notification sound are planned but unavailable. The authenticated historical/live signal-feed API is covered by the active #53 implementation; it is not yet available in merged `main`. See the runtime-domain documents for its current boundaries.
 
 ## Product Safety and Financial-Information Boundary
 

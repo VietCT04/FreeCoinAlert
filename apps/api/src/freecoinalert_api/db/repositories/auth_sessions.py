@@ -45,6 +45,23 @@ async def get_active_session_and_user_by_token_hash(
     return result.one_or_none()
 
 
+async def get_active_session_by_id(
+    session: AsyncSession,
+    *,
+    session_id: uuid.UUID,
+    user_id: uuid.UUID,
+    current_time: datetime,
+) -> AuthSession | None:
+    return await session.scalar(
+        select(AuthSession).where(
+            AuthSession.id == session_id,
+            AuthSession.user_id == user_id,
+            AuthSession.revoked_at.is_(None),
+            AuthSession.expires_at > current_time,
+        )
+    )
+
+
 async def revoke_auth_session(
     session: AsyncSession,
     *,

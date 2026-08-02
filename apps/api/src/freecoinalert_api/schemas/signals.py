@@ -88,3 +88,68 @@ class SignalSubscriptionListEnvelope(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
 
     subscriptions: list[SignalSubscriptionResponse]
+
+
+class SignalFeedMarketResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    exchange: Literal["binance"]
+    market_type: Literal["spot"]
+    symbol: str
+    base_asset: str
+    quote_asset: str
+
+
+class SignalFeedPresetResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    code: str
+    version: int
+    name: str
+    strategy_type: Literal["price_sma_cross", "rsi_threshold_cross"]
+    timeframe: Literal["1h", "4h"]
+    direction: Literal["cross_above", "cross_below"]
+    parameters: SignalParametersResponse
+
+
+class SignalFeedComparisonResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    left_label: str
+    right_label: str
+    previous_left: str
+    previous_right: str
+    current_left: str
+    current_right: str
+
+
+class SignalFeedCandleResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    revision: int
+    close_price: str
+    open_time: datetime
+    close_time: datetime
+
+
+class SignalFeedEventResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    id: uuid.UUID
+    status: Literal["current", "invalidated"]
+    invalidation_reason: str | None
+    market: SignalFeedMarketResponse
+    preset: SignalFeedPresetResponse
+    comparison: SignalFeedComparisonResponse
+    candle: SignalFeedCandleResponse
+    backfilled: bool
+    occurred_at: datetime
+    recorded_at: datetime
+
+
+class SignalFeedEnvelope(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    events: list[SignalFeedEventResponse]
+    next_cursor: str | None
+    stream_cursor: str

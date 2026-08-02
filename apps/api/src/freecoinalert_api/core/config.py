@@ -32,6 +32,12 @@ class AuthenticationSettings(BaseSettings):
     signal_live_catchup_max_days: int = Field(default=7, gt=0, le=7)
     signal_history_days: int = Field(default=90, gt=0, le=180)
     signal_event_retention_days: int = Field(default=365, gt=0)
+    signal_sse_max_connections_per_user: int = Field(default=2, gt=0)
+    signal_sse_max_connections_per_process: int = Field(default=500, gt=0)
+    signal_sse_queue_size: int = Field(default=100, gt=0)
+    signal_sse_heartbeat_seconds: int = Field(default=15, gt=0)
+    signal_sse_session_revalidation_seconds: int = Field(default=60, gt=0)
+    signal_stream_retention_days: int = Field(default=7, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",

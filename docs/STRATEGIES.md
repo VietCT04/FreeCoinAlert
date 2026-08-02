@@ -57,6 +57,8 @@ The shared calculation key contains market, timeframe, strategy type, calculatio
 
 Signal events snapshot preset code/version, strategy type, calculation version, period, threshold, input, and values. A future preset version cannot silently change historical meaning.
 
+The authenticated signal feed exposes that immutable snapshot through the user's matching subscription rows. Feed values retain canonical decimal strings, candle revision and UTC boundaries, occurrence/recording times, backfilled state, and safe invalidation status. The feed does not alter calculation semantics or create a per-user signal event.
+
 ## Unsupported Strategy Features
 
 MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, and backtesting are not implemented.

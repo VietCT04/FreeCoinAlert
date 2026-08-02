@@ -13,7 +13,9 @@ FreeCoinAlert is a modular monolith: the Next.js web app and the FastAPI package
 ```mermaid
 flowchart LR
   Browser -->|HTTPS, cookie + CSRF| API[FastAPI API]
+  Browser -->|credentialed SSE| API
   API --> DB[(PostgreSQL)]
+  DB -->|LISTEN / NOTIFY| API
   Market[market-stream module] -->|public Binance WebSocket/REST| Binance
   Market --> DB
   Market --> Alerts[price + preset evaluation]
@@ -27,7 +29,7 @@ The default Compose stack is web, API, and PostgreSQL. The `telegram` profile st
 
 ## Component Responsibilities
 
-The API routes authenticate browser requests and delegate to domain services. PostgreSQL persists durable state and immutable event history. The market stream owns one global Binance Spot aggregate-trade and kline pipeline, canonical candle persistence, aggregation, reconciliation, price-alert evaluation, and preset-signal evaluation. The Telegram poller consumes bot updates idempotently. The notification worker claims durable outbox work and sends Telegram messages.
+The API routes authenticate browser requests and delegate to domain services. PostgreSQL persists durable state, immutable event history, and the signal-feed transport cursor. The API process owns a dedicated PostgreSQL listener and bounded in-process SSE connection manager; the listener loads durable rows and fans out only active-subscription sequences to local browser connections. The market stream owns one global Binance Spot aggregate-trade and kline pipeline, canonical candle persistence, aggregation, reconciliation, price-alert evaluation, and preset-signal evaluation. The Telegram poller consumes bot updates idempotently. The notification worker claims durable outbox work and sends Telegram messages.
 
 ## Process Ownership and Singleton Boundaries
 
@@ -39,6 +41,7 @@ The market stream uses PostgreSQL advisory lock key `freecoinalert:market-stream
 - Telegram: an authenticated user creates a hashed, short-lived link token; the poller accepts an authenticated bot update once and connects the destination; the worker later sends queued messages.
 - Price alerts: aggregate trades update market state; a crossing atomically creates an immutable alert event and notification-outbox entry, then marks the alert triggered.
 - Candles and signals: confirmed one-minute klines are persisted, `1h`/`4h` candles are derived, and active/superseded presets are evaluated against complete current candles. State prevents replay and immutable signal events deduplicate occurrences.
+- Signal feed: signal occurrence and invalidation transactions append a durable sequence row and publish only that sequence through PostgreSQL `NOTIFY`. Each API replica listens independently, resolves active subscribers, and sends safe snapshots or invalidation updates through credentialed SSE. Historical reads use immutable signal events and subscription ownership; transport rows are only a bounded replay cursor.
 - Subscriptions: users enable a versioned preset for an available supported market; the subscription does not gate global signal evaluation.
 
 ## Transaction and Durability Boundaries
@@ -59,8 +62,8 @@ One process owns each external stream; PostgreSQL is the shared source of truth.
 
 ## Deliberately Deferred Architecture
 
-There is no message broker, cache cluster, independent market-data service, notification service, shared-package runtime, or signal-feed transport.
+There is no message broker, cache cluster, independent market-data service, notification service, or shared-package runtime. Signal-feed delivery intentionally uses PostgreSQL `LISTEN`/`NOTIFY` and a bounded process-local connection manager; it does not add a broker or cross-process connection state.
 
 ## Verification Status
 
-Runtime topology and recovery paths are implemented but unverified by a maintainer-requested runtime pass.
+Runtime topology and recovery paths, including signal-feed listener/SSE recovery, are implemented but unverified by a maintainer-requested runtime pass.

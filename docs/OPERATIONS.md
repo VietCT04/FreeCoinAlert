@@ -6,7 +6,7 @@ This document describes implemented local runtime entry points, settings, manual
 
 ## Runtime Components
 
-The web app, FastAPI API, and PostgreSQL run in the default Compose stack. Optional components are the singleton Binance market stream, Telegram update poller, and notification worker. Each uses the same database and configuration but is separately started.
+The web app, FastAPI API, and PostgreSQL run in the default Compose stack. The API process also starts the signal-feed PostgreSQL listener and local SSE connection manager through its FastAPI lifespan. Optional components are the singleton Binance market stream, Telegram update poller, and notification worker. Each uses the same database and configuration but is separately started.
 
 ## Default Local Stack
 
@@ -34,11 +34,11 @@ Formatting, lint, typecheck, build, and verification scripts exist for developme
 
 ## API Module Entry Points
 
-The commands invoke `freecoinalert_api.market_data.catalog_sync`, `.market_data.stream`, `.market_data.candles.bootstrap`, `.market_data.candles.reconciliation`, `.signals.backfill`, `.telegram.poller`, and `.notifications.worker`. Direct API startup uses FastAPI with `main.py`.
+The commands invoke `freecoinalert_api.market_data.catalog_sync`, `.market_data.stream`, `.market_data.candles.bootstrap`, `.market_data.candles.reconciliation`, `.signals.backfill`, `.telegram.poller`, and `.notifications.worker`. Direct API startup uses FastAPI with `main.py`; the API lifespan starts `.signals.feed_listener` without a separate process command.
 
 ## Environment Configuration
 
-`DATABASE_URL` is required and secret. `WEB_ORIGIN` defaults to `http://localhost:3000`; `SESSION_COOKIE_SECURE` defaults false; `SESSION_TTL_SECONDS` defaults 604800. Telegram username/token and TTL/retention are described in [TELEGRAM.md](TELEGRAM.md). Binance URLs are public provider settings. Market settings and defaults are in [MARKET_DATA.md](MARKET_DATA.md). `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration with no automatic catch-up implementation; `SIGNAL_HISTORY_DAYS=90` only bounds the placeholder backfill coverage check; `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Environment examples contain names and safe defaults only; never commit secrets.
+`DATABASE_URL` is required and secret. `WEB_ORIGIN` defaults to `http://localhost:3000`; `SESSION_COOKIE_SECURE` defaults false; `SESSION_TTL_SECONDS` defaults 604800. Telegram username/token and TTL/retention are described in [TELEGRAM.md](TELEGRAM.md). Binance URLs are public provider settings. Market settings and defaults are in [MARKET_DATA.md](MARKET_DATA.md). `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration with no automatic catch-up implementation; `SIGNAL_HISTORY_DAYS=90` only bounds the placeholder backfill coverage check; `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Signal SSE defaults are 2 connections per user, 500 per process, queue size 100, 15-second heartbeats, 60-second session revalidation, and 7-day stream-cursor retention; these limits are configured by `SIGNAL_SSE_*` and `SIGNAL_STREAM_RETENTION_DAYS`. Environment examples contain names and safe defaults only; never commit secrets.
 
 ## Database Migrations
 
@@ -66,11 +66,11 @@ Start both only when a valid bot token is available. The poller cannot coexist w
 
 ## Singleton and Concurrency Controls
 
-PostgreSQL advisory locks serialize market streaming, candle maintenance, and signal backfill around the market-stream lock key. API rate limits are in-memory per process, so they are not a distributed abuse-control solution. Provider REST requests are serialized inside the implemented maintenance flows.
+PostgreSQL advisory locks serialize market streaming, candle maintenance, and signal backfill around the market-stream lock key. The signal-feed listener uses one dedicated PostgreSQL `LISTEN` connection per API process; each replica receives notifications independently and owns only its local SSE connections. API rate limits and feed connection limits are in-memory per process, so they are not a distributed abuse-control or aggregate connection solution. Provider REST requests are serialized inside the implemented maintenance flows.
 
 ## Retention and Maintenance
 
-The code has candle-revision cleanup bounded by `CANDLE_RETENTION_DAYS`, processed Telegram-update cleanup bounded by `TELEGRAM_UPDATE_RETENTION_DAYS`, and signal-event retention settings. No scheduler invokes generic cleanup automatically. Run only implemented explicit maintenance under an operator-controlled schedule.
+The code has candle-revision cleanup bounded by `CANDLE_RETENTION_DAYS`, processed Telegram-update cleanup bounded by `TELEGRAM_UPDATE_RETENTION_DAYS`, and signal-event retention settings. The API listener performs at most one signal-feed stream-cursor cleanup pass per 24 hours, deleting no more than 10,000 rows older than `SIGNAL_STREAM_RETENTION_DAYS` in one transaction. It never deletes the referenced signal event. No scheduler invokes generic cleanup automatically. Run only implemented explicit maintenance under an operator-controlled schedule.
 
 ## Startup and Shutdown Expectations
 
@@ -86,7 +86,7 @@ Start PostgreSQL before direct API commands. API startup itself does not contact
 
 ## Production Gaps
 
-No implemented production topology, deployment automation, backup automation, distributed rate limiter, queue broker, cron scheduler, horizontal stream ownership, or managed monitoring stack exists.
+No implemented production topology, deployment automation, backup automation, distributed rate limiter, queue broker, cron scheduler, horizontal stream ownership, or managed monitoring stack exists. A production reverse proxy must disable buffering for `/signal-feed/stream`, preserve `Cache-Control: no-transform`, use a read timeout longer than the 15-second heartbeat, pass cookies/CORS headers, and avoid requiring WebSocket upgrade headers.
 
 ## Verification Status
 

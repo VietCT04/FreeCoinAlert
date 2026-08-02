@@ -28,6 +28,14 @@ Pydantic forbids unknown fields in security-sensitive request bodies; UUIDs, exa
 
 The bot token is environment configuration and is never returned by HTTP APIs. Link values are random, short-lived, single-use values stored as hashes. Processed Telegram update IDs are persisted for idempotency. Connections retain only the provider identity and delivery fields required for the feature. Provider errors are normalized before user-facing responses and logs must not contain bot tokens or raw link values.
 
+## Signal Feed Security
+
+The historical feed and SSE stream require the existing opaque session cookie and configured credentialed CORS origin. They are read-only and do not require CSRF. The stream revalidates the session ID at most every 60 seconds and closes with `auth_expired` after revocation or expiry. `Last-Event-ID` and `after` are non-negative bounded cursors; they never select a user or resource.
+
+History visibility joins signal events to the authenticated user's active or disabled subscription rows. Live and replay fan-out use active subscriptions only. Feed payloads expose immutable market/preset/candle/value snapshots as exact decimal strings, fixed invalidation messages, and no internal UUIDs, subscription/user identifiers, calculation state, provider payloads, Telegram status, or recommendation text. The durable `NOTIFY` payload contains only a stream sequence.
+
+Feed history, stream-attempt, per-user connection, per-process connection, and per-connection queue limits are bounded in memory. These controls are process-local until shared infrastructure is approved. A full queue resets and closes the affected stream so missed records are recovered through the historical endpoint rather than silently dropped.
+
 ## Binance and Market-Data Security
 
 Binance Spot REST/WebSocket access is public and centralized. The product neither requests nor stores customer exchange API keys. Provider input is normalized and freshness/order/data-quality guarded before it changes alert or candle state.

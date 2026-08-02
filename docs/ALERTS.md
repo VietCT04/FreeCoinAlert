@@ -52,22 +52,26 @@ When a candle changes revision, the affected evaluation state is marked stale wi
 
 Price alerts deduplicate by alert and provider-event identity; global signals deduplicate their immutable trigger identity. Stored relation, last provider/candle identity, and database constraints make repeated inputs safe. Automatic restart catch-up is not implemented: the evaluator handles only newly supplied confirmed-candle events, and `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration.
 
-## Ownership and Visibility
+## Signal Feed Visibility and Recovery
 
-Price alerts and their events are visible only to their owner. Signal subscriptions are user-owned current rows; reactivation replaces their activation timestamp and clears the disabled timestamp, so complete historical subscription intervals are not retained. Global signal events are separately persisted but have no feed API or frontend visibility behavior.
+Price alerts and their events are visible only to their owner. Signal subscriptions are user-owned current rows; reactivation replaces their activation timestamp and clears the disabled timestamp, so complete historical subscription intervals are not retained. Global signal events remain separate from per-user visibility and delivery.
+
+`GET /signal-feed` exposes global signal history through matching active or disabled subscription rows owned by the authenticated user. It orders immutable snapshots by occurrence time and event UUID, supports current/invalidated/all filtering, and returns an opaque history cursor plus a durable stream watermark. A historical row is strategy history, not proof that the user received a notification.
+
+`GET /signal-feed/stream` is a credentialed one-way SSE connection. It delivers only events matching currently active subscriptions, uses the durable stream sequence for `Last-Event-ID` recovery, and sends replay records separately from newly live records. A stream reset or retained-cursor gap sends the user back to the historical endpoint. Signal invalidations update the prior feed state and are never presented as a new positive occurrence. In-app feed delivery remains separate from signal occurrence state and Telegram delivery.
 
 ## Current Limits
 
 - Maximum active price alerts per user: 20.
 - New signal subscription rows are limited to 20 enabled subscriptions per user. Reactivation can exceed that limit; see [CONCERNS.md](CONCERNS.md).
 
-### Planned feed and history controls
+### Historical event and feed controls
 
-`SIGNAL_HISTORY_DAYS=90` is currently used only by the placeholder backfill coverage check. `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Any historical signal visibility, feed retention, or subscription-interval semantics are planned rather than current behavior.
+`SIGNAL_HISTORY_DAYS=90` is currently used only by the placeholder backfill coverage check. `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Feed transport cursors use a separate 7-day `SIGNAL_STREAM_RETENTION_DAYS` log; signal events remain the historical source of truth after cursor cleanup.
 
 ## Not Supported
 
-Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, website notifications, sound, and a signal feed are not implemented.
+Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, website notifications, browser sound, and frontend signal-feed controls are not implemented.
 
 ## Verification Status
 
