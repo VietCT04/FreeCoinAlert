@@ -30,7 +30,7 @@ An occurrence is not delivery. Price-alert reads expose a safe market-data and n
 
 ### Subscription Lifecycle
 
-Subscriptions select an available fixed preset version for a ready market. They start enabled, can be disabled, and may be reactivated; the chosen version remains pinned. They have no Telegram prerequisite. New subscription rows are blocked at 20 enabled subscriptions per user, but reactivating an existing disabled row does not recheck that count and can exceed 20; this is an active implementation limitation.
+Subscriptions select an available fixed preset version for a ready market. They start enabled, can be disabled, and may be reactivated; the chosen version remains pinned. Creating a subscription has no Telegram prerequisite. A separate owner-scoped Telegram-delivery preference is disabled by default; enabling it requires an active subscription and a connected, non-degraded private Telegram destination. New subscriptions, reactivation, and subscription disable reset the preference to false. New subscription rows are blocked at 20 enabled subscriptions per user, but reactivating an existing disabled row does not recheck that count and can exceed 20; this is an active implementation limitation.
 
 ### Evaluation Preconditions
 
@@ -42,7 +42,7 @@ The first successful calculation initializes prior values and relation without c
 
 ### Global Signal Occurrences
 
-A crossing writes one immutable global `preset_crossed` event keyed by market, preset/version, candle open time, and candle revision. It snapshots market and preset facts, calculation version, previous/current values, close, and whether it was backfilled. It is not copied per subscriber and creates no Telegram job.
+A crossing writes one immutable global `preset_crossed` event keyed by market, preset/version, candle open time, and candle revision. It snapshots market and preset facts, calculation version, previous/current values, close, and whether it was backfilled. It is not copied per subscriber and creates no Telegram job. Subscription lifecycle and preference changes write separate immutable subscription state events so future fan-out can evaluate eligibility at occurrence time without rewriting the occurrence.
 
 ### Candle Corrections and Invalidations
 
@@ -54,7 +54,7 @@ Price alerts deduplicate by alert and provider-event identity; global signals de
 
 ## Signal Feed Visibility and Recovery
 
-Price alerts and their events are visible only to their owner. Signal subscriptions are user-owned current rows; reactivation replaces their activation timestamp and clears the disabled timestamp, so complete historical subscription intervals are not retained. Global signal events remain separate from per-user visibility and delivery.
+Price alerts and their events are visible only to their owner. Signal subscriptions are user-owned current rows; reactivation replaces their activation timestamp and clears the disabled timestamp, so complete historical subscription intervals are not retained in the mutable row. Immutable subscription state events preserve lifecycle and Telegram-preference state at each effective time. Global signal events remain separate from per-user visibility, preference, and delivery.
 
 `GET /signal-feed` exposes global signal history through matching active or disabled subscription rows owned by the authenticated user. It orders immutable snapshots by occurrence time and event UUID, supports current/invalidated/all filtering, and returns an opaque history cursor plus a durable stream watermark. A historical row is strategy history, not proof that the user received a notification.
 
@@ -75,7 +75,7 @@ The browser merges feed entries by immutable signal-event ID, updates invalidati
 
 ## Not Supported
 
-Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, system/mobile push notifications, custom sounds, and charts are not supported. Browser signal-feed controls and optional in-page sound are implemented separately from Telegram delivery.
+Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, system/mobile push notifications, custom sounds, and charts are not supported. Browser signal-feed controls and optional in-page sound are implemented separately from the Telegram-delivery preference. Preset Telegram delivery, notification fan-out, and browser controls for that preference are not implemented.
 
 ## Verification Status
 

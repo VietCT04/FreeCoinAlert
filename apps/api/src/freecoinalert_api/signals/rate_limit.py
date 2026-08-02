@@ -40,6 +40,10 @@ signal_feed_rate_limiter = SignalRateLimiter(
     error_code="SIGNAL_FEED_RATE_LIMITED",
     error_message="Too many signal feed requests. Try again later.",
 )
+signal_telegram_delivery_rate_limiter = SignalRateLimiter(
+    error_code="SIGNAL_TELEGRAM_DELIVERY_RATE_LIMITED",
+    error_message="Too many Telegram delivery preference requests. Try again later.",
+)
 
 
 def enable_user_key(user_id: str) -> str:
@@ -52,6 +56,10 @@ def enable_ip_key(client_ip: str) -> str:
 
 def disable_user_key(user_id: str) -> str:
     return f"signal-disable-user:{user_id}"
+
+
+def telegram_delivery_user_key(user_id: str) -> str:
+    return f"signal-telegram-delivery-user:{user_id}"
 
 
 def feed_history_user_key(user_id: str) -> str:

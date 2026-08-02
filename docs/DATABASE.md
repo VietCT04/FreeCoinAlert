@@ -14,7 +14,7 @@ PostgreSQL is the durable source of truth. Tables generally use UUID primary key
 | Markets | `supported_markets`, `market_symbol_states` | catalogue + latest live snapshot |
 | Candles | `market_candles`, `candle_symbol_states`, `candle_sync_runs` | immutable/revisioned candles + operations |
 | Alerts | `price_alerts`, `alert_events` | mutable alert + immutable trigger |
-| Signals | `signal_presets`, `signal_subscriptions`, `signal_evaluation_states`, `signal_events`, `signal_event_invalidations`, `signal_feed_stream_events` | versioned definitions, user intent, state, immutable history, durable feed cursor |
+| Signals | `signal_presets`, `signal_subscriptions`, `signal_subscription_state_events`, `signal_evaluation_states`, `signal_events`, `signal_event_invalidations`, `signal_feed_stream_events` | versioned definitions, user intent, occurrence-time subscription state, evaluation state, immutable history, durable feed cursor |
 
 ## Authentication Domain
 
@@ -48,7 +48,9 @@ PostgreSQL is the durable source of truth. Tables generally use UUID primary key
 
 `signal_presets` is immutable-in-meaning versioned catalogue data: code/version unique, presentation, strategy (`price_sma_cross` or `rsi_threshold_cross`), `1h`/`4h`, direction, period/threshold/close input, status (`active`, `superseded`, `disabled`), configuration hash unique, and lifecycle timestamps. Checks restrict it to SMA 200 and RSI 14 threshold 70/30 definitions.
 
-`signal_subscriptions` stores user intent for a market and preset, with `active`/`disabled` status/reason and activation/disable times. FKs are user CASCADE and market/preset RESTRICT; `(user_id,supported_market_id,signal_preset_id)` is unique. User-list and active-preset indexes support subscription management.
+`signal_subscriptions` stores user intent for a market and preset, with `active`/`disabled` status/reason and activation/disable times. `telegram_delivery_enabled` is `BOOLEAN NOT NULL DEFAULT FALSE`; `telegram_delivery_changed_at` records the last explicit preference change and is null when the current subscription interval has not enabled delivery. New subscriptions and reactivations reset the preference to false; disabling a subscription also resets it. FKs are user CASCADE and market/preset RESTRICT; `(user_id,supported_market_id,signal_preset_id)` is unique. User-list and active-preset indexes support subscription management.
+
+`signal_subscription_state_events` is immutable occurrence-time history for later signal fan-out. It has identity `sequence BIGINT` primary key, subscription/user/market/preset references, `subscription_status` (`active` or `disabled`), `telegram_delivery_enabled`, `effective_at`, and `created_at`. Subscription references and user references cascade on deletion; market and preset references restrict deletion. The latest-state index is `(subscription_id,effective_at DESC,sequence DESC)`; occurrence lookup uses `(supported_market_id,signal_preset_id,effective_at DESC,sequence DESC)`. Existing subscriptions receive one baseline false state row during migration; migration does not infer eligibility from old signal history or create notification work.
 
 `signal_evaluation_states` has a unique market/preset pair, status (`warming`, `ready`, `stale`, `error`, `disabled`), safe reason, last candle/revision/open time/relation and values, calculation-state version `1`, JSON calculation state, and timestamps. It is mutable evaluator state; market FK CASCADE and preset/candle FKs RESTRICT. Its status/update index supports maintenance.
 
@@ -58,7 +60,7 @@ PostgreSQL is the durable source of truth. Tables generally use UUID primary key
 
 ## Cross-Domain Transaction Boundaries
 
-Registration/login commit user/session together. Price-alert evaluation inserts event/outbox and transitions the alert atomically. Signal evaluation locks/updates its market-preset state and inserts a deduplicated signal event plus its feed stream row atomically. Signal invalidation inserts its immutable invalidation and feed stream row atomically. The PostgreSQL notification is emitted before that transaction commits and carries only the stream sequence. Telegram sending changes only outbox delivery state after the occurrence transaction.
+Registration/login commit user/session together. Price-alert evaluation inserts event/outbox and transitions the alert atomically. Signal evaluation locks/updates its market-preset state and inserts a deduplicated signal event plus its feed stream row atomically. Signal invalidation inserts its immutable invalidation and feed stream row atomically. Subscription lifecycle and Telegram-preference transitions update the mutable subscription row and insert one state-history row atomically; equivalent preference requests insert neither a new state row nor notification work. The PostgreSQL notification is emitted before that transaction commits and carries only the stream sequence. Telegram sending changes only outbox delivery state after the occurrence transaction.
 
 ## Retention and Cleanup
 
@@ -66,7 +68,7 @@ Canonical candle retention defaults to 180 days; processed Telegram updates defa
 
 ## Migration Inventory
 
-`20260728_0001` users/auth sessions; `20260730_0002` Telegram persistence; `0003` notification outbox; `0004` supported market catalogue; `0005` price alerts/events; `0006` live market state; `0007` price-alert notification kind; `0008` canonical candles; `0009` candle operational state; `0010` signal presets/subscriptions; `20260731_0011` signal evaluation/events/invalidations; `20260802_0012` durable signal-feed stream events and existing-event replay rows. The chain head is `20260802_0012`.
+`20260728_0001` users/auth sessions; `20260730_0002` Telegram persistence; `0003` notification outbox; `0004` supported market catalogue; `0005` price alerts/events; `0006` live market state; `0007` price-alert notification kind; `0008` canonical candles; `0009` candle operational state; `0010` signal presets/subscriptions; `20260731_0011` signal evaluation/events/invalidations; `20260802_0012` durable signal-feed stream events and existing-event replay rows; `20260802_0013` explicit signal Telegram-delivery preference and immutable subscription state history with baseline rows. The chain head is `20260802_0013`.
 
 ## Backup, Deletion, and Unresolved Storage Concerns
 

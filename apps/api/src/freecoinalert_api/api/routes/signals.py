@@ -22,7 +22,12 @@ from freecoinalert_api.core.config import (
 )
 from freecoinalert_api.db.repositories.auth_sessions import get_active_session_by_id
 from freecoinalert_api.db.session import get_async_session_factory, get_database_session
-from freecoinalert_api.schemas.signals import SignalPresetEnvelope, SignalSubscriptionCreateRequest, SignalSubscriptionEnvelope
+from freecoinalert_api.schemas.signals import (
+    SignalPresetEnvelope,
+    SignalSubscriptionCreateRequest,
+    SignalSubscriptionEnvelope,
+    SignalTelegramDeliveryUpdateRequest,
+)
 from freecoinalert_api.signals.errors import SignalError
 from freecoinalert_api.signals.feed import (
     SignalFeedReplayPlan,
@@ -49,6 +54,8 @@ from freecoinalert_api.signals.rate_limit import (
     feed_stream_user_key,
     signal_feed_rate_limiter,
     signal_rate_limiter,
+    signal_telegram_delivery_rate_limiter,
+    telegram_delivery_user_key,
 )
 from freecoinalert_api.signals.subscriptions import signal_subscription_service
 
@@ -162,6 +169,39 @@ async def disable_signal_subscription(subscription_id: str, response: Response, 
     return response
 
 
+@signals_router.put("/signal-subscriptions/{subscription_id}/telegram-delivery")
+async def update_signal_telegram_delivery(
+    subscription_id: str,
+    request: Request,
+    authenticated_principal: AuthenticatedPrincipal = Depends(require_csrf_protected_principal),
+    database_session: AsyncSession = Depends(get_database_session),
+) -> JSONResponse:
+    body = await telegram_delivery_request_body(request)
+    parsed_subscription_id = parse_telegram_delivery_subscription_id(subscription_id)
+    await signal_telegram_delivery_rate_limiter.consume(
+        telegram_delivery_user_key(str(authenticated_principal.user_id)),
+        limit=30,
+    )
+    updated = await signal_subscription_service.update_telegram_delivery(
+        database_session,
+        user_id=authenticated_principal.user_id,
+        subscription_id=parsed_subscription_id,
+        enabled=body.enabled,
+    )
+    response_body = SignalSubscriptionEnvelope(
+        subscription=await signal_subscription_service.response_for(
+            database_session,
+            updated.subscription,
+            telegram_connection=updated.telegram_connection,
+        )
+    )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=response_body.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 async def subscription_request_body(request: Request) -> SignalSubscriptionCreateRequest:
     try:
         return SignalSubscriptionCreateRequest.model_validate(await request.json())
@@ -169,11 +209,33 @@ async def subscription_request_body(request: Request) -> SignalSubscriptionCreat
         raise SignalError(status_code=422, code="SIGNAL_PRESET_UNAVAILABLE", message="The signal subscription request is invalid.") from None
 
 
+async def telegram_delivery_request_body(request: Request) -> SignalTelegramDeliveryUpdateRequest:
+    try:
+        return SignalTelegramDeliveryUpdateRequest.model_validate(await request.json())
+    except (ValueError, ValidationError):
+        raise SignalError(
+            status_code=422,
+            code="SIGNAL_TELEGRAM_DELIVERY_REQUEST_INVALID",
+            message="The Telegram delivery preference request is invalid.",
+        ) from None
+
+
 def parse_subscription_id(value: str) -> uuid.UUID:
     try:
         return uuid.UUID(value)
     except ValueError:
         raise SignalError(status_code=422, code="SIGNAL_PRESET_UNAVAILABLE", message="The signal subscription request is invalid.") from None
+
+
+def parse_telegram_delivery_subscription_id(value: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        raise SignalError(
+            status_code=422,
+            code="SIGNAL_TELEGRAM_DELIVERY_REQUEST_INVALID",
+            message="The Telegram delivery preference request is invalid.",
+        ) from None
 
 
 def client_ip(request: Request) -> str:

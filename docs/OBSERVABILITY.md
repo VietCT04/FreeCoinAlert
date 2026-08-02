@@ -10,7 +10,7 @@ FreeCoinAlert currently provides structured application logs and persisted opera
 
 ## Persistent Operational State
 
-`market_symbol_states` holds the latest accepted market-stream state; `candle_symbol_states` holds candle freshness/quality state; `candle_sync_runs` records bounded maintenance progress; signal evaluation state records warming, ready, stale, or disabled calculation state; `signal_feed_stream_events` records the bounded durable SSE cursor log; notification outbox rows record delivery processing. See [DATABASE.md](DATABASE.md) for schema and constraints.
+`market_symbol_states` holds the latest accepted market-stream state; `candle_symbol_states` holds candle freshness/quality state; `candle_sync_runs` records bounded maintenance progress; signal evaluation state records warming, ready, stale, or disabled calculation state; `signal_subscription_state_events` records immutable occurrence-time subscription and Telegram-preference state; `signal_feed_stream_events` records the bounded durable SSE cursor log; notification outbox rows record delivery processing. See [DATABASE.md](DATABASE.md) for schema and constraints.
 
 ## Structured Log Events by Subsystem
 
@@ -21,16 +21,16 @@ FreeCoinAlert currently provides structured application logs and persisted opera
 | Market stream | reconnecting, queue backpressure, singleton-not-acquired, malformed/rejected input, and state updates. |
 | Candles | reconciliation completed/failed/skipped and candle quality outcomes. |
 | Price alerts | evaluator initialization, trigger, duplicate suppression, and safe evaluation failure. |
-| Signal evaluator | `signal.evaluation.data_stale`, `insufficient_history`, `initialized`, `succeeded`, `signal.event.created`, and `duplicate_suppressed`. |
+| Signal evaluator and subscriptions | `signal.evaluation.data_stale`, `insufficient_history`, `initialized`, `succeeded`, `signal.event.created`, `duplicate_suppressed`, subscription lifecycle outcomes, and Telegram-delivery preference changes. |
 | Signal feed | `signal.feed.history_read`, `history_latency`, `listener_connected`, `listener_reconnecting`, `listener_failed`, `connection_opened`, `connection_closed`, `connection_rejected`, `replay_completed`, `reset_required`, `backpressure`, `auth_expired`, `event_published`, `event_sent`, and stream cleanup categories. |
 | Telegram | update received/duplicate, link succeeded/rejected, confirmation sent/failed, polling failure. |
 | Notification worker | claim, send, retry, terminal failure, recovery, and provider outcome categories. |
 
-The exact field set is implementation detail; logs use IDs and safe categories rather than credentials or provider payloads. The browser signal panel does not log event payloads, subscription IDs, cursors, authentication values, CSRF values, or sound state; connection status and sound activation are visual client state only.
+The exact field set is implementation detail; logs use IDs and safe categories rather than credentials or provider payloads. The browser signal panel does not log event payloads, subscription IDs, cursors, authentication values, CSRF values, or sound state; connection status and sound activation are visual client state only. Preference logs do not imply that a signal notification job or Telegram provider request was created.
 
 ## Status and Freshness Semantics
 
-Market data accepts aggregate trades only inside the configured age/future tolerance. Stream disconnection or stale market state pauses price-alert evaluation. Candle `stale`, `gapped`, or `error` state prevents preset signal creation. Notification `queued`, `sending`, `retrying`, `sent`, and `failed` represent platform processing, while `sent` means Telegram acceptance rather than device receipt. Connection `degraded` is a safe availability state. Detailed lifecycle meaning is in [MARKET_DATA.md](MARKET_DATA.md), [ALERTS.md](ALERTS.md), and [TELEGRAM.md](TELEGRAM.md).
+Market data accepts aggregate trades only inside the configured age/future tolerance. Stream disconnection or stale market state pauses price-alert evaluation. Candle `stale`, `gapped`, or `error` state prevents preset signal creation. Notification `queued`, `sending`, `retrying`, `sent`, and `failed` represent platform processing, while `sent` means Telegram acceptance rather than device receipt. Connection `degraded` is a safe availability state. A signal Telegram-delivery preference is user intent; its readiness is dynamic and does not indicate a queued or sent notification. Detailed lifecycle meaning is in [MARKET_DATA.md](MARKET_DATA.md), [ALERTS.md](ALERTS.md), and [TELEGRAM.md](TELEGRAM.md).
 
 ## Counters and Measurements Actually Emitted
 

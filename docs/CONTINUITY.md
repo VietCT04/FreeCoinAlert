@@ -8,11 +8,12 @@
 - Closed `1m` candles and derived `1h`/`4h` candles are implemented; see [MARKET_DATA.md](MARKET_DATA.md).
 - One-time price-crossing alerts and their browser management surface are implemented; see [ALERTS.md](ALERTS.md) and [PRODUCT.md](PRODUCT.md).
 - Fixed SMA 200 and RSI 14 preset subscriptions and global occurrences are implemented; see [STRATEGIES.md](STRATEGIES.md) and [ALERTS.md](ALERTS.md).
+- Per-subscription Telegram-delivery preference storage, immutable occurrence-time subscription state history, owner-scoped readiness responses, and the CSRF-protected preference API are implemented; the preference is disabled by default and does not create notification work or contact Telegram. See [API.md](API.md), [DATABASE.md](DATABASE.md), and [TELEGRAM.md](TELEGRAM.md).
 - The authenticated historical/live signal-feed API and SSE transport are implemented and Unverified; the authenticated browser preset catalog, subscription controls, history feed, visibility recovery, and optional browser sound are implemented by the current frontend surface. Backtesting remains Not supported.
 
 ## Active Work
 
-- [#54](https://github.com/VietCT04/FreeCoinAlert/issues/54) - Add frontend preset controls and the live notification feed on the implemented authenticated feed API. The browser and audio paths remain Unverified.
+- Preset-signal Telegram fan-out, worker delivery, and browser controls remain Planned follow-up work; the current preference API does not send messages or provide delivery outcomes.
 
 ## Current Blockers
 
@@ -30,11 +31,13 @@ See [CONCERNS.md](CONCERNS.md) for risks that do not block current work or safe 
 | Preset signal occurrences | Implemented | Unverified | Global occurrence evaluation and the authenticated feed boundary are available. |
 | Signal history and live SSE | Implemented | Unverified | Durable history, cursor recovery, listener, and stream paths were not exercised. |
 | Browser preset subscriptions and live feed | Implemented | Unverified | Browser, visibility, EventSource, and audio paths were not exercised. |
+| Signal Telegram preference and readiness API | Implemented | Unverified | Preference storage, state history, ownership, and readiness behavior were not exercised by a maintainer-requested pass. |
+| Preset signal Telegram delivery | Planned | Not applicable | Fan-out, outbox work, provider sends, and browser controls are not implemented. |
 | Historical analysis | Not supported | Not applicable | No backtesting runtime exists. |
 
 ## Next Actions
 
-1. Complete and merge #54 using its approved solution.
+1. Merge the approved preference and readiness change, then use its immutable state history for the separately approved delivery work.
 2. Request a dedicated verification pass when the maintainer is ready.
 
 ## Handoff Constraints

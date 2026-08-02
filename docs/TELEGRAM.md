@@ -2,7 +2,7 @@
 
 ## Purpose and Current Scope
 
-Telegram is the sole implemented notification provider. It supports one private-chat destination per user, browser-issued deep links, long polling, test messages, and durable price-alert delivery. Exact HTTP contracts are in [API.md](API.md); persisted fields are in [DATABASE.md](DATABASE.md).
+Telegram is the sole implemented notification provider. It supports one private-chat destination per user, browser-issued deep links, long polling, test messages, and durable price-alert delivery. Preset signal Telegram delivery is not implemented; current support stops at the explicit per-subscription preference and readiness API. Exact HTTP contracts are in [API.md](API.md); persisted fields are in [DATABASE.md](DATABASE.md).
 
 ## Configuration and Optional Startup
 
@@ -23,6 +23,12 @@ The optional poller uses long polling with `concurrent_updates(False)`, requests
 ## Connection Lifecycle
 
 Persisted states are `connected`, `degraded`, and `disconnected`; `linking` and `not_connected` are safe derived API states. A matching disconnected destination can reactivate; a different user or destination creates an ownership conflict. Disconnect is idempotent, marks the saved connection `disconnected` with a safe reason, and revokes outstanding tokens. Safe responses never include IDs, chat IDs, token hashes, or raw tokens.
+
+## Preset Signal Delivery Preference
+
+Each owned signal subscription stores `telegramDelivery.enabled`, disabled by default, plus its last preference-change timestamp. The authenticated subscription response derives `telegramDelivery.readiness` once per request as `ready`, `linking`, `not_connected`, or `degraded` without storing or exposing provider identifiers. `PUT /signal-subscriptions/{id}/telegram-delivery` is authenticated and CSRF-protected, owner scoped, and limited to 30 mutations per user per 15 minutes. Enabling requires an active subscription and a connected, non-degraded destination; disabling is always allowed and idempotent. Disconnecting Telegram changes readiness only and does not change the stored preference.
+
+Subscription creation, reactivation, disable, and preference changes record immutable occurrence-time state rows in the same transaction. This preserves future eligibility history without creating an outbox job or contacting Telegram. Existing subscriptions are migrated with delivery disabled and a false baseline state; old signal history is not retroactively eligible.
 
 ## Test Notifications
 
@@ -54,7 +60,7 @@ Stored identity is limited to Telegram user ID, private chat ID, optional userna
 
 ## Not Supported
 
-Groups, channels, multiple destinations, user-supplied chat IDs, webhooks, scheduled polling infrastructure, and additional notification channels are not implemented.
+Groups, channels, multiple destinations, user-supplied chat IDs, webhooks, scheduled polling infrastructure, preset signal fan-out, preset signal Telegram messages, browser controls for the preference, and additional notification channels are not implemented.
 
 ## Verification Status
 
