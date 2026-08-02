@@ -152,7 +152,9 @@ Make the smallest correct change possible. Do not refactor unrelated code, renam
 
 Before changing database structure, read `docs/DATABASE.md`, inspect models, migrations, enums, indexes, and relationships, make the smallest schema change, update migrations and affected shared/API contracts, and consider idempotency, retention, query patterns, backup, and rollback. Never change alert, candle, strategy, delivery, or connection states without checking all affected transitions.
 
-Candle uniqueness must remain equivalent to `(exchange, market_type, symbol, open_time)`. Store UTC timestamps, use idempotent writes, and never overwrite a confirmed closed candle with an unfinished candle.
+The logical current-candle identity is `(supported_market_id, timeframe, open_time)`.
+Revision history is unique by `(supported_market_id, timeframe, open_time, revision)`.
+Do not duplicate the exact schema here; `DATABASE.md` owns it. Store UTC timestamps, use idempotent writes, and never overwrite a confirmed closed candle with an unfinished candle.
 
 ### API
 
@@ -160,7 +162,11 @@ Before changing API behavior, read `docs/API.md`, inspect request, response, and
 
 ### Frontend
 
-Use shared API types and validation models. Handle loading, empty, success, disabled, and error states. Never rely on frontend-only ownership checks. Clearly distinguish real-time price alerts from candle-close indicator alerts and show symbol, market, timeframe, evaluation mode, cooldown, and destination before activation. Do not claim guaranteed delivery or display historical performance without assumptions and sample size.
+Reuse existing frontend API types and update all consumers when an API contract changes. Do not introduce a shared package without an approved issue.
+
+Show only fields applicable to the implemented flow. One-time price alerts show market, direction, target price, and Telegram readiness. Future preset interfaces display their server-provided timeframe and condition.
+
+Handle loading, empty, success, disabled, and error states. Never rely on frontend-only ownership checks. Do not claim guaranteed delivery or display historical performance without assumptions and sample size.
 
 ### Backend
 
