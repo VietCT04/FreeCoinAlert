@@ -6,7 +6,7 @@ The FastAPI API has no version prefix. JSON field names are camelCase unless sta
 
 ## Authentication, Cookie, CSRF, Origin, and Cache Rules
 
-Authenticated requests use the `freecoinalert_session` HTTP-only, `SameSite=Lax`, path `/` cookie. The secure flag follows `SESSION_COOKIE_SECURE`. Mutating authenticated endpoints require `X-CSRF-Token`; `/auth/register` and `/auth/login` instead validate a supplied `Origin` when present. CORS permits only `WEB_ORIGIN`, credentials, `GET`/`POST`/`DELETE`, and `Content-Type`, `Idempotency-Key`, and `X-CSRF-Token`. Private responses use `Cache-Control: no-store`; public catalogue/preset lists use `public, max-age=60`.
+Authenticated requests use the `freecoinalert_session` HTTP-only, `SameSite=Lax`, path `/` cookie. The secure flag follows `SESSION_COOKIE_SECURE`. Mutating authenticated endpoints require `X-CSRF-Token`; `/auth/register` and `/auth/login` instead validate a supplied `Origin` when present. CORS permits only `WEB_ORIGIN`, credentials, `GET`/`POST`/`DELETE`, and `Content-Type`, `Idempotency-Key`, `Last-Event-ID`, and `X-CSRF-Token`. Private responses use `Cache-Control: no-store`; public catalogue/preset lists use `public, max-age=60`.
 
 ## Error Contract
 
@@ -24,6 +24,7 @@ Authentication errors are `{ "code": string, "message": string, "details": [] }`
 | POST/GET/GET/DELETE | `/alerts/price`, `/alerts`, `/alerts/{id}`, `/alerts/{id}` | yes / post+delete | one-time alerts |
 | GET | `/signal-presets` | no / no | preset catalogue |
 | GET/POST/DELETE | `/signal-subscriptions`, `/signal-subscriptions`, `/signal-subscriptions/{id}` | yes / post+delete | subscriptions |
+| GET/GET | `/signal-feed`, `/signal-feed/stream` | yes / no | historical and live signal feed |
 | POST/GET/DELETE | `/telegram/link-tokens`, `/telegram/connection`, `/telegram/connection` | yes / post+delete | Telegram connection |
 | POST/GET | `/telegram/test-notifications`, `/telegram/test-notifications/{id}` | yes / post only | test delivery |
 
@@ -67,9 +68,82 @@ Creation is limited to 10 per user and 30 per direct client IP per 15 minutes, a
 
 `DELETE /signal-subscriptions/{id}` needs CSRF, is limited to 30 per user per 15 minutes, returns `204` for the owner (including an already-disabled row), and returns `404 SIGNAL_SUBSCRIPTION_NOT_FOUND` for missing or foreign IDs. All subscription results are owner-scoped and `no-store`.
 
+## Historical Signal Feed
+
+`GET /signal-feed` requires the authenticated session and does not require CSRF. It is limited to 120 requests per authenticated user per 15 minutes. Query parameters are `limit` (default 50, range 1â€“100), an opaque `cursor`, and `status` (`current`, `invalidated`, or `all`; default `current`). Results are visible only when the authenticated user has an active or disabled subscription matching the event's market and preset. A subscription may grant historical visibility to occurrences that predate its activation; this does not claim that the occurrence was delivered at that time.
+
+Events are ordered by `occurredAt DESC, id DESC`. The cursor encodes the last occurred-at/UUID pair and is rejected as `422 SIGNAL_FEED_CURSOR_INVALID` when malformed. The response is:
+
+```json
+{
+  "events": [
+    {
+      "id": "signal event UUID",
+      "status": "current",
+      "invalidationReason": null,
+      "market": {
+        "exchange": "binance",
+        "marketType": "spot",
+        "symbol": "BTCUSDT",
+        "baseAsset": "BTC",
+        "quoteAsset": "USDT"
+      },
+      "preset": {
+        "code": "price_sma_200_cross_below_1h",
+        "version": 1,
+        "name": "Price crosses below SMA 200",
+        "strategyType": "price_sma_cross",
+        "timeframe": "1h",
+        "direction": "cross_below",
+        "parameters": {
+          "period": 200,
+          "threshold": null,
+          "priceInput": "close"
+        }
+      },
+      "comparison": {
+        "leftLabel": "price",
+        "rightLabel": "sma_200",
+        "previousLeft": "exact decimal string",
+        "previousRight": "exact decimal string",
+        "currentLeft": "exact decimal string",
+        "currentRight": "exact decimal string"
+      },
+      "candle": {
+        "revision": 1,
+        "closePrice": "exact decimal string",
+        "openTime": "UTC timestamp",
+        "closeTime": "UTC timestamp"
+      },
+      "backfilled": true,
+      "occurredAt": "UTC timestamp",
+      "recordedAt": "UTC timestamp"
+    }
+  ],
+  "nextCursor": null,
+  "streamCursor": "12345"
+}
+```
+
+All numeric values are canonical decimal strings. The response never exposes internal market, preset, subscription, or user IDs; calculation-state JSON; provider payloads; Telegram state; or arbitrary invalidation text. The safe invalidation messages are fixed for `candle_corrected`, `calculation_invariant`, and `preset_disabled`. Responses use `Cache-Control: no-store`.
+
+`streamCursor` is the latest global durable feed sequence observed in the same request transaction. It is a recovery watermark, not a claim that every lower sequence was visible to the user.
+
+## Live Signal Feed Stream
+
+`GET /signal-feed/stream` requires the authenticated session cookie and does not require CSRF. It accepts optional `after=<non-negative stream sequence>`. A valid `Last-Event-ID` header and `after` value are combined by using the greater sequence; malformed values are rejected before streaming as `422 SIGNAL_FEED_STREAM_CURSOR_INVALID`.
+
+The response is credentialed SSE with `Content-Type: text/event-stream`, `Cache-Control: no-store, no-transform`, `Connection: keep-alive`, and `X-Accel-Buffering: no`. It begins with `retry: 5000`. Event types are `signal`, `signal_invalidated`, `reset`, and `auth_expired`. Signal and invalidation data include `deliveryMode: live | replay` and the stream sequence is the SSE event ID. A reset tells the browser to reload `/signal-feed`; authentication expiry tells it to stop using the connection until a fresh session is available. Heartbeats are `: heartbeat` comments at least every `SIGNAL_SSE_HEARTBEAT_SECONDS` (15 seconds by default).
+
+Replay reads durable stream rows above the resume sequence, filters them through currently active matching subscriptions, and sends at most 100 visible records as `deliveryMode: replay` before joining the live queue. A resume cursor older than the retained stream log or a replay larger than 100 records produces `reset` and closes the connection. Disabled subscriptions grant history visibility but receive no new live or replay stream events. The browser can recover through the historical endpoint without duplicate entries.
+
+The stream allows 10 connection attempts per user and 30 per direct client IP per 15 minutes, returns `429 SIGNAL_FEED_RATE_LIMITED` with `Retry-After` when those buckets are exhausted, and permits at most 2 concurrent connections per user and 500 per API process. A slow connection has a queue of 100 sequence integers; queue overflow emits `reset` when possible and closes the connection rather than silently dropping an event. Limits and connection counts are process-local until shared infrastructure is approved.
+
+Stable feed errors are `SIGNAL_FEED_CURSOR_INVALID`, `SIGNAL_FEED_STREAM_CURSOR_INVALID`, `SIGNAL_FEED_REQUEST_INVALID`, `SIGNAL_FEED_RATE_LIMITED`, `SIGNAL_FEED_CONNECTION_LIMIT_REACHED`, and `SIGNAL_FEED_UNAVAILABLE`. Once streaming starts, control events and connection close replace a JSON error response.
+
 ## Ownership and Information-Exposure Rules
 
-The authenticated session selects the user ID; callers never supply it. Alert, subscription, Telegram connection, and notification reads/mutations are filtered by that ID. Responses omit tokens, password hashes, bot credentials, raw provider payloads, and internal evaluator state.
+The authenticated session selects the user ID; callers never supply it. Alert, subscription, signal-feed, Telegram connection, and notification reads/mutations are filtered by that ID. Responses omit tokens, password hashes, bot credentials, raw provider payloads, and internal evaluator state.
 
 ## Rate-Limit Summary
 

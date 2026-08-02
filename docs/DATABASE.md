@@ -14,7 +14,7 @@ PostgreSQL is the durable source of truth. Tables generally use UUID primary key
 | Markets | `supported_markets`, `market_symbol_states` | catalogue + latest live snapshot |
 | Candles | `market_candles`, `candle_symbol_states`, `candle_sync_runs` | immutable/revisioned candles + operations |
 | Alerts | `price_alerts`, `alert_events` | mutable alert + immutable trigger |
-| Signals | `signal_presets`, `signal_subscriptions`, `signal_evaluation_states`, `signal_events`, `signal_event_invalidations` | versioned definitions, user intent, state, immutable history |
+| Signals | `signal_presets`, `signal_subscriptions`, `signal_evaluation_states`, `signal_events`, `signal_event_invalidations`, `signal_feed_stream_events` | versioned definitions, user intent, state, immutable history, durable feed cursor |
 
 ## Authentication Domain
 
@@ -54,17 +54,19 @@ PostgreSQL is the durable source of truth. Tables generally use UUID primary key
 
 `signal_events` is global immutable history, not per-user copies. It contains an identity-generated stream sequence (unique), market/preset/trigger-candle FKs RESTRICT, unique trigger identity and occurrence tuple, full market/preset/calculation/candle/value snapshots, backfill flag and occurrence/creation timestamps. Occurred, market/preset/occurred, and trigger-candle indexes support retrieval/rebuild. `signal_event_invalidations` records at most one immutable invalidation per event, with reason (`candle_corrected`, `preset_disabled`, `calculation_invariant`) and optional replacement candle/revision; its FKs restrict deletion and an event index supports joins. See [STRATEGIES.md](STRATEGIES.md) and [ALERTS.md](ALERTS.md).
 
+`signal_feed_stream_events` is a separate durable transport cursor log. Its identity-generated `sequence` is the SSE resume cursor; `kind` is `signal_created` or `signal_invalidated`; `signal_event_id` references the immutable event with `ON DELETE RESTRICT`; and `created_at` records publication order. `(kind, signal_event_id)` is unique, with indexes on `created_at` and `signal_event_id`. It does not copy the signal snapshot. Event creation and invalidation insert their stream row and execute `pg_notify('freecoinalert_signal_feed', '{"sequence":"..."}')` in the same transaction; PostgreSQL delivers the notification only after commit.
+
 ## Cross-Domain Transaction Boundaries
 
-Registration/login commit user/session together. Price-alert evaluation inserts event/outbox and transitions the alert atomically. Signal evaluation locks/updates its market-preset state and inserts a deduplicated signal event atomically. Telegram sending changes only outbox delivery state after the occurrence transaction.
+Registration/login commit user/session together. Price-alert evaluation inserts event/outbox and transitions the alert atomically. Signal evaluation locks/updates its market-preset state and inserts a deduplicated signal event plus its feed stream row atomically. Signal invalidation inserts its immutable invalidation and feed stream row atomically. The PostgreSQL notification is emitted before that transaction commits and carries only the stream sequence. Telegram sending changes only outbox delivery state after the occurrence transaction.
 
 ## Retention and Cleanup
 
-Canonical candle retention defaults to 180 days; processed Telegram updates default to 30 days; signal-event retention configuration defaults to 365 days but no automatic signal-event deletion process is implemented. Price events, alert records, and account-deletion retention remain governed by their FKs and operational policy.
+Canonical candle retention defaults to 180 days; processed Telegram updates default to 30 days; signal-event retention configuration defaults to 365 days but no automatic signal-event deletion process is implemented. Feed stream cursor rows are retained for 7 days and the API listener deletes at most 10,000 expired rows in one maintenance transaction, without deleting referenced signal events. Price events, alert records, and account-deletion retention remain governed by their FKs and operational policy.
 
 ## Migration Inventory
 
-`20260728_0001` users/auth sessions; `20260730_0002` Telegram persistence; `0003` notification outbox; `0004` supported market catalogue; `0005` price alerts/events; `0006` live market state; `0007` price-alert notification kind; `0008` canonical candles; `0009` candle operational state; `0010` signal presets/subscriptions; `20260731_0011` signal evaluation/events/invalidations. The chain head is `20260731_0011`.
+`20260728_0001` users/auth sessions; `20260730_0002` Telegram persistence; `0003` notification outbox; `0004` supported market catalogue; `0005` price alerts/events; `0006` live market state; `0007` price-alert notification kind; `0008` canonical candles; `0009` candle operational state; `0010` signal presets/subscriptions; `20260731_0011` signal evaluation/events/invalidations; `20260802_0012` durable signal-feed stream events and existing-event replay rows. The chain head is `20260802_0012`.
 
 ## Backup, Deletion, and Unresolved Storage Concerns
 

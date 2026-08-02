@@ -6,18 +6,6 @@ This document records unresolved current risks and decisions, not feature histor
 
 ## Active Product Concerns
 
-### Signal occurrence visibility and feed
-
-**Current fact:** Global signal occurrences and subscription visibility state exist, but no feed API or browser feed exists.
-
-**Risk/impact:** Users cannot consume the market facts that subscriptions select.
-
-**Current mitigation:** Preset/version and occurrence snapshots preserve future-safe data.
-
-**Follow-up:** Define and implement the owned feed contract and UI without duplicating global occurrences.
-
-**Owning document:** [ALERTS.md](ALERTS.md).
-
 ### Subscription reactivation can exceed the active limit
 
 **Current fact:** New signal subscription rows are checked against the 20-enabled-subscription limit, but reactivation of an existing disabled row bypasses that count check.
@@ -34,7 +22,7 @@ This document records unresolved current risks and decisions, not feature histor
 
 ### Process-local abuse limits
 
-**Current fact:** Authentication, Telegram, alert, and signal limits are in-memory per API process.
+**Current fact:** Authentication, Telegram, alert, subscription, signal-feed request, and SSE connection limits are in-memory per API process.
 
 **Risk/impact:** Multiple replicas or an untrusted proxy can bypass intended aggregate limits or identify IPs incorrectly.
 
@@ -43,6 +31,18 @@ This document records unresolved current risks and decisions, not feature histor
 **Follow-up:** Choose a trusted-proxy and shared rate-limit design before multi-replica/public deployment.
 
 **Owning document:** [SECURITY.md](SECURITY.md).
+
+### Signal-feed proxy and replica deployment
+
+**Current fact:** The API listener and SSE connection manager are process-local; every API replica receives PostgreSQL notifications independently, and the stream route requires proxy buffering and timeout settings.
+
+**Risk/impact:** A multi-replica deployment has no aggregate connection count or shared rate-limit state, and an incorrectly buffering or short-lived proxy can delay heartbeats and live events.
+
+**Current mitigation:** Durable stream cursors, bounded replay, reset recovery, no-transform cache headers, and documented proxy requirements prevent silent loss when a client reconnects.
+
+**Follow-up:** Approve a production proxy, shared-limit, and cross-process observability design before public horizontal deployment.
+
+**Owning document:** [OPERATIONS.md](OPERATIONS.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Active Reliability and Data-Quality Concerns
 

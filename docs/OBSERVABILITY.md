@@ -10,7 +10,7 @@ FreeCoinAlert currently provides structured application logs and persisted opera
 
 ## Persistent Operational State
 
-`market_symbol_states` holds the latest accepted market-stream state; `candle_symbol_states` holds candle freshness/quality state; `candle_sync_runs` records bounded maintenance progress; signal evaluation state records warming, ready, stale, or disabled calculation state; notification outbox rows record delivery processing. See [DATABASE.md](DATABASE.md) for schema and constraints.
+`market_symbol_states` holds the latest accepted market-stream state; `candle_symbol_states` holds candle freshness/quality state; `candle_sync_runs` records bounded maintenance progress; signal evaluation state records warming, ready, stale, or disabled calculation state; `signal_feed_stream_events` records the bounded durable SSE cursor log; notification outbox rows record delivery processing. See [DATABASE.md](DATABASE.md) for schema and constraints.
 
 ## Structured Log Events by Subsystem
 
@@ -22,6 +22,7 @@ FreeCoinAlert currently provides structured application logs and persisted opera
 | Candles | reconciliation completed/failed/skipped and candle quality outcomes. |
 | Price alerts | evaluator initialization, trigger, duplicate suppression, and safe evaluation failure. |
 | Signal evaluator | `signal.evaluation.data_stale`, `insufficient_history`, `initialized`, `succeeded`, `signal.event.created`, and `duplicate_suppressed`. |
+| Signal feed | `signal.feed.history_read`, `history_latency`, `listener_connected`, `listener_reconnecting`, `listener_failed`, `connection_opened`, `connection_closed`, `connection_rejected`, `replay_completed`, `reset_required`, `backpressure`, `auth_expired`, `event_published`, `event_sent`, and stream cleanup categories. |
 | Telegram | update received/duplicate, link succeeded/rejected, confirmation sent/failed, polling failure. |
 | Notification worker | claim, send, retry, terminal failure, recovery, and provider outcome categories. |
 
@@ -33,7 +34,7 @@ Market data accepts aggregate trades only inside the configured age/future toler
 
 ## Counters and Measurements Actually Emitted
 
-The implementation records counters and timestamps in operational rows (latest event identity/time, candle state, maintenance progress, evaluator state, attempt counts, claim times, and provider message IDs). It does not expose Prometheus metrics, aggregate counters, latency histograms, dashboards, or alert thresholds.
+The implementation records counters and timestamps in operational rows (latest event identity/time, candle state, maintenance progress, evaluator state, attempt counts, claim times, and provider message IDs). Signal-feed logs include active/rejected connections, listener state/reconnects, published and consumed sequences, live/replay counts, queue depth/backpressure resets, session-expiry closures, and history latency fields where available. It does not expose Prometheus metrics, aggregate counters, latency histograms, dashboards, or alert thresholds.
 
 ## Sensitive-Data Redaction
 
@@ -41,7 +42,7 @@ Do not log session tokens, password values/hashes, raw Telegram link tokens, bot
 
 ## Incident Indicators
 
-Investigate a missing/old market event, disconnected stream, stale/gapped/error candle state, skipped or failed reconciliation, warming/stale evaluator state, queued/retrying/failed outbox growth, degraded/disconnected Telegram connection, or 429/418/provider categories in logs. These are operator indicators, not automated incident alerts.
+Investigate a missing/old market event, disconnected stream, stale/gapped/error candle state, skipped or failed reconciliation, warming/stale evaluator state, signal-feed listener failure/reconnects, reset/backpressure growth, session-expiry closures, queued/retrying/failed outbox growth, degraded/disconnected Telegram connection, or 429/418/provider categories in logs. These are operator indicators, not automated incident alerts.
 
 ## Troubleshooting Links
 

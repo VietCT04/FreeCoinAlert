@@ -8,19 +8,32 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from freecoinalert_api.db.models.signal_event import SignalEvent
 from freecoinalert_api.db.models.signal_event_invalidation import SignalEventInvalidation
+from freecoinalert_api.db.repositories.signal_feed_stream_events import create_signal_feed_stream_event
 
 
 async def create_signal_event(
     session: AsyncSession,
     *,
     values: dict[str, object],
-) -> bool:
+) -> SignalEvent | None:
     result = await session.execute(
-        insert(SignalEvent).values(**values).on_conflict_do_nothing(
-            constraint="uq_signal_events_occurrence"
-        )
+        insert(SignalEvent)
+        .values(**values)
+        .on_conflict_do_nothing(constraint="uq_signal_events_occurrence")
+        .returning(SignalEvent.id)
     )
-    return bool(result.rowcount)
+    event_id = result.scalar_one_or_none()
+    if event_id is None:
+        return None
+    event = await session.get(SignalEvent, event_id)
+    if event is None:
+        raise RuntimeError("The inserted signal event was not found.")
+    await create_signal_feed_stream_event(
+        session,
+        kind="signal_created",
+        signal_event_id=event.id,
+    )
+    return event
 
 
 async def list_signal_events_for_market_preset_range(
@@ -57,5 +70,14 @@ async def create_signal_event_invalidation(
             replacement_candle_revision=replacement_candle_revision,
         )
         .on_conflict_do_nothing(constraint="uq_signal_event_invalidations_event")
+        .returning(SignalEventInvalidation.id)
     )
-    return bool(result.rowcount)
+    invalidation_id = result.scalar_one_or_none()
+    if invalidation_id is None:
+        return False
+    await create_signal_feed_stream_event(
+        session,
+        kind="signal_invalidated",
+        signal_event_id=signal_event_id,
+    )
+    return True

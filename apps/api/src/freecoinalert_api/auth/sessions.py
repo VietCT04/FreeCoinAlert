@@ -13,4 +13,3 @@ def create_session_credentials(settings: Settings) -> tuple[str, bytes, str, dat
         seconds=settings.session_ttl_seconds,
     )
     return token, token_hash, csrf_token, expires_at
-
