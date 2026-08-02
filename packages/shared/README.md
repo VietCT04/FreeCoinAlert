@@ -1,5 +1,5 @@
 # Shared Package
 
-This directory is reserved for concrete shared contracts such as DTOs, validation schemas, enums, constants, and API contract types when an approved issue first requires them.
+This reserved package has no source files or package manifest. It must not be treated as a current runtime boundary.
 
-It intentionally contains no source files or package manifest yet.
+See [Architecture](../../docs/ARCHITECTURE.md) for current boundaries and [AGENTS.md](../../AGENTS.md) before introducing a package.

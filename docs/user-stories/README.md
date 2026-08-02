@@ -4,9 +4,9 @@
 
 User stories describe a valuable outcome from a stakeholder's perspective. A stakeholder may be an end user, project maintainer, developer, administrator, or another role affected by the system.
 
-User stories are the product source for creating focused implementation GitHub Issues. A story may cover a complete stakeholder outcome, while implementation issues divide that outcome into small, independently verifiable slices.
+User stories are approved requirements and planning artifacts for creating focused implementation GitHub Issues. A story may cover a complete stakeholder outcome, while implementation issues divide that outcome into small, independently verifiable slices. A story is not proof that all criteria are implemented: current availability belongs in the authoritative domain documents listed in the [Documentation Guide](../README.md).
 
-Stories should remain short and avoid unnecessary technical implementation detail. Technical decisions belong in issue proposals after the user story is approved.
+Stories should remain short and avoid unnecessary technical implementation detail. Technical decisions belong in issue proposals after the user story is approved. Historical stories remain unchanged unless their requirement itself is corrected; do not rewrite them to add stale implementation status.
 
 ## Folder and Naming
 
@@ -66,26 +66,26 @@ Stories may describe outcomes for different stakeholders.
 
 ### Maintainers and developers
 
-- Establish a consistent and runnable project foundation
-- Provide a repeatable local-development workflow
-- Add reliable deployment or operational capabilities
+- Establish a consistent and runnable project foundation.
+- Provide a repeatable local-development workflow.
+- Add reliable deployment or operational capabilities.
 
 ### End users
 
-- Create an account and sign in
-- Connect or disconnect Telegram
-- Browse available signal templates
-- Subscribe to a signal
-- Create a custom price or indicator alert
-- Pause, resume, edit, or delete an alert
-- Receive and view alert history
-- Request historical strategy analysis
+- Create an account and sign in.
+- Connect or disconnect Telegram.
+- Browse available signal templates.
+- Subscribe to a signal.
+- Create a custom price or indicator alert.
+- Pause, resume, edit, or delete an alert.
+- Receive and view alert history.
+- Request historical strategy analysis.
 
 ### Administrators and support roles
 
-- Manage supported symbols or signal templates
-- Review notification-delivery failures
-- Investigate market-data gaps
+- Manage supported symbols or signal templates.
+- Review notification-delivery failures.
+- Investigate market-data gaps.
 
 ## Story Workflow
 
@@ -96,8 +96,8 @@ Stories may describe outcomes for different stakeholders.
 5. Create focused GitHub Issues linked to the approved story.
 6. Add the issue links to the user-story document in the same pull request.
 7. When requested, propose a technical solution for one issue in the conversation.
-8. Revise the solution until the user explicitly approves it.
-9. Post the approved solution as a comment on that GitHub Issue so implementation agents can follow it.
+8. Revise the solution until the maintainer approves it.
+9. Obtain maintainer approval, then post the exact approved solution as a comment on the GitHub issue.
 10. Implement approved issues through separate pull requests.
 11. Update the story only when approved behavior changes.
 
@@ -107,15 +107,15 @@ Do not add an unapproved technical solution to an issue comment.
 
 Split work when a story includes independent areas such as:
 
-- Repository or developer tooling
-- Database schema
-- API contract
-- Frontend flow
-- Telegram integration
-- Market-data processing
-- Alert evaluation
-- Security or rate limiting
-- Observability
+- Repository or developer tooling.
+- Database schema.
+- API contract.
+- Frontend flow.
+- Telegram integration.
+- Market-data processing.
+- Alert evaluation.
+- Security or rate limiting.
+- Observability.
 
 Example for **Connect Telegram**:
 
@@ -133,7 +133,7 @@ Before approving a story, check:
 
 - [`../PRODUCT.md`](../PRODUCT.md)
 - [`../SECURITY.md`](../SECURITY.md)
-- The relevant domain document
+- The relevant domain document.
 - [`../CONCERNS.md`](../CONCERNS.md)
 
 Do not use a user story to silently approve unresolved security, data-quality, infrastructure, or financial-performance assumptions.

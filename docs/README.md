@@ -1,40 +1,57 @@
 # Documentation Guide
 
-This directory contains the source-of-truth documentation for FreeCoinAlert.
+## Current-State Rule
 
-Code and documentation must remain synchronized. Before changing a subsystem, read the corresponding document. When behavior, contracts, data, security, reliability, or product scope changes, update the relevant document in the same pull request.
+Current behavior is derived from merged code and the authoritative domain documents below. Read the relevant documents before changing a domain, and update their current-state contract in the same pull request. A document may provide brief context and a relative link to another owner; it must not reproduce that owner's detailed contract.
 
-## Recommended Reading Order
+## Status Vocabulary
 
-1. [`PRODUCT.md`](PRODUCT.md) — understand the user problem, MVP, boundaries, and success criteria.
-2. [`ARCHITECTURE.md`](ARCHITECTURE.md) — understand components, ownership, and main data flows.
-3. Read the domain document for the area being changed.
-4. [`CONCERNS.md`](CONCERNS.md) — review unresolved risks and decisions.
-5. [`CONTINUITY.md`](CONTINUITY.md) — review current state and next work.
-6. Root [`AGENTS.md`](../AGENTS.md) — follow mandatory implementation and GitHub workflow rules.
+Use availability and verification as independent dimensions.
 
-## Document Catalog
+| Dimension | Term | Meaning |
+| --- | --- | --- |
+| Availability | Implemented | Present in merged `main`. |
+| Availability | Planned | Approved or discussed, but absent from merged `main`. |
+| Availability | Not supported | Deliberately unavailable now. |
+| Availability | Unresolved | A decision or risk remains open. |
+| Verification | Verified | An explicit maintainer-requested verification pass exercised the behavior. |
+| Verification | Unverified | Implementation exists, but no such pass exercised it. |
+| Verification | Not applicable | No runtime behavior exists to exercise. |
 
-| Document | Purpose | Update when |
-|---|---|---|
-| [`PRODUCT.md`](PRODUCT.md) | Product users, goals, MVP scope, non-goals, and success criteria | User-visible behavior or product scope changes |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | System boundaries, components, data flows, and scaling principles | Components, responsibilities, or integration patterns change |
-| [`API.md`](API.md) | API conventions, authentication behavior, resources, and contracts | An endpoint, request, response, error, or authorization rule changes |
-| [`DATABASE.md`](DATABASE.md) | Data domains, schema rules, migrations, indexes, retention, and idempotency | A table, column, enum, index, partition, relationship, or retention rule changes |
-| [`SECURITY.md`](SECURITY.md) | Threat model, authentication, authorization, secrets, abuse prevention, and safe custom rules | Security boundaries, permissions, sensitive data, or external credentials change |
-| [`MARKET_DATA.md`](MARKET_DATA.md) | Binance ingestion, candle storage, aggregation, reconciliation, backfill, and rate limits | Market-data sources, timestamps, intervals, ingestion, or data-quality rules change |
-| [`ALERTS.md`](ALERTS.md) | Alert lifecycle, evaluation modes, state, cooldowns, events, and deduplication | Alert behavior or trigger semantics change |
-| [`TELEGRAM.md`](TELEGRAM.md) | Telegram linking, bot updates, destinations, delivery, retries, and disconnect behavior | Telegram integration or notification behavior changes |
-| [`STRATEGIES.md`](STRATEGIES.md) | Signal templates, custom-rule format, indicators, operators, shared calculations, and versioning | Strategy definitions or evaluation behavior changes |
-| [`BACKTESTING.md`](BACKTESTING.md) | Future historical simulation rules, trade assumptions, metrics, and bias prevention | Historical analysis or performance-report behavior changes |
-| [`OPERATIONS.md`](OPERATIONS.md) | Configuration, deployment, backups, recovery, provider portability, and runbooks | Deployment topology or operational procedures change |
-| [`OBSERVABILITY.md`](OBSERVABILITY.md) | Logs, metrics, health checks, freshness, alert delivery, and incident signals | Monitoring or service-health semantics change |
-| [`CONCERNS.md`](CONCERNS.md) | Unresolved risks, assumptions, trade-offs, and decisions requiring review | Any meaningful uncertainty remains |
-| [`CONTINUITY.md`](CONTINUITY.md) | Handoff state, completed work, active work, concerns, and next steps | Every meaningful change |
-| [`user-stories/README.md`](user-stories/README.md) | User-story format, numbering, and conversion into focused GitHub Issues | Product planning workflow changes |
+Implemented does not imply Verified. Planned is absent, not Unverified. Do not use vague status words such as “done,” “ready,” “complete,” or “working” when availability or verification is the intended meaning.
 
-## Documentation Status
+## Reading Paths
 
-These documents establish initial decisions and boundaries. Final API contracts, schemas, infrastructure choices, supported symbols, retention periods, and strategy definitions must be introduced through focused GitHub Issues and pull requests.
+- New product contributor: [PRODUCT.md](PRODUCT.md) → [ARCHITECTURE.md](ARCHITECTURE.md) → relevant domain → [CONCERNS.md](CONCERNS.md) → [CONTINUITY.md](CONTINUITY.md) → [AGENTS.md](../AGENTS.md).
+- API/backend change: [ARCHITECTURE.md](ARCHITECTURE.md) → [API.md](API.md) → [DATABASE.md](DATABASE.md)/[SECURITY.md](SECURITY.md) → relevant runtime domain → [CONCERNS.md](CONCERNS.md) → [AGENTS.md](../AGENTS.md).
+- Frontend change: [PRODUCT.md](PRODUCT.md) → [API.md](API.md) → [SECURITY.md](SECURITY.md) → relevant feature domain → [AGENTS.md](../AGENTS.md).
+- Operations or incident work: [OPERATIONS.md](OPERATIONS.md) → [OBSERVABILITY.md](OBSERVABILITY.md) → relevant runtime domain → [CONCERNS.md](CONCERNS.md) → [CONTINUITY.md](CONTINUITY.md).
+- Planning: [PRODUCT.md](PRODUCT.md) → [user story](user-stories/README.md) → GitHub issue and approved comment.
 
-Do not treat a `Pending` section as permission to invent behavior silently. Record the decision in the relevant issue, update the document, and then implement it.
+## Authoritative Ownership
+
+| Document | Sole detailed owner |
+| --- | --- |
+| [`PRODUCT.md`](PRODUCT.md) | Current user-visible capabilities, journeys, limits, and non-goals. |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Current repository/runtime topology, component ownership, process boundaries, and data flows. |
+| [`API.md`](API.md) | Current HTTP methods, paths, authentication, requests, responses, errors, caching, pagination, rate limits, and ownership contracts. |
+| [`DATABASE.md`](DATABASE.md) | Current tables, columns, types, relationships, constraints, indexes, lifecycle storage, transactions, retention, and migration inventory. |
+| [`SECURITY.md`](SECURITY.md) | Current trust boundaries, authentication, CSRF, authorization, secrets, abuse controls, redaction, and exposure rules. |
+| [`MARKET_DATA.md`](MARKET_DATA.md) | Current provider catalog, streams, candles, aggregation, repair, correction, freshness, and retention behavior. |
+| [`ALERTS.md`](ALERTS.md) | Current price-alert and preset-signal lifecycle, crossing, trigger, event, invalidation, and deduplication behavior. |
+| [`STRATEGIES.md`](STRATEGIES.md) | Current preset definitions, calculation versions, formulas, inputs, warm-up, outcomes, and strategy compatibility. |
+| [`TELEGRAM.md`](TELEGRAM.md) | Current Telegram linking, update processing, outbox delivery, retry, and provider-status behavior. |
+| [`OPERATIONS.md`](OPERATIONS.md) | Current commands, processes, profiles, configuration, maintenance, recovery, and production gaps. |
+| [`OBSERVABILITY.md`](OBSERVABILITY.md) | Current health, persistent states, structured logs, measurements, freshness, redaction, and incident indicators. |
+| [`BACKTESTING.md`](BACKTESTING.md) | Current availability and future historical-analysis semantic requirements. |
+| [`CONCERNS.md`](CONCERNS.md) | Genuinely unresolved current risks, assumptions, limitations, and decisions. |
+| [`CONTINUITY.md`](CONTINUITY.md) | Current handoff only: snapshot, active work, blockers, verification state, and next actions. |
+| [`user-stories/*.md`](user-stories/README.md) | Approved requirements and planning history, not the source of current implementation behavior. |
+
+## History and Planning Boundary
+
+GitHub issues and pull requests preserve implementation history. User stories preserve approved requirements and can include criteria beyond the current merged implementation. Check the authoritative domain documents for current availability; do not rewrite historical stories to add implementation status.
+
+## Update Rule
+
+Replace stale, incomplete, superseded, or contradictory statements instead of appending issue-by-issue diaries. Review related documentation, README entry points, environment examples, and [CONTINUITY.md](CONTINUITY.md) for changes that affect behavior, contracts, configuration, operations, or status.
