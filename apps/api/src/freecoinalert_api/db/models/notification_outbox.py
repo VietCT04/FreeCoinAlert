@@ -7,6 +7,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -23,8 +24,13 @@ class NotificationOutbox(Base):
     __tablename__ = "notification_outbox"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('telegram_test', 'telegram_price_alert')",
+            "kind IN ('telegram_test', 'telegram_price_alert', 'telegram_preset_signal')",
             name="ck_notification_outbox_kind",
+        ),
+        CheckConstraint(
+            "(kind = 'telegram_preset_signal' AND signal_event_id IS NOT NULL AND signal_subscription_id IS NOT NULL) OR "
+            "(kind IN ('telegram_test', 'telegram_price_alert') AND signal_event_id IS NULL AND signal_subscription_id IS NULL)",
+            name="ck_notification_outbox_signal_references",
         ),
         CheckConstraint(
             "status IN ('pending', 'processing', 'retry_wait', 'sent', 'failed')",
@@ -49,6 +55,13 @@ class NotificationOutbox(Base):
             "idempotency_key",
             name="uq_notification_outbox_user_idempotency_key",
         ),
+        Index(
+            "ix_notification_outbox_signal_event_user",
+            "user_id",
+            "signal_event_id",
+            unique=True,
+            postgresql_where=text("kind = 'telegram_preset_signal'"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -62,6 +75,14 @@ class NotificationOutbox(Base):
     telegram_connection_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("telegram_connections.id", ondelete="RESTRICT"),
         nullable=False,
+    )
+    signal_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("signal_events.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    signal_subscription_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("signal_subscriptions.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)

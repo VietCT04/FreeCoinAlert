@@ -29,6 +29,7 @@ from freecoinalert_api.telegram.client import (
 from freecoinalert_api.telegram.poller import TelegramUpdateProcessorConfigurationError
 
 logger = logging.getLogger(__name__)
+SUPPORTED_NOTIFICATION_KINDS = ("telegram_test", "telegram_price_alert")
 STALE_PROCESSING_AFTER = timedelta(minutes=10)
 RETRY_DELAYS = {
     1: timedelta(seconds=5),
@@ -98,6 +99,7 @@ class NotificationWorker:
                     session,
                     current_time=current_time,
                     worker_id=self._worker_id,
+                    kinds=SUPPORTED_NOTIFICATION_KINDS,
                 )
                 await session.commit()
         except SQLAlchemyError:

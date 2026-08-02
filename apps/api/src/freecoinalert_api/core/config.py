@@ -38,6 +38,10 @@ class AuthenticationSettings(BaseSettings):
     signal_sse_heartbeat_seconds: int = Field(default=15, gt=0)
     signal_sse_session_revalidation_seconds: int = Field(default=60, gt=0)
     signal_stream_retention_days: int = Field(default=7, gt=0)
+    signal_telegram_fanout_batch_size: int = Field(default=100, gt=0, le=1000)
+    signal_telegram_fanout_claim_limit: int = Field(default=10, gt=0, le=100)
+    signal_telegram_fanout_poll_seconds: float = Field(default=2, gt=0)
+    signal_telegram_fanout_max_age_seconds: int = Field(default=900, gt=0)
 
     model_config = SettingsConfigDict(
         env_file=".env",

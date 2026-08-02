@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`apps/api` is the FastAPI application. It owns HTTP routes and the runnable market-data, Telegram-update, and notification-worker modules.
+`apps/api` is the FastAPI application. It owns HTTP routes and the runnable market-data, Telegram-update, signal-dispatch, and notification-worker modules.
 
 ## Prerequisites and Setup
 
@@ -31,9 +31,10 @@ pnpm signals:backfill
 pnpm dev:telegram
 pnpm dev:telegram-updates
 pnpm dev:notification-worker
+pnpm dev:signal-telegram-dispatcher
 ```
 
-`market:sync`, `dev:market-stream`, `market:candles-bootstrap`, and `market:candles-reconcile` contact Binance. `dev:telegram-updates` and `dev:notification-worker` contact Telegram when configured. `signals:backfill` is a placeholder validation boundary, not automatic signal catch-up. API startup also starts the PostgreSQL signal-feed listener and bounded local SSE manager through FastAPI lifespan. Signal subscriptions expose an owner-scoped Telegram-delivery preference API, but that preference does not create notification jobs or contact Telegram. See [Operations](../../docs/OPERATIONS.md) before using these commands.
+`market:sync`, `dev:market-stream`, `market:candles-bootstrap`, and `market:candles-reconcile` contact Binance. `dev:telegram-updates` and `dev:notification-worker` contact Telegram when configured. `dev:signal-telegram-dispatcher` contacts only PostgreSQL and creates durable preset-signal outbox jobs; it does not contact Telegram. `signals:backfill` is a placeholder validation boundary, not automatic signal catch-up. API startup also starts the PostgreSQL signal-feed listener and bounded local SSE manager through FastAPI lifespan. See [Operations](../../docs/OPERATIONS.md) before using these commands.
 
 ## Authoritative Documentation
 

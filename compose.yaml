@@ -90,6 +90,26 @@ services:
       - ./apps/api:/app
       - api_venv:/app/.venv
 
+  signal-telegram-dispatcher:
+    profiles: ["telegram"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    command: uv sync --frozen && uv run python -m freecoinalert_api.notifications.signal_dispatcher
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SIGNAL_TELEGRAM_FANOUT_BATCH_SIZE: ${SIGNAL_TELEGRAM_FANOUT_BATCH_SIZE:-100}
+      SIGNAL_TELEGRAM_FANOUT_CLAIM_LIMIT: ${SIGNAL_TELEGRAM_FANOUT_CLAIM_LIMIT:-10}
+      SIGNAL_TELEGRAM_FANOUT_POLL_SECONDS: ${SIGNAL_TELEGRAM_FANOUT_POLL_SECONDS:-2}
+      SIGNAL_TELEGRAM_FANOUT_MAX_AGE_SECONDS: ${SIGNAL_TELEGRAM_FANOUT_MAX_AGE_SECONDS:-900}
+    init: true
+    volumes:
+      - ./apps/api:/app
+      - api_venv:/app/.venv
+
   market-stream:
     profiles: ["market"]
     build:

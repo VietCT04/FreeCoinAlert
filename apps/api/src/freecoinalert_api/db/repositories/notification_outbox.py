@@ -1,8 +1,11 @@
 import uuid
+from collections.abc import Sequence
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from freecoinalert_api.db.models.notification_outbox import NotificationOutbox
@@ -95,11 +98,45 @@ async def create_telegram_price_alert_notification(
     return notification
 
 
+async def create_telegram_preset_signal_notification(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    telegram_connection_id: uuid.UUID,
+    signal_event_id: uuid.UUID,
+    signal_subscription_id: uuid.UUID,
+    message_payload: dict[str, Any],
+) -> NotificationOutbox | None:
+    result = await session.execute(
+        insert(NotificationOutbox)
+        .values(
+            user_id=user_id,
+            telegram_connection_id=telegram_connection_id,
+            signal_event_id=signal_event_id,
+            signal_subscription_id=signal_subscription_id,
+            kind="telegram_preset_signal",
+            status="pending",
+            idempotency_key=f"preset-signal:{signal_event_id}",
+            message_payload=message_payload,
+        )
+        .on_conflict_do_nothing()
+        .returning(NotificationOutbox.id)
+    )
+    notification_id = result.scalar_one_or_none()
+    if notification_id is None:
+        return None
+    notification = await session.get(NotificationOutbox, notification_id)
+    if notification is None:
+        raise RuntimeError("The inserted preset-signal notification was not found.")
+    return notification
+
+
 async def claim_available_notifications(
     session: AsyncSession,
     *,
     current_time: datetime,
     worker_id: str,
+    kinds: Sequence[str],
     limit: int = 10,
 ) -> list[NotificationOutbox]:
     notifications = list(
@@ -108,6 +145,7 @@ async def claim_available_notifications(
                 select(NotificationOutbox)
                 .where(
                     NotificationOutbox.status.in_(("pending", "retry_wait")),
+                    NotificationOutbox.kind.in_(kinds),
                     NotificationOutbox.available_at <= current_time,
                 )
                 .order_by(NotificationOutbox.available_at, NotificationOutbox.created_at)

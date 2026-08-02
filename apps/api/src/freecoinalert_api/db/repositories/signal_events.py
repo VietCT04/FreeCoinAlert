@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from freecoinalert_api.db.models.signal_event import SignalEvent
 from freecoinalert_api.db.models.signal_event_invalidation import SignalEventInvalidation
 from freecoinalert_api.db.repositories.signal_feed_stream_events import create_signal_feed_stream_event
+from freecoinalert_api.db.repositories.signal_telegram_dispatches import (
+    create_signal_telegram_dispatch,
+)
 
 
 async def create_signal_event(
@@ -33,6 +36,7 @@ async def create_signal_event(
         kind="signal_created",
         signal_event_id=event.id,
     )
+    await create_signal_telegram_dispatch(session, signal_event=event)
     return event
 
 
