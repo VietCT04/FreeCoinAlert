@@ -12,14 +12,12 @@
 
 ## Active Work
 
-- [#53](https://github.com/VietCT04/FreeCoinAlert/issues/53) — Add an authenticated historical and live signal-event feed. It follows the merged preset-occurrence work; its approved solution is available and it has no current blocker.
-- [#54](https://github.com/VietCT04/FreeCoinAlert/issues/54) — Add frontend preset controls and the live notification feed. It must follow #53; the feed API and stream are its current dependency.
-- [#64](https://github.com/VietCT04/FreeCoinAlert/issues/64) — Enforce the current-state documentation workflow. It must follow the merge of this navigation/handoff change; its approved solution is available.
+- [#53](https://github.com/VietCT04/FreeCoinAlert/issues/53) - Add an authenticated historical and live signal-event feed. It follows the merged preset-occurrence work; its approved solution is available and it has no current blocker.
+- [#54](https://github.com/VietCT04/FreeCoinAlert/issues/54) - Add frontend preset controls and the live notification feed. It must follow #53; the feed API and stream are its current dependency.
 
 ## Current Blockers
 
 - #54 cannot begin until #53 is merged.
-- #64 cannot begin until this Issue #63 pull request is merged.
 
 See [CONCERNS.md](CONCERNS.md) for risks that do not block current work or safe operation.
 
@@ -36,10 +34,9 @@ See [CONCERNS.md](CONCERNS.md) for risks that do not block current work or safe 
 
 ## Next Actions
 
-1. Merge the current documentation workflow changes.
-2. Complete and merge #53 using its approved solution.
-3. Implement #54 after #53 is merged, using its approved solution.
-4. Request a dedicated verification pass when the maintainer is ready.
+1. Complete and merge #53 using its approved solution.
+2. Implement #54 after #53 is merged, using its approved solution.
+3. Request a dedicated verification pass when the maintainer is ready.
 
 ## Handoff Constraints
 
