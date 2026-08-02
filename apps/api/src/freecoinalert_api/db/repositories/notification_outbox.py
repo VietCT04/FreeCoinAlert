@@ -39,6 +39,18 @@ async def get_notification_by_id_and_user_id(
     )
 
 
+async def get_notification_by_id_for_update(
+    session: AsyncSession,
+    *,
+    notification_id: uuid.UUID,
+) -> NotificationOutbox | None:
+    return await session.scalar(
+        select(NotificationOutbox)
+        .where(NotificationOutbox.id == notification_id)
+        .with_for_update()
+    )
+
+
 async def create_telegram_test_notification(
     session: AsyncSession,
     *,
@@ -194,10 +206,13 @@ async def mark_notification_sent(
     notification_id: uuid.UUID,
     sent_at: datetime,
     provider_message_id: int,
-) -> None:
-    await session.execute(
+) -> bool:
+    statement = (
         update(NotificationOutbox)
-        .where(NotificationOutbox.id == notification_id)
+        .where(
+            NotificationOutbox.id == notification_id,
+            NotificationOutbox.status == "processing",
+        )
         .values(
             status="sent",
             locked_at=None,
@@ -209,6 +224,8 @@ async def mark_notification_sent(
             updated_at=func.now(),
         )
     )
+    result = await session.execute(statement)
+    return result.rowcount == 1
 
 
 async def mark_notification_retry_wait(
@@ -217,10 +234,13 @@ async def mark_notification_retry_wait(
     notification_id: uuid.UUID,
     available_at: datetime,
     failure_code: str,
-) -> None:
-    await session.execute(
+) -> bool:
+    statement = (
         update(NotificationOutbox)
-        .where(NotificationOutbox.id == notification_id)
+        .where(
+            NotificationOutbox.id == notification_id,
+            NotificationOutbox.status == "processing",
+        )
         .values(
             status="retry_wait",
             available_at=available_at,
@@ -231,6 +251,8 @@ async def mark_notification_retry_wait(
             updated_at=func.now(),
         )
     )
+    result = await session.execute(statement)
+    return result.rowcount == 1
 
 
 async def mark_notification_failed(
@@ -239,10 +261,13 @@ async def mark_notification_failed(
     notification_id: uuid.UUID,
     failed_at: datetime,
     failure_code: str,
-) -> None:
-    await session.execute(
+) -> bool:
+    statement = (
         update(NotificationOutbox)
-        .where(NotificationOutbox.id == notification_id)
+        .where(
+            NotificationOutbox.id == notification_id,
+            NotificationOutbox.status == "processing",
+        )
         .values(
             status="failed",
             locked_at=None,
@@ -252,3 +277,5 @@ async def mark_notification_failed(
             updated_at=func.now(),
         )
     )
+    result = await session.execute(statement)
+    return result.rowcount == 1

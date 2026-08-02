@@ -2,11 +2,11 @@
 
 ## Purpose and Current Scope
 
-Telegram is the sole implemented notification provider. It supports one private-chat destination per user, browser-issued deep links, long polling, test messages, and durable price-alert delivery. Signal occurrences now have a separate database fan-out boundary that can create durable preset-signal outbox jobs for occurrence-time eligible users; the notification worker does not yet send that kind. Preset-signal provider delivery and browser controls remain planned. Exact HTTP contracts are in [API.md](API.md); persisted fields are in [DATABASE.md](DATABASE.md).
+Telegram is the sole implemented notification provider. It supports one private-chat destination per user, browser-issued deep links, long polling, test messages, durable price-alert delivery, and preset-signal delivery from immutable outbox snapshots. Signal occurrences have a separate database fan-out boundary that creates jobs only for occurrence-time eligible users; browser controls for the preference remain planned. Exact HTTP contracts are in [API.md](API.md); persisted fields are in [DATABASE.md](DATABASE.md).
 
 ## Configuration and Optional Startup
 
-`TELEGRAM_BOT_USERNAME` is public optional configuration for browser links. `TELEGRAM_BOT_TOKEN` is secret and required by the poller and notification worker, not API startup. The Compose `telegram` profile starts `telegram-updates`, `signal-telegram-dispatcher`, and `notification-worker`; the dispatcher needs only `DATABASE_URL` and fan-out settings and none is part of the default stack.
+`TELEGRAM_BOT_USERNAME` is public optional configuration for browser links. `TELEGRAM_BOT_TOKEN` is secret and required for poller and provider requests, not API startup. The notification worker can run without a token to mark claimed jobs with the safe terminal code `telegram_not_configured`, but normal delivery requires the token. The Compose `telegram` profile starts `telegram-updates`, `signal-telegram-dispatcher`, and `notification-worker`; the dispatcher needs only `DATABASE_URL` and fan-out settings and none is part of the default stack.
 
 ## Browser Linking Flow
 
@@ -30,6 +30,36 @@ Each owned signal subscription stores `telegramDelivery.enabled`, disabled by de
 
 Subscription creation, reactivation, disable, and preference changes record immutable occurrence-time state rows in the same transaction. A new non-backfilled signal occurrence creates one dispatch row atomically with the immutable occurrence and feed stream row. The separate dispatcher selects the latest state at `occurred_at`, requires active state with delivery enabled, checks the current owned connection is connected with `connected_at <= occurred_at`, and creates at most one immutable-snapshot `telegram_preset_signal` outbox job per user and occurrence. Missing, linking, degraded, disconnected, or later-connected destinations increment `skipped_count` without creating a job. Backfilled, invalidated, and expired occurrences are skipped; the dispatcher does not wait for reconnection or contact Telegram. Existing subscriptions are migrated with delivery disabled and a false baseline state; old signal history receives no dispatch rows.
 
+## Preset-Signal Payload and Message
+
+The notification worker accepts only schema version `1` with the exact `telegram_preset_signal` fields written by the dispatcher. It rejects unknown fields or versions, missing snapshots, invalid UUIDs or UTC timestamps, unsupported SMA/RSI strategy combinations, unsupported timeframes/directions/price inputs, invalid decimal strings, and non-finite values. A rejected job is terminally failed as `notification_payload_invalid` without a provider request.
+
+Messages are plain text without Markdown parsing, rich media, charts, links, trading actions, or mutable current-market data. They identify the symbol, preset, timeframe, crossing direction, previous/current comparison values, candle close and quote asset, candle-close UTC time, preset code/version, calculation version, and the informational-only disclaimer. SMA comparisons use `Close` and `SMA 200`; RSI comparisons use `RSI 14` and `Threshold`. Every value is read from the validated immutable job payload.
+
+The rendered layout is:
+
+```text
+FreeCoinAlert preset signal
+
+<SYMBOL> · <PRESET NAME>
+<TIMEFRAME> candle crossed <above|below>.
+
+Previous:
+<LEFT LABEL>: <PREVIOUS LEFT>
+<RIGHT LABEL>: <PREVIOUS RIGHT>
+
+Current:
+<LEFT LABEL>: <CURRENT LEFT>
+<RIGHT LABEL>: <CURRENT RIGHT>
+Close: <CANDLE CLOSE> <QUOTE ASSET>
+
+Candle closed: <UTC TIME>
+Preset: <PRESET CODE> v<VERSION>
+Calculation version: <CALCULATION VERSION>
+
+Informational only — not financial advice.
+```
+
 ## Test Notifications
 
 An authenticated CSRF-protected request with a UUID idempotency key creates a `telegram_test` outbox job without a body. It is limited to three new requests per user per 15 minutes; an idempotent replay returns the original safe job. It requires a connected, non-degraded destination. `queued`, `sending`, `retrying`, `sent`, and `failed` describe provider-processing state, not device receipt.
@@ -44,7 +74,7 @@ Outbox jobs hold the owned user/destination reference, kind, idempotency key, im
 
 ## Worker Claim, Send, Retry, and Recovery
 
-The optional notification worker claims only the currently supported `telegram_test` and `telegram_price_alert` jobs in short transactions using lock-safe claims, then releases the database lock before the network request. Preset-signal jobs remain durable and pending until the separately approved provider-delivery change. The signal dispatcher has its own `FOR UPDATE SKIP LOCKED` claims, bounded subscription pages, stale-claim requeue, database retry, expiry, and attempt limit; it never performs a provider request. The notification worker rechecks that its destination is still connected and owned. Confirmed sends record the provider message ID. Known temporary failures move to `retrying` using bounded backoff; permanent failures become `failed`. Timeouts and uncertain provider outcomes become an outcome-unknown failure to avoid duplicate messages. A later worker detects stale `processing` claims and terminally marks them `failed` as `telegram_delivery_outcome_unknown`; it never requeues them because provider outcome is uncertain. No queue broker is used.
+The optional notification worker claims `telegram_test`, `telegram_price_alert`, and `telegram_preset_signal` jobs in short transactions using lock-safe claims, then releases the database lock before the network request. For preset-signal jobs it rechecks the outbox references, subscription ownership and active status, current delivery preference, event invalidation state, and current owned connected destination before contacting Telegram. Safety failures become terminal `failed` jobs with `signal_delivery_preference_disabled`, `signal_subscription_inactive`, `signal_event_invalidated`, `telegram_connection_unavailable`, or `notification_payload_invalid` as applicable. The signal dispatcher has its own `FOR UPDATE SKIP LOCKED` claims, bounded subscription pages, stale-claim requeue, database retry, expiry, and attempt limit; it never performs a provider request. Confirmed sends record the provider message ID. Telegram rate limits and known temporary failures move to `retrying` using bounded backoff; blocked/invalid destinations become `failed` and degrade the connection; missing configuration becomes `telegram_not_configured`. Timeouts and uncertain provider outcomes become `telegram_delivery_outcome_unknown` and are not retried. A later worker detects stale `processing` claims and terminally marks them with the same outcome-unknown code; it never requeues them because provider outcome is uncertain. The worker never creates another outbox row, and no queue broker is used.
 
 ## Delivery Status and User-Facing Meaning
 
@@ -52,7 +82,7 @@ The optional notification worker claims only the currently supported `telegram_t
 
 ## Disconnect and Provider-Failure Behavior
 
-Disconnect prevents future delivery through that destination. Provider blocking, invalid chats, missing configuration, transport failure, and rate limiting are categorized safely and do not reveal Telegram internals. A failed Telegram send never changes a price alert back to active.
+Disconnect prevents future delivery through that destination. Provider blocking, invalid chats, missing configuration, transport failure, and rate limiting are categorized safely and do not reveal Telegram internals. A failed Telegram send never changes a price alert or signal occurrence. Disabling the preference, disabling the subscription, disconnecting the destination, or invalidating the occurrence before a queued preset-signal send suppresses that provider request.
 
 ## Stored and Prohibited Telegram Data
 
@@ -60,8 +90,8 @@ Stored identity is limited to Telegram user ID, private chat ID, optional userna
 
 ## Not Supported
 
-Groups, channels, multiple destinations, user-supplied chat IDs, webhooks, scheduled polling infrastructure, preset-signal provider messages, browser controls for the preference, and additional notification channels are not implemented. Durable preset-signal fan-out is implemented separately from provider sending.
+Groups, channels, multiple destinations, user-supplied chat IDs, webhooks, scheduled polling infrastructure, browser controls for the preference, per-occurrence website delivery history, and additional notification channels are not implemented. Durable preset-signal fan-out and provider delivery are implemented separately.
 
 ## Verification Status
 
-Linking, long polling, provider sends, retries, and device receipt were not exercised; implementation was inspected statically.
+Linking, long polling, provider sends, retries, and device receipt were not exercised; implementation was inspected statically. Preset-signal provider delivery is Implemented but Unverified.

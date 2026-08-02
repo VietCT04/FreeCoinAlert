@@ -29,7 +29,7 @@ The web app, FastAPI API, and PostgreSQL run in the default Compose stack. The A
 | `pnpm signals:backfill` | Check singleton/coverage boundary for a future bounded rebuild. | Database | One-shot |
 | `pnpm dev:telegram-updates` | Run private-message link poller; bot token required. | Telegram | Long-running |
 | `pnpm dev:signal-telegram-dispatcher` | Fan out eligible live signal occurrences into durable outbox jobs; database required. | Database | Long-running |
-| `pnpm dev:notification-worker` | Send durable jobs; bot token/database required. | Telegram | Long-running |
+| `pnpm dev:notification-worker` | Claim and send durable test, price-alert, and preset-signal jobs; database required, bot token needed for provider requests. | Telegram when configured | Long-running |
 
 Formatting, lint, typecheck, build, and verification scripts exist for development but are not operational startup commands.
 
@@ -67,7 +67,7 @@ Use bootstrap for a new/empty bounded history and reconciliation for missing rec
 
 ## Telegram Poller and Notification Worker
 
-Start the poller and notification worker only when a valid bot token is available. The poller cannot coexist with a Telegram webhook. The signal dispatcher needs only database configuration and does not contact Telegram. The notification worker independently claims and recovers its supported notification jobs; none of these processes run in the default profile.
+Start the poller only when a valid bot token is available; it cannot coexist with a Telegram webhook. The notification worker normally also uses that token for provider requests, but can safely claim jobs without it and mark them `failed` with `telegram_not_configured`. The signal dispatcher needs only database configuration and does not contact Telegram. The notification worker independently claims and recovers all three supported notification kinds; none of these processes run in the default profile.
 
 ## Singleton and Concurrency Controls
 
@@ -85,7 +85,7 @@ Start PostgreSQL before direct API commands. API startup itself does not contact
 
 - Stale market data: inspect operational state/logs, confirm the sole stream owner, restore it, then use bounded reconciliation if gaps remain.
 - Candle gap or failed repair: use `market:candles-reconcile`; use bootstrap only for the bounded historical range.
-- Telegram configuration missing: provide the username for links and secret token for poller/worker; API remains available without them.
+- Telegram configuration missing: provide the username for links and secret token for poller/worker when provider behavior is desired; the API remains available without them and a tokenless notification worker records `telegram_not_configured` safely.
 - Stuck notification claims: inspect the persisted job state. The worker detects stale claims and terminally records `telegram_delivery_outcome_unknown`; it does not resume or requeue an uncertain provider send.
 - Stuck signal fan-out: inspect `signal_telegram_dispatches` for `processing`, `retry_wait`, `failed`, `skipped`, counts, cursor, and safe failure code. The dispatcher requeues stale database-only claims, retries bounded database failures, and never retries beyond `max_attempts` or creates jobs older than the configured maximum age.
 - Provider rate limit: stop repeated commands, honor Retry-After, and wait for the bounded retry path; treat 418 as an incident.

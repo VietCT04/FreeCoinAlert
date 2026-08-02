@@ -100,7 +100,7 @@ class NotificationService:
                 message="The test notification could not be queued. Try again later.",
             ) from None
 
-        logger.info("notification.queued notification_id=%s user_id=%s", notification.id, user_id)
+        logger.info("notification.queued notification_id=%s", notification.id)
         return QueuedNotification(notification=notification, created=True)
 
     async def get_notification(

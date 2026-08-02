@@ -8,12 +8,12 @@
 - Closed `1m` candles and derived `1h`/`4h` candles are implemented; see [MARKET_DATA.md](MARKET_DATA.md).
 - One-time price-crossing alerts and their browser management surface are implemented; see [ALERTS.md](ALERTS.md) and [PRODUCT.md](PRODUCT.md).
 - Fixed SMA 200 and RSI 14 preset subscriptions and global occurrences are implemented; see [STRATEGIES.md](STRATEGIES.md) and [ALERTS.md](ALERTS.md).
-- Per-subscription Telegram-delivery preference storage, immutable occurrence-time subscription state history, owner-scoped readiness responses, and the CSRF-protected preference API are implemented; the preference is disabled by default. New live occurrences also have durable dispatch rows, occurrence-time eligibility, bounded cursor fan-out, idempotent immutable-snapshot outbox jobs, and database-only recovery. See [API.md](API.md), [DATABASE.md](DATABASE.md), [ALERTS.md](ALERTS.md), and [TELEGRAM.md](TELEGRAM.md).
+- Per-subscription Telegram-delivery preference storage, immutable occurrence-time subscription state history, owner-scoped readiness responses, and the CSRF-protected preference API are implemented; the preference is disabled by default. New live occurrences also have durable dispatch rows, occurrence-time eligibility, bounded cursor fan-out, idempotent immutable-snapshot outbox jobs, database-only recovery, and notification-worker delivery with strict payload and send-time safety checks. See [API.md](API.md), [DATABASE.md](DATABASE.md), [ALERTS.md](ALERTS.md), and [TELEGRAM.md](TELEGRAM.md).
 - The authenticated historical/live signal-feed API and SSE transport are implemented and Unverified; the authenticated browser preset catalog, subscription controls, history feed, visibility recovery, and optional browser sound are implemented by the current frontend surface. Backtesting remains Not supported.
 
 ## Active Work
 
-- Preset-signal Telegram provider delivery and browser controls remain Planned follow-up work; the current dispatcher creates durable jobs but does not send messages or provide user-facing delivery outcomes.
+- Browser controls for the preset-signal Telegram preference remain Planned follow-up work; provider-worker delivery is implemented but does not expose per-occurrence delivery history.
 
 ## Current Blockers
 
@@ -33,12 +33,12 @@ See [CONCERNS.md](CONCERNS.md) for risks that do not block current work or safe 
 | Browser preset subscriptions and live feed | Implemented | Unverified | Browser, visibility, EventSource, and audio paths were not exercised. |
 | Signal Telegram preference and readiness API | Implemented | Unverified | Preference storage, state history, ownership, and readiness behavior were not exercised by a maintainer-requested pass. |
 | Preset signal Telegram fan-out | Implemented | Unverified | Live occurrence dispatch, occurrence-time eligibility, bounded cursor recovery, and durable outbox-job creation are available; no runtime pass was requested. |
-| Preset signal Telegram provider delivery | Planned | Not applicable | The notification worker does not yet send `telegram_preset_signal` jobs. Browser controls and per-occurrence delivery history are also not implemented. |
+| Preset signal Telegram provider delivery | Implemented | Unverified | The notification worker validates, safety-checks, formats, and sends `telegram_preset_signal` jobs; browser controls and per-occurrence delivery history are not implemented. |
 | Historical analysis | Not supported | Not applicable | No backtesting runtime exists. |
 
 ## Next Actions
 
-1. Merge the durable fan-out change, then implement the separately approved provider-worker and browser-control work.
+1. Implement the separately approved browser-control work.
 2. Request a dedicated verification pass when the maintainer is ready.
 
 ## Handoff Constraints

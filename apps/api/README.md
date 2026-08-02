@@ -34,7 +34,7 @@ pnpm dev:notification-worker
 pnpm dev:signal-telegram-dispatcher
 ```
 
-`market:sync`, `dev:market-stream`, `market:candles-bootstrap`, and `market:candles-reconcile` contact Binance. `dev:telegram-updates` and `dev:notification-worker` contact Telegram when configured. `dev:signal-telegram-dispatcher` contacts only PostgreSQL and creates durable preset-signal outbox jobs; it does not contact Telegram. `signals:backfill` is a placeholder validation boundary, not automatic signal catch-up. API startup also starts the PostgreSQL signal-feed listener and bounded local SSE manager through FastAPI lifespan. See [Operations](../../docs/OPERATIONS.md) before using these commands.
+`market:sync`, `dev:market-stream`, `market:candles-bootstrap`, and `market:candles-reconcile` contact Binance. `dev:telegram-updates` and `dev:notification-worker` contact Telegram when configured; the worker also records a safe terminal failure when bot configuration is missing. `dev:signal-telegram-dispatcher` contacts only PostgreSQL and creates durable preset-signal outbox jobs; it does not contact Telegram. `signals:backfill` is a placeholder validation boundary, not automatic signal catch-up. API startup also starts the PostgreSQL signal-feed listener and bounded local SSE manager through FastAPI lifespan. See [Operations](../../docs/OPERATIONS.md) before using these commands.
 
 ## Authoritative Documentation
 

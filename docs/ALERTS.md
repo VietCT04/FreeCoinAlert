@@ -48,6 +48,8 @@ A crossing writes one immutable global `preset_crossed` event keyed by market, p
 
 The dispatcher selects the latest subscription state at or before `signal_event.occurred_at`. Only `active` state with `telegram_delivery_enabled = true` qualifies. It then requires the user's current owned Telegram connection to be `connected` with `connected_at <= occurred_at`. Missing, linking, degraded, disconnected, or later-connected destinations increment the dispatch skip count and create no job. Backfilled events are marked `skipped` as `historical_backfill_not_delivered`; invalidated and older-than-`SIGNAL_TELEGRAM_FANOUT_MAX_AGE_SECONDS` events are skipped without recipient work. Each page advances its subscription cursor only in the same transaction as idempotent outbox inserts. See [TELEGRAM.md](TELEGRAM.md) for the outbox and provider boundary.
 
+The notification worker treats each preset-signal outbox row as one logical provider send. It validates the immutable payload and rechecks the owned subscription, preference, event invalidation, and current connected destination immediately before Telegram contact. Delivery failure, retry, timeout, or uncertain outcome changes only the outbox row and never rewrites, re-arms, or invalidates the global signal event.
+
 ### Candle Corrections and Invalidations
 
 When a candle changes revision, the affected evaluation state is marked stale with `candle_correction_rebuild_required`. Immutable occurrences remain intact; a historical rebuild may add invalidation records and replacement revisions.
@@ -79,7 +81,7 @@ The browser merges feed entries by immutable signal-event ID, updates invalidati
 
 ## Not Supported
 
-Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, system/mobile push notifications, custom sounds, and charts are not supported. Browser signal-feed controls and optional in-page sound are implemented separately from the Telegram-delivery preference. Durable preset fan-out is implemented, but preset Telegram provider sending and browser controls for that preference are not implemented.
+Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, system/mobile push notifications, custom sounds, and charts are not supported. Browser signal-feed controls and optional in-page sound are implemented separately from the Telegram-delivery preference. Durable preset fan-out and preset Telegram provider delivery are implemented, but browser controls for that preference are not implemented.
 
 ## Verification Status
 
