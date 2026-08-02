@@ -100,11 +100,11 @@ This document records unresolved current risks and decisions, not feature histor
 
 ### No end-to-end runtime verification
 
-**Current fact:** No provider, worker, migration, Compose, browser, or maintenance command has been run for the approved documentation work.
+**Current fact:** No provider, worker, migration, Compose, browser, signal-stream, audio, or maintenance command has been run for the approved implementation work.
 
 **Risk/impact:** Current-state documentation records implemented contracts, not evidence of exercised runtime behavior.
 
-**Current mitigation:** Documentation labels these paths unverified and avoids delivery guarantees.
+**Current mitigation:** Documentation labels these paths unverified and avoids delivery guarantees; the browser signal surface keeps visual recovery independent from optional sound.
 
 **Follow-up:** Maintain an explicit verification plan when the maintainer requests one.
 

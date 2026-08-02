@@ -2,7 +2,7 @@
 
 ## What It Does Now
 
-FreeCoinAlert is an informational cryptocurrency-alert application. Signed-in users can link a private Telegram destination, create one-time price-crossing alerts for a controlled Binance Spot catalogue, and use the browser account and alert-management surfaces. The platform also has fixed preset-signal subscriptions and global closed-candle occurrence evaluation; a browser signal feed and signal delivery are not implemented.
+FreeCoinAlert is an informational cryptocurrency-alert application. Signed-in users can link a private Telegram destination, create one-time price-crossing alerts for a controlled Binance Spot catalogue, manage fixed preset-signal subscriptions, and review the authenticated historical/live signal feed in the browser. The feed has optional, user-activated in-page sound; it does not replace Telegram delivery.
 
 ## Current Scope
 
@@ -10,6 +10,7 @@ FreeCoinAlert is an informational cryptocurrency-alert application. Signed-in us
 - Telegram linking, test-notification queueing, and durable notification processing.
 - One-time exact-decimal price-crossing alerts for the supported Binance Spot markets.
 - Canonical closed-candle storage, `1h`/`4h` aggregation, and fixed SMA 200 / RSI 14 preset evaluation.
+- Read-only preset cards, authenticated subscription controls, paginated signal history, credentialed live updates, visibility recovery, and optional built-in sound.
 
 See the authoritative [product overview](docs/PRODUCT.md) for capabilities, limits, planned work, and non-goals.
 

@@ -26,7 +26,7 @@ FreeCoinAlert currently provides structured application logs and persisted opera
 | Telegram | update received/duplicate, link succeeded/rejected, confirmation sent/failed, polling failure. |
 | Notification worker | claim, send, retry, terminal failure, recovery, and provider outcome categories. |
 
-The exact field set is implementation detail; logs use IDs and safe categories rather than credentials or provider payloads.
+The exact field set is implementation detail; logs use IDs and safe categories rather than credentials or provider payloads. The browser signal panel does not log event payloads, subscription IDs, cursors, authentication values, CSRF values, or sound state; connection status and sound activation are visual client state only.
 
 ## Status and Freshness Semantics
 

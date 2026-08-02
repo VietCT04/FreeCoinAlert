@@ -40,6 +40,10 @@ The commands invoke `freecoinalert_api.market_data.catalog_sync`, `.market_data.
 
 `DATABASE_URL` is required and secret. `WEB_ORIGIN` defaults to `http://localhost:3000`; `SESSION_COOKIE_SECURE` defaults false; `SESSION_TTL_SECONDS` defaults 604800. Telegram username/token and TTL/retention are described in [TELEGRAM.md](TELEGRAM.md). Binance URLs are public provider settings. Market settings and defaults are in [MARKET_DATA.md](MARKET_DATA.md). `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration with no automatic catch-up implementation; `SIGNAL_HISTORY_DAYS=90` only bounds the placeholder backfill coverage check; `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Signal SSE defaults are 2 connections per user, 500 per process, queue size 100, 15-second heartbeats, 60-second session revalidation, and 7-day stream-cursor retention; these limits are configured by `SIGNAL_SSE_*` and `SIGNAL_STREAM_RETENTION_DAYS`. Environment examples contain names and safe defaults only; never commit secrets.
 
+`NEXT_PUBLIC_API_BASE_URL` is the browser-visible API origin and must contain no secret. The browser signal section needs no separate process, provider credential, audio asset, or runtime configuration beyond the existing API origin and credentialed CORS/SSE proxy requirements.
+
+While visible, native EventSource uses the server retry value. After 60 seconds of disconnection, the browser shows the disconnected state, refreshes the first history page every 30 seconds, and offers `Reconnect live updates`; fallback entries are merged without live highlight or sound. Polling stops when SSE reconnects or the document becomes hidden.
+
 ## Database Migrations
 
 Apply migrations manually through the release/development workflow with `pnpm db:migrate`. The local Compose API startup is not production migration automation. Database backup, restore, and production rollout automation are not implemented.
@@ -86,7 +90,7 @@ Start PostgreSQL before direct API commands. API startup itself does not contact
 
 ## Production Gaps
 
-No implemented production topology, deployment automation, backup automation, distributed rate limiter, queue broker, cron scheduler, horizontal stream ownership, or managed monitoring stack exists. A production reverse proxy must disable buffering for `/signal-feed/stream`, preserve `Cache-Control: no-transform`, use a read timeout longer than the 15-second heartbeat, pass cookies/CORS headers, and avoid requiring WebSocket upgrade headers.
+No implemented production topology, deployment automation, backup automation, distributed rate limiter, queue broker, cron scheduler, horizontal stream ownership, or managed monitoring stack exists. A production reverse proxy must disable buffering for `/signal-feed/stream`, preserve `Cache-Control: no-transform`, use a read timeout longer than the 15-second heartbeat, pass cookies/CORS headers, and avoid requiring WebSocket upgrade headers. The browser closes the stream while hidden and recovers history before reopening it.
 
 ## Verification Status
 

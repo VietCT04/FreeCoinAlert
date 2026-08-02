@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { useAuth } from "../features/auth/auth-provider";
 import { PriceAlertPanel } from "../features/alerts/price-alert-panel";
+import { PresetSignalPanel } from "../features/signals/preset-signal-panel";
 import { TelegramConnectionPanel } from "../features/telegram/connection-panel";
 
 export default function Home() {
@@ -77,6 +78,7 @@ export default function Home() {
             </p>
             <TelegramConnectionPanel />
             <PriceAlertPanel />
+            <PresetSignalPanel />
             <button
               className="rounded-lg border border-zinc-300 px-4 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700"
               disabled={isSigningOut}
