@@ -2,11 +2,11 @@
 
 ## Purpose and Base Conventions
 
-The FastAPI API has no version prefix. JSON field names are camelCase unless stated otherwise. Unknown fields are rejected for credential, alert, and subscription creation bodies. UUIDs and timestamps serialize as JSON strings; monetary and indicator values serialize as decimal strings.
+The FastAPI API has no version prefix. JSON field names are camelCase unless stated otherwise. Unknown fields are rejected for credential, alert, and signal-subscription bodies, including the Telegram-delivery preference update. UUIDs and timestamps serialize as JSON strings; monetary and indicator values serialize as decimal strings.
 
 ## Authentication, Cookie, CSRF, Origin, and Cache Rules
 
-Authenticated requests use the `freecoinalert_session` HTTP-only, `SameSite=Lax`, path `/` cookie. The secure flag follows `SESSION_COOKIE_SECURE`. Mutating authenticated endpoints require `X-CSRF-Token`; `/auth/register` and `/auth/login` instead validate a supplied `Origin` when present. CORS permits only `WEB_ORIGIN`, credentials, `GET`/`POST`/`DELETE`, and `Content-Type`, `Idempotency-Key`, `Last-Event-ID`, and `X-CSRF-Token`. Private responses use `Cache-Control: no-store`; public catalogue/preset lists use `public, max-age=60`.
+Authenticated requests use the `freecoinalert_session` HTTP-only, `SameSite=Lax`, path `/` cookie. The secure flag follows `SESSION_COOKIE_SECURE`. Mutating authenticated endpoints require `X-CSRF-Token`; `/auth/register` and `/auth/login` instead validate a supplied `Origin` when present. CORS permits only `WEB_ORIGIN`, credentials, `GET`/`POST`/`PUT`/`DELETE`, and `Content-Type`, `Idempotency-Key`, `Last-Event-ID`, and `X-CSRF-Token`. Private responses use `Cache-Control: no-store`; public catalogue/preset lists use `public, max-age=60`.
 
 ## Error Contract
 
@@ -23,7 +23,7 @@ Authentication errors are `{ "code": string, "message": string, "details": [] }`
 | GET | `/markets` | no / no | supported markets |
 | POST/GET/GET/DELETE | `/alerts/price`, `/alerts`, `/alerts/{id}`, `/alerts/{id}` | yes / post+delete | one-time alerts |
 | GET | `/signal-presets` | no / no | preset catalogue |
-| GET/POST/DELETE | `/signal-subscriptions`, `/signal-subscriptions`, `/signal-subscriptions/{id}` | yes / post+delete | subscriptions |
+| GET/POST/DELETE/PUT | `/signal-subscriptions`, `/signal-subscriptions`, `/signal-subscriptions/{id}`, `/signal-subscriptions/{id}/telegram-delivery` | yes / post+delete+put | subscriptions and Telegram-delivery preference |
 | GET/GET | `/signal-feed`, `/signal-feed/stream` | yes / no | historical and live signal feed |
 | POST/GET/DELETE | `/telegram/link-tokens`, `/telegram/connection`, `/telegram/connection` | yes / post+delete | Telegram connection |
 | POST/GET | `/telegram/test-notifications`, `/telegram/test-notifications/{id}` | yes / post only | test delivery |
@@ -64,9 +64,15 @@ Creation is limited to 10 per user and 30 per direct client IP per 15 minutes, a
 
 `GET /signal-presets` returns the public cached `{presets:[{code,version,name,description,strategyType,timeframe,direction,parameters:{period,threshold,priceInput},status:"available"}]}`.
 
-`GET /signal-subscriptions` returns `{subscriptions:[{id,status,statusReason,market,preset,activatedAt,disabledAt}]}` for the principal. `POST /signal-subscriptions` needs auth and CSRF; its body forbids unknown fields and is `{exchange,market_type,symbol,preset_code,preset_version}`. It returns `201` for a new row and `200` for an already-active replay or reactivation. It is limited to 20 enables per user and 40 per direct IP per 15 minutes, plus a maximum of 20 active subscriptions per user; rate limiting is `429 SIGNAL_SUBSCRIPTION_RATE_LIMITED` with `Retry-After`. Stable failures are `422 SIGNAL_PRESET_UNAVAILABLE` for malformed input, `404 SIGNAL_PRESET_NOT_FOUND`, `409 SIGNAL_PRESET_UNAVAILABLE`, `422 SIGNAL_MARKET_UNAVAILABLE`, `409 SIGNAL_SUBSCRIPTION_LIMIT_REACHED`, and `503 SIGNAL_SUBSCRIPTION_UNAVAILABLE`.
+`GET /signal-subscriptions` returns `{subscriptions:[{id,status,statusReason,market,preset,telegramDelivery,activatedAt,disabledAt}]}` for the principal. `telegramDelivery` is `{enabled,readiness,statusReason,changedAt}`. `readiness` is `ready` for a connected private destination, `degraded` for a degraded destination, `linking` when an unexpired link token exists without a usable destination, and `not_connected` otherwise. Readiness is resolved dynamically once for the request and is not persisted on the subscription. No Telegram user ID, chat ID, token, or provider response is returned.
 
-`DELETE /signal-subscriptions/{id}` needs CSRF, is limited to 30 per user per 15 minutes, returns `204` for the owner (including an already-disabled row), and returns `404 SIGNAL_SUBSCRIPTION_NOT_FOUND` for missing or foreign IDs. All subscription results are owner-scoped and `no-store`.
+`POST /signal-subscriptions` needs auth and CSRF; its body forbids unknown fields and is `{exchange,market_type,symbol,preset_code,preset_version}`. It returns `201` for a new row and `200` for an already-active replay or reactivation. It is limited to 20 enables per user and 40 per direct IP per 15 minutes, plus a maximum of 20 active subscriptions per user; rate limiting is `429 SIGNAL_SUBSCRIPTION_RATE_LIMITED` with `Retry-After`. New subscriptions and reactivations reset Telegram delivery to disabled. Stable failures are `422 SIGNAL_PRESET_UNAVAILABLE` for malformed input, `404 SIGNAL_PRESET_NOT_FOUND`, `409 SIGNAL_PRESET_UNAVAILABLE`, `422 SIGNAL_MARKET_UNAVAILABLE`, `409 SIGNAL_SUBSCRIPTION_LIMIT_REACHED`, and `503 SIGNAL_SUBSCRIPTION_UNAVAILABLE`.
+
+`DELETE /signal-subscriptions/{id}` needs CSRF, is limited to 30 per user per 15 minutes, returns `204` for the owner (including an already-disabled row), and returns `404 SIGNAL_SUBSCRIPTION_NOT_FOUND` for missing or foreign IDs. Disabling an active subscription resets Telegram delivery to disabled and records the occurrence-time subscription state. All subscription results are owner-scoped and `no-store`.
+
+`PUT /signal-subscriptions/{id}/telegram-delivery` needs authentication and CSRF, accepts only `{enabled:boolean}`, rejects unknown fields, and returns `200` with the complete updated subscription envelope and `Cache-Control: no-store`. It is limited to 30 preference mutations per user per 15 minutes. Enabling is allowed only for an active subscription with a connected, non-degraded Telegram destination; linking and disconnected states return `409 SIGNAL_TELEGRAM_NOT_CONNECTED`, while degraded state returns `409 SIGNAL_TELEGRAM_DEGRADED`. Disabling is always allowed and idempotent. Repeated equivalent requests return `200` without another state-history row. Stable failures are `422 SIGNAL_TELEGRAM_DELIVERY_REQUEST_INVALID`, `404 SIGNAL_SUBSCRIPTION_NOT_FOUND`, `409 SIGNAL_SUBSCRIPTION_INACTIVE`, `409 SIGNAL_TELEGRAM_NOT_CONNECTED`, `409 SIGNAL_TELEGRAM_DEGRADED`, `429 SIGNAL_TELEGRAM_DELIVERY_RATE_LIMITED`, and `503 SIGNAL_SUBSCRIPTION_UNAVAILABLE`.
+
+Every subscription lifecycle or preference transition records an immutable occurrence-time state row in the same transaction. This API stores intent and readiness only; it does not create notification-outbox jobs, send Telegram messages, or replay historical signal occurrences.
 
 ## Historical Signal Feed
 

@@ -6,6 +6,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from freecoinalert_api.db.models.signal_subscription import SignalSubscription
+from freecoinalert_api.db.models.signal_subscription_state_event import SignalSubscriptionStateEvent
 
 
 async def lock_user_subscription_creation(session: AsyncSession, *, user_id: uuid.UUID) -> None:
@@ -43,9 +44,22 @@ async def list_active_subscriber_user_ids(session: AsyncSession, *, supported_ma
 
 
 async def create_subscription(session: AsyncSession, *, user_id: uuid.UUID, supported_market_id: uuid.UUID, signal_preset_id: uuid.UUID, activated_at: datetime) -> SignalSubscription:
-    subscription = SignalSubscription(user_id=user_id, supported_market_id=supported_market_id, signal_preset_id=signal_preset_id, status="active", activated_at=activated_at)
+    subscription = SignalSubscription(
+        user_id=user_id,
+        supported_market_id=supported_market_id,
+        signal_preset_id=signal_preset_id,
+        status="active",
+        activated_at=activated_at,
+        telegram_delivery_enabled=False,
+        telegram_delivery_changed_at=None,
+    )
     session.add(subscription)
     await session.flush()
+    await record_subscription_state_event(
+        session,
+        subscription=subscription,
+        effective_at=activated_at,
+    )
     return subscription
 
 
@@ -53,7 +67,71 @@ async def disable_subscription(session: AsyncSession, *, subscription: SignalSub
     subscription.status = "disabled"
     subscription.status_reason = reason
     subscription.disabled_at = disabled_at
+    subscription.telegram_delivery_enabled = False
+    subscription.telegram_delivery_changed_at = None
     await session.flush()
+    await record_subscription_state_event(
+        session,
+        subscription=subscription,
+        effective_at=disabled_at,
+    )
+
+
+async def reactivate_subscription(
+    session: AsyncSession,
+    *,
+    subscription: SignalSubscription,
+    activated_at: datetime,
+) -> None:
+    subscription.status = "active"
+    subscription.status_reason = None
+    subscription.activated_at = activated_at
+    subscription.disabled_at = None
+    subscription.telegram_delivery_enabled = False
+    subscription.telegram_delivery_changed_at = None
+    await session.flush()
+    await record_subscription_state_event(
+        session,
+        subscription=subscription,
+        effective_at=activated_at,
+    )
+
+
+async def update_telegram_delivery_preference(
+    session: AsyncSession,
+    *,
+    subscription: SignalSubscription,
+    enabled: bool,
+    changed_at: datetime,
+) -> None:
+    subscription.telegram_delivery_enabled = enabled
+    subscription.telegram_delivery_changed_at = changed_at
+    await session.flush()
+    await record_subscription_state_event(
+        session,
+        subscription=subscription,
+        effective_at=changed_at,
+    )
+
+
+async def record_subscription_state_event(
+    session: AsyncSession,
+    *,
+    subscription: SignalSubscription,
+    effective_at: datetime,
+) -> SignalSubscriptionStateEvent:
+    state_event = SignalSubscriptionStateEvent(
+        subscription_id=subscription.id,
+        user_id=subscription.user_id,
+        supported_market_id=subscription.supported_market_id,
+        signal_preset_id=subscription.signal_preset_id,
+        subscription_status=subscription.status,
+        telegram_delivery_enabled=subscription.telegram_delivery_enabled,
+        effective_at=effective_at,
+    )
+    session.add(state_event)
+    await session.flush()
+    return state_event
 
 
 async def disable_subscriptions_for_preset(session: AsyncSession, *, signal_preset_id: uuid.UUID, disabled_at: datetime) -> int:

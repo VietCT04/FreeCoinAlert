@@ -2,6 +2,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Literal
 
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,18 +16,29 @@ from freecoinalert_api.db.repositories.signal_presets import (
     list_active_presets,
 )
 from freecoinalert_api.db.repositories.signal_subscriptions import (
-    count_active_subscriptions_for_user, create_subscription, disable_subscription,
-    get_subscription_combination_for_update, get_subscription_for_user,
-    list_subscriptions_for_user, lock_user_subscription_creation,
+    count_active_subscriptions_for_user,
+    create_subscription,
+    disable_subscription,
+    get_subscription_combination_for_update,
+    get_subscription_for_user,
+    list_subscriptions_for_user,
+    lock_user_subscription_creation,
+    reactivate_subscription,
+    update_telegram_delivery_preference,
 )
 from freecoinalert_api.db.repositories.supported_markets import get_alert_creation_ready_market
 from freecoinalert_api.market_data.catalog import utc_now
 from freecoinalert_api.schemas.signals import (
-    SignalSubscriptionCreateRequest, SignalSubscriptionListEnvelope,
-    SignalSubscriptionMarketResponse, SignalSubscriptionResponse,
+    SignalSubscriptionCreateRequest,
+    SignalSubscriptionListEnvelope,
+    SignalSubscriptionMarketResponse,
+    SignalSubscriptionResponse,
+    SignalTelegramDeliveryResponse,
 )
 from freecoinalert_api.signals.catalog import public_preset_response, subscription_preset_response
 from freecoinalert_api.signals.errors import SignalError
+from freecoinalert_api.telegram.errors import TelegramError
+from freecoinalert_api.telegram.service import SafeTelegramConnection, telegram_connection_service
 
 logger = logging.getLogger(__name__)
 ACTIVE_SUBSCRIPTION_LIMIT = 20
@@ -37,6 +49,12 @@ class EnabledSubscription:
     subscription: SignalSubscription
     status_code: int
     result: str
+
+
+@dataclass(frozen=True, slots=True)
+class UpdatedTelegramDeliveryPreference:
+    subscription: SignalSubscription
+    telegram_connection: SafeTelegramConnection
 
 
 class SignalSubscriptionService:
@@ -51,8 +69,24 @@ class SignalSubscriptionService:
 
     async def list_for_user(self, session: AsyncSession, *, user_id: uuid.UUID) -> SignalSubscriptionListEnvelope:
         try:
+            telegram_connection = await telegram_connection_service.get_connection(
+                session,
+                user_id=user_id,
+            )
             subscriptions = await list_subscriptions_for_user(session, user_id=user_id)
-            return SignalSubscriptionListEnvelope(subscriptions=[await self.response_for(session, subscription) for subscription in subscriptions])
+            return SignalSubscriptionListEnvelope(
+                subscriptions=[
+                    await self.response_for(
+                        session,
+                        subscription,
+                        telegram_connection=telegram_connection,
+                    )
+                    for subscription in subscriptions
+                ]
+            )
+        except TelegramError:
+            await session.rollback()
+            raise unavailable_error() from None
         except SQLAlchemyError:
             await session.rollback()
             raise unavailable_error() from None
@@ -98,11 +132,11 @@ class SignalSubscriptionService:
                 status_code = 201
                 result = "created"
             else:
-                existing.status = "active"
-                existing.status_reason = None
-                existing.activated_at = now
-                existing.disabled_at = None
-                await session.flush()
+                await reactivate_subscription(
+                    session,
+                    subscription=existing,
+                    activated_at=now,
+                )
                 subscription = existing
                 status_code = 200
                 result = "reactivated"
@@ -133,12 +167,140 @@ class SignalSubscriptionService:
             raise unavailable_error() from None
         logger.info("signal.subscription.disabled subscription_id=%s user_id=%s", subscription_id, user_id)
 
-    async def response_for(self, session: AsyncSession, subscription: SignalSubscription) -> SignalSubscriptionResponse:
+    async def update_telegram_delivery(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: uuid.UUID,
+        subscription_id: uuid.UUID,
+        enabled: bool,
+    ) -> UpdatedTelegramDeliveryPreference:
+        try:
+            subscription = await get_subscription_for_user(
+                session,
+                user_id=user_id,
+                subscription_id=subscription_id,
+                for_update=True,
+            )
+            if subscription is None:
+                raise not_found_error()
+            if enabled and subscription.status != "active":
+                raise SignalError(
+                    status_code=409,
+                    code="SIGNAL_SUBSCRIPTION_INACTIVE",
+                    message="Telegram delivery can only be enabled for an active subscription.",
+                )
+
+            telegram_connection = await self._telegram_connection(
+                session,
+                user_id=user_id,
+            )
+            if enabled and not subscription.telegram_delivery_enabled:
+                self._require_ready_telegram_connection(telegram_connection)
+
+            if subscription.telegram_delivery_enabled != enabled:
+                now = datetime.now(timezone.utc)
+                await update_telegram_delivery_preference(
+                    session,
+                    subscription=subscription,
+                    enabled=enabled,
+                    changed_at=now,
+                )
+                logger.info(
+                    "signal.subscription.telegram_delivery_changed subscription_id=%s user_id=%s enabled=%s",
+                    subscription_id,
+                    user_id,
+                    enabled,
+                )
+            await session.commit()
+            return UpdatedTelegramDeliveryPreference(
+                subscription=subscription,
+                telegram_connection=telegram_connection,
+            )
+        except SignalError:
+            await session.rollback()
+            raise
+        except TelegramError:
+            await session.rollback()
+            raise unavailable_error() from None
+        except SQLAlchemyError:
+            await session.rollback()
+            raise unavailable_error() from None
+
+    async def response_for(
+        self,
+        session: AsyncSession,
+        subscription: SignalSubscription,
+        *,
+        telegram_connection: SafeTelegramConnection | None = None,
+    ) -> SignalSubscriptionResponse:
         preset = await session.get(SignalPreset, subscription.signal_preset_id)
         market = await session.get(SupportedMarket, subscription.supported_market_id)
         if preset is None or market is None or market.base_asset is None or market.quote_asset is None:
             raise unavailable_error()
-        return SignalSubscriptionResponse(id=subscription.id, status=subscription.status, status_reason=subscription.status_reason, market=SignalSubscriptionMarketResponse(exchange="binance", market_type="spot", symbol=market.symbol, base_asset=market.base_asset, quote_asset=market.quote_asset), preset=subscription_preset_response(preset), activated_at=subscription.activated_at, disabled_at=subscription.disabled_at)
+        if telegram_connection is None:
+            telegram_connection = await self._telegram_connection(
+                session,
+                user_id=subscription.user_id,
+            )
+        return SignalSubscriptionResponse(
+            id=subscription.id,
+            status=subscription.status,
+            status_reason=subscription.status_reason,
+            market=SignalSubscriptionMarketResponse(exchange="binance", market_type="spot", symbol=market.symbol, base_asset=market.base_asset, quote_asset=market.quote_asset),
+            preset=subscription_preset_response(preset),
+            telegram_delivery=SignalTelegramDeliveryResponse(
+                enabled=subscription.telegram_delivery_enabled,
+                readiness=telegram_delivery_readiness(telegram_connection),
+                status_reason=telegram_connection.status_reason,
+                changed_at=subscription.telegram_delivery_changed_at,
+            ),
+            activated_at=subscription.activated_at,
+            disabled_at=subscription.disabled_at,
+        )
+
+    async def _telegram_connection(
+        self,
+        session: AsyncSession,
+        *,
+        user_id: uuid.UUID,
+    ) -> SafeTelegramConnection:
+        try:
+            return await telegram_connection_service.get_connection(
+                session,
+                user_id=user_id,
+            )
+        except TelegramError:
+            raise unavailable_error() from None
+
+    @staticmethod
+    def _require_ready_telegram_connection(
+        telegram_connection: SafeTelegramConnection,
+    ) -> None:
+        if telegram_connection.status == "degraded":
+            raise SignalError(
+                status_code=409,
+                code="SIGNAL_TELEGRAM_DEGRADED",
+                message="Telegram is connected but currently degraded.",
+            )
+        if telegram_connection.status != "connected":
+            raise SignalError(
+                status_code=409,
+                code="SIGNAL_TELEGRAM_NOT_CONNECTED",
+                message="Connect Telegram before enabling signal delivery.",
+            )
+
+
+def telegram_delivery_readiness(
+    telegram_connection: SafeTelegramConnection,
+) -> Literal["ready", "linking", "not_connected", "degraded"]:
+    if telegram_connection.status == "connected":
+        return "ready"
+    if telegram_connection.status == "degraded":
+        return "degraded"
+    if telegram_connection.status == "linking":
+        return "linking"
+    return "not_connected"
 
 
 def not_found_error() -> SignalError:

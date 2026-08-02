@@ -44,12 +44,26 @@ export type SignalSubscriptionPreset = {
   parameters: SignalParameters;
 };
 
+export type SignalTelegramDeliveryReadiness =
+  | "ready"
+  | "linking"
+  | "not_connected"
+  | "degraded";
+
+export type SignalTelegramDelivery = {
+  enabled: boolean;
+  readiness: SignalTelegramDeliveryReadiness;
+  statusReason: string | null;
+  changedAt: string | null;
+};
+
 export type SignalSubscription = {
   id: string;
   status: SignalSubscriptionStatus;
   statusReason: string | null;
   market: SignalMarket;
   preset: SignalSubscriptionPreset;
+  telegramDelivery: SignalTelegramDelivery;
   activatedAt: string;
   disabledAt: string | null;
 };

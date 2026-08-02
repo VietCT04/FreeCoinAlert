@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, StrictStr
 
 from freecoinalert_api.schemas.auth import to_camel_case
 
@@ -15,6 +15,12 @@ class SignalSubscriptionCreateRequest(BaseModel):
     symbol: StrictStr
     preset_code: StrictStr
     preset_version: StrictInt
+
+
+class SignalTelegramDeliveryUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: StrictBool
 
 
 class SignalParametersResponse(BaseModel):
@@ -66,6 +72,15 @@ class SignalSubscriptionPresetResponse(BaseModel):
     parameters: SignalParametersResponse
 
 
+class SignalTelegramDeliveryResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    enabled: bool
+    readiness: Literal["ready", "linking", "not_connected", "degraded"]
+    status_reason: str | None
+    changed_at: datetime | None
+
+
 class SignalSubscriptionResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
 
@@ -74,6 +89,7 @@ class SignalSubscriptionResponse(BaseModel):
     status_reason: str | None
     market: SignalSubscriptionMarketResponse
     preset: SignalSubscriptionPresetResponse
+    telegram_delivery: SignalTelegramDeliveryResponse
     activated_at: datetime
     disabled_at: datetime | None
 

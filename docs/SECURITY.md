@@ -14,17 +14,17 @@ Passwords are validated at 15–128 characters and stored using pwdlib’s recom
 
 ## CSRF, CORS, Origin, and Browser Storage
 
-Authenticated mutations compare `X-CSRF-Token` with the session token using constant-time comparison. Registration/login accept only `WEB_ORIGIN` or the API origin when `Origin` is present. CORS is one configured origin with credentials and a narrow method/header list. The web client keeps authentication and CSRF values in memory; no sensitive session or linking token is intentionally persisted in browser storage.
+Authenticated mutations compare `X-CSRF-Token` with the session token using constant-time comparison. Registration/login accept only `WEB_ORIGIN` or the API origin when `Origin` is present. CORS is one configured origin with credentials and a narrow method/header list that includes `PUT` for the signal Telegram-delivery preference. The web client keeps authentication and CSRF values in memory; no sensitive session or linking token is intentionally persisted in browser storage.
 
 The signal UI persists only the literal `true`/`false` sound preference under `freecoinalert.signalSound.enabled.v1`; it never persists events, cursors, IDs, authentication, or Telegram data. Credentialed `EventSource` carries only the safe live-feed snapshots and control events.
 
 ## Authorization and Ownership
 
-The server derives the principal from the session. Alert, subscription, Telegram, and notification repositories use that ID for ownership checks. Client-supplied user identifiers do not select resources. API responses are shaped to avoid exposing another user’s resource details.
+The server derives the principal from the session. Alert, subscription, Telegram, and notification repositories use that ID for ownership checks. Client-supplied user identifiers do not select resources. The Telegram-delivery preference endpoint locks and updates only a subscription owned by the authenticated principal. API responses are shaped to avoid exposing another user’s resource details.
 
 ## Input Validation and Abuse Controls
 
-Pydantic forbids unknown fields in security-sensitive request bodies; UUIDs, exact decimals, catalogue availability, and lifecycle transitions are validated server-side. Authentication, alert, signal, and Telegram actions use bounded 15-minute in-memory rate-limit buckets. These controls are process-local, not distributed abuse protection.
+Pydantic forbids unknown fields in security-sensitive request bodies; UUIDs, exact decimals, catalogue availability, and lifecycle transitions are validated server-side. Authentication, alert, signal, and Telegram actions use bounded 15-minute in-memory rate-limit buckets. Signal Telegram-delivery preference mutations are limited to 30 per user per 15 minutes. These controls are process-local, not distributed abuse protection.
 
 ## Telegram Security
 
@@ -36,7 +36,7 @@ The historical feed and SSE stream require the existing opaque session cookie an
 
 History visibility joins signal events to the authenticated user's active or disabled subscription rows. Live and replay fan-out use active subscriptions only. Feed payloads expose immutable market/preset/candle/value snapshots as exact decimal strings, fixed invalidation messages, and no internal UUIDs, subscription/user identifiers, calculation state, provider payloads, Telegram status, or recommendation text. The durable `NOTIFY` payload contains only a stream sequence.
 
-Feed history, stream-attempt, per-user connection, per-process connection, and per-connection queue limits are bounded in memory. These controls are process-local until shared infrastructure is approved. A full queue resets and closes the affected stream so missed records are recovered through the historical endpoint rather than silently dropped.
+Feed history, stream-attempt, per-user connection, per-process connection, and per-connection queue limits are bounded in memory. These controls are process-local until shared infrastructure is approved. A full queue resets and closes the affected stream so missed records are recovered through the historical endpoint rather than silently dropped. Signal Telegram-delivery state history contains only owner-scoped subscription, market, preset, lifecycle, preference, and timestamps; it contains no Telegram identifiers or provider payloads.
 
 ## Binance and Market-Data Security
 

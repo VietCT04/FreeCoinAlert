@@ -38,7 +38,7 @@ The commands invoke `freecoinalert_api.market_data.catalog_sync`, `.market_data.
 
 ## Environment Configuration
 
-`DATABASE_URL` is required and secret. `WEB_ORIGIN` defaults to `http://localhost:3000`; `SESSION_COOKIE_SECURE` defaults false; `SESSION_TTL_SECONDS` defaults 604800. Telegram username/token and TTL/retention are described in [TELEGRAM.md](TELEGRAM.md). Binance URLs are public provider settings. Market settings and defaults are in [MARKET_DATA.md](MARKET_DATA.md). `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration with no automatic catch-up implementation; `SIGNAL_HISTORY_DAYS=90` only bounds the placeholder backfill coverage check; `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Signal SSE defaults are 2 connections per user, 500 per process, queue size 100, 15-second heartbeats, 60-second session revalidation, and 7-day stream-cursor retention; these limits are configured by `SIGNAL_SSE_*` and `SIGNAL_STREAM_RETENTION_DAYS`. Environment examples contain names and safe defaults only; never commit secrets.
+`DATABASE_URL` is required and secret. `WEB_ORIGIN` defaults to `http://localhost:3000`; `SESSION_COOKIE_SECURE` defaults false; `SESSION_TTL_SECONDS` defaults 604800. Telegram username/token and TTL/retention are described in [TELEGRAM.md](TELEGRAM.md). Binance URLs are public provider settings. Market settings and defaults are in [MARKET_DATA.md](MARKET_DATA.md). `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration with no automatic catch-up implementation; `SIGNAL_HISTORY_DAYS=90` only bounds the placeholder backfill coverage check; `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Signal SSE defaults are 2 connections per user, 500 per process, queue size 100, 15-second heartbeats, 60-second session revalidation, and 7-day stream-cursor retention; these limits are configured by `SIGNAL_SSE_*` and `SIGNAL_STREAM_RETENTION_DAYS`. Signal Telegram-delivery preference mutations use a process-local limit of 30 per user per 15 minutes and add no process, provider credential, or runtime setting. Environment examples contain names and safe defaults only; never commit secrets.
 
 `NEXT_PUBLIC_API_BASE_URL` is the browser-visible API origin and must contain no secret. The browser signal section needs no separate process, provider credential, audio asset, or runtime configuration beyond the existing API origin and credentialed CORS/SSE proxy requirements.
 
@@ -46,7 +46,7 @@ While visible, native EventSource uses the server retry value. After 60 seconds 
 
 ## Database Migrations
 
-Apply migrations manually through the release/development workflow with `pnpm db:migrate`. The local Compose API startup is not production migration automation. Database backup, restore, and production rollout automation are not implemented.
+Apply migrations manually through the release/development workflow with `pnpm db:migrate`. The current chain head adds the per-subscription Telegram-delivery columns and immutable state-history table, and its data step creates one disabled baseline state row per existing subscription without creating notification work. The local Compose API startup is not production migration automation. Database backup, restore, and production rollout automation are not implemented.
 
 ## Market Catalog Synchronization
 
@@ -62,7 +62,7 @@ Use bootstrap for a new/empty bounded history and reconciliation for missing rec
 
 ## Signal Backfill
 
-`signals:backfill` is an explicit singleton-protected future historical-rebuild boundary. It checks product markets and current complete `1h`/`4h` coverage inside `SIGNAL_HISTORY_DAYS`, logs startup, then reports `evaluator_rebuild_required`; it does not currently create or rebuild signal events and does not contact Binance or Telegram.
+`signals:backfill` is an explicit singleton-protected future historical-rebuild boundary. It checks product markets and current complete `1h`/`4h` coverage inside `SIGNAL_HISTORY_DAYS`, logs startup, then reports `evaluator_rebuild_required`; it does not currently create or rebuild signal events and does not contact Binance or Telegram. The subscription Telegram-delivery preference is ordinary API/database work and does not run a separate process or provider path.
 
 ## Telegram Poller and Notification Worker
 

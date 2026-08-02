@@ -6,7 +6,7 @@ FreeCoinAlert helps a signed-in user watch a controlled set of Binance Spot mark
 
 ## Current Product Summary
 
-The current product has account sessions, private Telegram linking, a test-notification queue, a public supported-market catalogue, browser management for one-time price alerts, fixed preset subscription controls, and an authenticated historical/live signal feed. Market processing creates global closed-candle signal occurrences; subscriptions do not create separate copies of those occurrences. Runtime/provider and browser paths are implemented but unverified.
+The current product has account sessions, private Telegram linking, a test-notification queue, a public supported-market catalogue, browser management for one-time price alerts, fixed preset subscription controls, and an authenticated historical/live signal feed. Each signal subscription also stores an explicit owner-scoped Telegram-delivery preference and exposes dynamic Telegram readiness through the authenticated API. Market processing creates global closed-candle signal occurrences; subscriptions do not create separate copies of those occurrences, and the preference does not create notification work or send messages. Runtime/provider and browser paths are implemented but unverified.
 
 ## Current User Journeys
 
@@ -14,6 +14,7 @@ The current product has account sessions, private Telegram linking, a test-notif
 - Create a Telegram link, open its bot deep link, inspect connection state, disconnect it, and queue a Telegram test notification.
 - View the controlled market catalogue and create, list, inspect, and delete a one-time price-crossing alert.
 - Browse fixed signal presets, create/list/disable a subscription for an available market and preset version, and view the matching historical signal feed.
+- Read and change the per-subscription Telegram-delivery preference through the authenticated API; enabling requires an active subscription and a connected, non-degraded Telegram destination, and the preference is disabled by default.
 - Filter loaded signal history, receive matching live events while the page is visible, recover missed entries after reconnect or visibility changes, and optionally activate a short in-page sound.
 
 The authenticated root order is account summary, Telegram connection, price alerts, then `Preset signals`. The section describes fixed technical signals as informational and not trading advice. Cards show the server-provided name, description, timeframe, confirmed candle-close input, fixed parameters, and subscription state; formulas and parameters are not editable. `Signal history` uses the wording that recent occurrences may predate the user's subscription, supports load-more pagination and lightweight market/preset filters, and keeps history visibility separate from Telegram delivery.
@@ -29,25 +30,25 @@ One-time alerts fire once when a live aggregate-trade price crosses a user-selec
 - Price close crossing above or below SMA 200.
 - Wilder RSI 14 crossing above 70 or below 30.
 
-Each combination has version `1`: four SMA presets and four RSI presets across `1h` and `4h`. Preset parameters, formulas, timeframes, directions, and versions are read-only in the browser. A signal occurrence, authenticated API feed visibility, website UI, optional sound playback, and Telegram delivery are separate concepts.
+Each combination has version `1`: four SMA presets and four RSI presets across `1h` and `4h`. Preset parameters, formulas, timeframes, directions, and versions are read-only in the browser. A signal occurrence, authenticated API feed visibility, website UI, optional sound playback, Telegram-delivery preference, and future Telegram provider delivery are separate concepts. The preference API does not implement preset Telegram delivery.
 
 ## User-Visible Status and Failure Semantics
 
-Price alerts are `active`, `triggered`, `disabled`, or `failed`. They expose whether evaluation is ready, the latest observed price, trigger details when triggered, market-data freshness, and separate delivery status. A Telegram connection is `not_connected`, `linking`, `connected`, `degraded`, or `disconnected`. A subscription is `active` or `disabled`.
+Price alerts are `active`, `triggered`, `disabled`, or `failed`. They expose whether evaluation is ready, the latest observed price, trigger details when triggered, market-data freshness, and separate delivery status. A Telegram connection is `not_connected`, `linking`, `connected`, `degraded`, or `disconnected`. A subscription is `active` or `disabled`. The subscription API reports Telegram-delivery readiness as `ready`, `linking`, `not_connected`, or `degraded`; readiness is dynamic and is not stored on the subscription.
 
 An unavailable or stale catalogue cannot be used to create alerts or subscriptions. Authentication, ownership, validation, rate-limit, and provider-safe failure responses are defined in [API.md](API.md).
 
 ## Current Limits
 
-Enforced limits include: 15–128 character passwords; a 7-day default session lifetime; 10 price-alert creations per user and 30 per IP per 15 minutes; 20 subscription enables per user and 40 per IP per 15 minutes; 30 disable operations per user per 15 minutes; and 3 test notifications per user per 15 minutes. Maximum active price alerts per user: 20. Maximum active signal subscriptions per user: 20. Disabled subscription records are not subject to a separate record-count limit. Limits are process-local.
+Enforced limits include: 15–128 character passwords; a 7-day default session lifetime; 10 price-alert creations per user and 30 per IP per 15 minutes; 20 subscription enables per user and 40 per IP per 15 minutes; 30 subscription disables per user per 15 minutes; 30 Telegram-delivery preference mutations per user per 15 minutes; and 3 test notifications per user per 15 minutes. Maximum active price alerts per user: 20. Maximum active signal subscriptions per user: 20. Disabled subscription records are not subject to a separate record-count limit. Limits are process-local.
 
 ## Not Supported
 
-FreeCoinAlert does not execute trades, hold funds, request exchange API keys, accept user-authored strategies, expose arbitrary timeframes, provide backtesting or performance claims, provide mobile/system push notifications, or allow custom sounds. Browser sound is optional, off by default, and does not guarantee delivery. The product makes no profit or delivery guarantee.
+FreeCoinAlert does not execute trades, hold funds, request exchange API keys, accept user-authored strategies, expose arbitrary timeframes, provide backtesting or performance claims, provide mobile/system push notifications, or allow custom sounds. Preset signal Telegram delivery, notification fan-out, and browser controls for the preference are not implemented. Browser sound is optional, off by default, and does not guarantee delivery. The product makes no profit or delivery guarantee.
 
 ## Future and Not Supported Capabilities
 
-Historical analysis, charts, public/social feeds, and mobile/system push notifications are not supported. Any future capability requires an approved issue and must preserve the separation between signal occurrence, in-app visibility, sound, and Telegram delivery.
+Historical analysis, charts, public/social feeds, preset signal Telegram delivery, notification fan-out, browser controls for per-subscription delivery, and mobile/system push notifications are not supported. Any future capability requires an approved issue and must preserve the separation between signal occurrence, in-app visibility, sound, delivery preference, and Telegram provider delivery.
 
 ## Product Safety and Financial-Information Boundary
 

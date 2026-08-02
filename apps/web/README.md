@@ -32,6 +32,8 @@ pnpm --filter @freecoinalert/web start
 
 The root signal surface uses native Fetch, EventSource, React state/effects, and the Web Audio API. Preset formulas and parameters remain server-controlled and read-only; browser sound is off by default and is never required for visual updates.
 
+Preset Telegram-delivery preferences are currently represented by the API contract but have no browser controls or message-delivery behavior in this application.
+
 ## Authoritative Documentation
 
 - [Product](../../docs/PRODUCT.md)
