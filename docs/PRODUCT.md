@@ -6,7 +6,7 @@ FreeCoinAlert helps a signed-in user watch a controlled set of Binance Spot mark
 
 ## Current Product Summary
 
-The current product has account sessions, private Telegram linking, a test-notification queue, a public supported-market catalogue, browser management for one-time price alerts, fixed preset subscription controls, and an authenticated historical/live signal feed. Each signal subscription also stores an explicit owner-scoped Telegram-delivery preference and exposes dynamic Telegram readiness through the authenticated API. New live signal occurrences create one durable dispatch record; occurrence-time eligible subscriptions can produce at most one immutable-snapshot Telegram outbox job per user. The dispatcher does not call Telegram, and preset-signal provider sending and browser controls remain planned. Runtime/provider and browser paths are implemented but unverified.
+The current product has account sessions, private Telegram linking, a test-notification queue, a public supported-market catalogue, browser management for one-time price alerts, fixed preset subscription controls, and an authenticated historical/live signal feed. Each signal subscription also stores an explicit owner-scoped Telegram-delivery preference and exposes dynamic Telegram readiness through the authenticated API. New live signal occurrences create one durable dispatch record; occurrence-time eligible subscriptions can produce at most one immutable-snapshot Telegram outbox job per user. The dispatcher does not call Telegram, while the notification worker performs the provider delivery with send-time safety checks. Browser controls for the preference remain planned; runtime/provider paths are implemented but unverified.
 
 ## Current User Journeys
 
@@ -30,7 +30,7 @@ One-time alerts fire once when a live aggregate-trade price crosses a user-selec
 - Price close crossing above or below SMA 200.
 - Wilder RSI 14 crossing above 70 or below 30.
 
-Each combination has version `1`: four SMA presets and four RSI presets across `1h` and `4h`. Preset parameters, formulas, timeframes, directions, and versions are read-only in the browser. A signal occurrence, authenticated API feed visibility, website UI, optional sound playback, Telegram-delivery preference, fan-out dispatch, outbox job, and future Telegram provider delivery are separate concepts. Fan-out does not deliver backfilled history, and the provider worker does not yet send preset-signal jobs.
+Each combination has version `1`: four SMA presets and four RSI presets across `1h` and `4h`. Preset parameters, formulas, timeframes, directions, and versions are read-only in the browser. A signal occurrence, authenticated API feed visibility, website UI, optional sound playback, Telegram-delivery preference, fan-out dispatch, outbox job, and Telegram provider delivery are separate concepts. Fan-out does not deliver backfilled history, and provider delivery rechecks consent, subscription, occurrence, and destination state before sending.
 
 ## User-Visible Status and Failure Semantics
 
@@ -44,11 +44,11 @@ Enforced limits include: 15–128 character passwords; a 7-day default session l
 
 ## Not Supported
 
-FreeCoinAlert does not execute trades, hold funds, request exchange API keys, accept user-authored strategies, expose arbitrary timeframes, provide backtesting or performance claims, provide mobile/system push notifications, or allow custom sounds. Preset-signal Telegram provider sending and browser controls for the preference are not implemented; durable fan-out into outbox jobs is implemented separately and does not guarantee delivery. Browser sound is optional, off by default, and does not guarantee delivery. The product makes no profit or delivery guarantee.
+FreeCoinAlert does not execute trades, hold funds, request exchange API keys, accept user-authored strategies, expose arbitrary timeframes, provide backtesting or performance claims, provide mobile/system push notifications, or allow custom sounds. Browser controls for the preset-signal Telegram preference are not implemented; the API, durable fan-out, and provider-worker delivery are implemented separately and do not guarantee delivery. Browser sound is optional, off by default, and does not guarantee delivery. The product makes no profit or delivery guarantee.
 
 ## Future and Not Supported Capabilities
 
-Historical analysis, charts, public/social feeds, preset-signal Telegram provider delivery, browser controls for per-subscription delivery, and mobile/system push notifications are not supported. Any future capability requires an approved issue and must preserve the separation between signal occurrence, in-app visibility, sound, delivery preference, fan-out job, and Telegram provider delivery.
+Historical analysis, charts, public/social feeds, browser controls for per-subscription delivery, and mobile/system push notifications are not supported. Any future capability requires an approved issue and must preserve the separation between signal occurrence, in-app visibility, sound, delivery preference, fan-out job, and Telegram provider delivery.
 
 ## Product Safety and Financial-Information Boundary
 

@@ -80,6 +80,14 @@ class TelegramBotClient:
     ) -> TelegramDeliveryResult:
         return await self._send_message(chat_id=chat_id, text=text)
 
+    async def send_preset_signal(
+        self,
+        *,
+        chat_id: int,
+        text: str,
+    ) -> TelegramDeliveryResult:
+        return await self._send_message(chat_id=chat_id, text=text)
+
     async def _send_message(self, *, chat_id: int, text: str) -> TelegramDeliveryResult:
         try:
             message = await self._bot.send_message(chat_id=chat_id, text=text)
