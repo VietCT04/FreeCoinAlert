@@ -25,6 +25,9 @@ Authentication errors are `{ "code": string, "message": string, "details": [] }`
 | GET | `/signal-presets` | no / no | preset catalogue |
 | GET/POST/DELETE/PUT | `/signal-subscriptions`, `/signal-subscriptions`, `/signal-subscriptions/{id}`, `/signal-subscriptions/{id}/telegram-delivery` | yes / post+delete+put | subscriptions and Telegram-delivery preference |
 | GET/GET | `/signal-feed`, `/signal-feed/stream` | yes / no | historical and live signal feed |
+| GET | `/historical-analysis/configuration` | yes / no | server-controlled run configuration |
+| POST/GET | `/historical-analyses` | yes / post CSRF | create and list owner-scoped analysis runs |
+| GET/POST | `/historical-analyses/{id}`, `/historical-analyses/{id}/cancel` | yes / cancel CSRF | read and cancel an owner-scoped run |
 | POST/GET/DELETE | `/telegram/link-tokens`, `/telegram/connection`, `/telegram/connection` | yes / post+delete | Telegram connection |
 | POST/GET | `/telegram/test-notifications`, `/telegram/test-notifications/{id}` | yes / post only | test delivery |
 
@@ -148,6 +151,58 @@ The stream allows 10 connection attempts per user and 30 per direct client IP pe
 Stable feed errors are `SIGNAL_FEED_CURSOR_INVALID`, `SIGNAL_FEED_STREAM_CURSOR_INVALID`, `SIGNAL_FEED_REQUEST_INVALID`, `SIGNAL_FEED_RATE_LIMITED`, `SIGNAL_FEED_CONNECTION_LIMIT_REACHED`, and `SIGNAL_FEED_UNAVAILABLE`. Once streaming starts, control events and connection close replace a JSON error response.
 
 The authenticated root browser surface consumes these contracts with native credentialed Fetch and `EventSource`. It keeps the historical pagination cursor separate from the `streamCursor` watermark, closes the stream when the document is hidden, refreshes history before visibility recovery, and treats replay or recovery entries as non-live UI updates. Active preset cards use the server-owned Telegram-delivery preference endpoint with the existing CSRF token, confirm enabling, apply only successful responses, and refresh subscriptions after Telegram connection changes. Browser sound is an optional client-side presentation feature and is not part of the API or Telegram delivery contract.
+
+## Historical Analysis Runs
+
+The authenticated API exposes bounded owner-scoped historical-analysis requests and lifecycle metadata. It does not read candles, prepare a dataset, calculate indicators, simulate trades, start a worker, contact Binance, create alerts or signals, or return a report. Dataset preparation, simulation, execution, report persistence, and browser behavior remain future boundaries.
+
+`GET /historical-analysis/configuration` requires authentication and returns `Cache-Control: no-store` with the fixed server contract:
+
+```json
+{
+  "minimumRangeDays": 7,
+  "maximumRangeDays": 90,
+  "maximumActiveRuns": 2,
+  "simulationVersion": "historical_fixed_preset_v1",
+  "assumptionVersion": "fixed_horizon_v1",
+  "assumptions": {
+    "signalTiming": "confirmed_candle_close",
+    "entryTiming": "next_candle_open",
+    "holdingPeriodCandles": 6,
+    "feeBpsPerSide": "10",
+    "slippageBpsPerSide": "5",
+    "positionSizing": "one_position_full_equity",
+    "overlappingSignals": "ignored",
+    "endOfRange": "incomplete_trade_not_opened"
+  }
+}
+```
+
+The configuration endpoint describes a future simulation contract; it does not claim that the simulation engine is available.
+
+`POST /historical-analyses` requires authentication, CSRF, and a UUID `Idempotency-Key` header. The body is:
+
+```json
+{
+  "exchange": "binance",
+  "market_type": "spot",
+  "symbol": "BTCUSDT",
+  "preset_code": "price_sma_200_cross_above_1h",
+  "preset_version": 1,
+  "analysis_start": "2026-05-01T00:00:00Z",
+  "analysis_end": "2026-06-01T00:00:00Z"
+}
+```
+
+Only controlled Binance Spot markets, active fixed preset code/version pairs, and preset timeframes `1h` and `4h` are accepted. The server resolves the calculation snapshot (`sma_close_v1` for SMA presets or `rsi_wilder_close_v1` for RSI presets), `historical_fixed_preset_v1`, and `fixed_horizon_v1`; callers cannot submit formulas, parameters, fees, slippage, sizing, holding duration, or engine versions. Dates must be timezone-aware UTC values aligned to the selected timeframe, use an inclusive start and exclusive end, span 7 through 90 days, end no later than the latest fully closed timeframe boundary, and leave the required 200-candle SMA or 15-candle RSI warm-up inside the configured canonical candle-retention window. Creation performs no exact candle-availability check.
+
+A new request returns `201` with `{ "run": ... }`, status `queued`, progress stage `queued`, and progress `0`. The safe run envelope contains the immutable market/preset/calculation/version snapshots, UTC range, lifecycle status, progress, cancellation-requested state, safe lifecycle timestamps, and safe failure category. It never returns user IDs, lock IDs, raw errors, candle IDs, or provider details. The maximum active run count is two per user. A replay with the same user-scoped idempotency key and equivalent request returns the original run with `200`; reusing the key for a different request returns `409 HISTORICAL_ANALYSIS_IDEMPOTENCY_CONFLICT`.
+
+`GET /historical-analyses` requires authentication, returns newest-first owner-only rows, uses a default limit of 20 and maximum of 100, accepts one lifecycle status filter, and uses an opaque cursor based on `(created_at, id)`. `GET /historical-analyses/{run_id}` returns the same safe owner-only envelope. Unknown, malformed, or foreign run identifiers do not disclose another user's run.
+
+`POST /historical-analyses/{run_id}/cancel` requires CSRF and no body. A queued run becomes `cancelled` immediately; a running run records `cancellationRequested` and remains `running` until a future worker acknowledges it; repeated cancellation is idempotent; and succeeded, failed, or cancelled runs remain unchanged. The response is `200` with the complete safe run envelope.
+
+Creation is limited to 10 per user and 30 per direct client IP per 15 minutes; cancellation is limited to 30 per user; configuration/list/detail reads share a limit of 120 per user per 15 minutes. Rate-limited responses use `429 HISTORICAL_ANALYSIS_RATE_LIMITED` and `Retry-After`. Stable domain errors are `422 HISTORICAL_ANALYSIS_REQUEST_INVALID`, `404 HISTORICAL_ANALYSIS_MARKET_NOT_FOUND`, `404 HISTORICAL_ANALYSIS_PRESET_NOT_FOUND`, `409 HISTORICAL_ANALYSIS_PRESET_UNAVAILABLE`, `409 HISTORICAL_ANALYSIS_RANGE_UNAVAILABLE`, `409 HISTORICAL_ANALYSIS_ACTIVE_LIMIT_REACHED`, `409 HISTORICAL_ANALYSIS_IDEMPOTENCY_CONFLICT`, `404 HISTORICAL_ANALYSIS_NOT_FOUND`, and `503 HISTORICAL_ANALYSIS_UNAVAILABLE`.
 
 ## Ownership and Information-Exposure Rules
 

@@ -15,6 +15,7 @@ PostgreSQL is the durable source of truth. Tables generally use UUID primary key
 | Candles | `market_candles`, `candle_symbol_states`, `candle_sync_runs` | immutable/revisioned candles + operations |
 | Alerts | `price_alerts`, `alert_events` | mutable alert + immutable trigger |
 | Signals | `signal_presets`, `signal_subscriptions`, `signal_subscription_state_events`, `signal_evaluation_states`, `signal_events`, `signal_event_invalidations`, `signal_feed_stream_events` | versioned definitions, user intent, occurrence-time subscription state, evaluation state, immutable history, durable feed cursor |
+| Historical analysis | `historical_analysis_runs` | owner-scoped bounded request and lifecycle state |
 
 ## Authentication Domain
 
@@ -60,17 +61,72 @@ PostgreSQL is the durable source of truth. Tables generally use UUID primary key
 
 `signal_feed_stream_events` is a separate durable transport cursor log. Its identity-generated `sequence` is the SSE resume cursor; `kind` is `signal_created` or `signal_invalidated`; `signal_event_id` references the immutable event with `ON DELETE RESTRICT`; and `created_at` records publication order. `(kind, signal_event_id)` is unique, with indexes on `created_at` and `signal_event_id`. It does not copy the signal snapshot. Event creation and invalidation insert their stream row and execute `pg_notify('freecoinalert_signal_feed', '{"sequence":"..."}')` in the same transaction; PostgreSQL delivers the notification only after commit.
 
+## Historical Analysis Run Domain
+
+`historical_analysis_runs` stores one authenticated user's bounded historical-analysis request and its safe lifecycle metadata. It contains a UUID primary key, the owner, `supported_market_id`, `signal_preset_id`, a UUID `idempotency_key`, immutable exchange/market/symbol and preset snapshots, server-resolved `calculation_version_snapshot`, `simulation_version`, `assumption_version`, UTC `analysis_start`/`analysis_end`, progress stage/percent, attempt and availability fields, cancellation/worker timestamps, safe `failure_code`, and created/updated timestamps. The request snapshot preserves the market and fixed preset meaning selected at creation; later dataset, simulation, report, and frontend work does not alter this row.
+
+The stored columns are:
+
+```text
+id UUID PRIMARY KEY
+user_id UUID NOT NULL
+supported_market_id UUID NOT NULL
+signal_preset_id UUID NOT NULL
+status VARCHAR(32) NOT NULL
+idempotency_key UUID NOT NULL
+exchange_snapshot VARCHAR(32) NOT NULL
+market_type_snapshot VARCHAR(32) NOT NULL
+symbol_snapshot VARCHAR(32) NOT NULL
+base_asset_snapshot VARCHAR(32) NOT NULL
+quote_asset_snapshot VARCHAR(32) NOT NULL
+preset_code_snapshot VARCHAR(96) NOT NULL
+preset_version_snapshot INTEGER NOT NULL
+preset_name_snapshot VARCHAR(128) NOT NULL
+strategy_type_snapshot VARCHAR(32) NOT NULL
+timeframe_snapshot VARCHAR(8) NOT NULL
+direction_snapshot VARCHAR(32) NOT NULL
+period_snapshot INTEGER NOT NULL
+threshold_snapshot NUMERIC(38,18) NULL
+price_input_snapshot VARCHAR(32) NOT NULL
+calculation_version_snapshot VARCHAR(64) NOT NULL
+simulation_version VARCHAR(64) NOT NULL
+assumption_version VARCHAR(64) NOT NULL
+analysis_start TIMESTAMP WITH TIME ZONE NOT NULL
+analysis_end TIMESTAMP WITH TIME ZONE NOT NULL
+progress_stage VARCHAR(32) NOT NULL
+progress_percent INTEGER NOT NULL DEFAULT 0
+attempt_count INTEGER NOT NULL DEFAULT 0
+max_attempts INTEGER NOT NULL DEFAULT 3
+available_at TIMESTAMP WITH TIME ZONE NOT NULL
+locked_at TIMESTAMP WITH TIME ZONE NULL
+locked_by VARCHAR(64) NULL
+cancellation_requested_at TIMESTAMP WITH TIME ZONE NULL
+started_at TIMESTAMP WITH TIME ZONE NULL
+completed_at TIMESTAMP WITH TIME ZONE NULL
+failed_at TIMESTAMP WITH TIME ZONE NULL
+cancelled_at TIMESTAMP WITH TIME ZONE NULL
+failure_code VARCHAR(64) NULL
+created_at TIMESTAMP WITH TIME ZONE NOT NULL
+updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+```
+
+The status is one of `queued`, `running`, `succeeded`, `failed`, or `cancelled`. Lifecycle checks require queued rows to have no terminal timestamps, running rows to have `started_at` and no terminal timestamp, succeeded rows to have `completed_at`, failed rows to have `failed_at` and a failure code, and cancelled rows to have `cancelled_at`. `analysis_end > analysis_start`, progress is 0 through 100, and attempts are nonnegative and bounded by `max_attempts` (default 3). The unique `(user_id, idempotency_key)` constraint makes create replay owner-scoped and prevents a key from creating a second logical run. Owner listing uses `(user_id, created_at DESC, id DESC)`; future queued work uses a partial `(available_at, created_at)` index; active-owner limits use a partial user/status index.
+
+The user foreign key cascades on account deletion. Supported-market and signal-preset foreign keys use `ON DELETE RESTRICT` so a run retains the references required by its immutable request snapshot. Run creation validates configuration, range, ownership, and limits and then inserts the queued row in one transaction; it does not read candle rows or call a provider. Cancellation locks the owner row, immediately transitions queued work to cancelled or records `cancellation_requested_at` for running work, and commits the lifecycle change. There is no cleanup process in this change; terminal-run retention remains unresolved until the future worker/report boundary, and active runs must never be deleted automatically.
+
 ## Cross-Domain Transaction Boundaries
+
+Historical-analysis creation locks the user-scoped create boundary, validates server-controlled market/preset/range identity, and inserts the queued run atomically; idempotent replays do not create another row. Cancellation locks the owner row and commits its lifecycle/requested-cancellation transition atomically.
 
 Registration/login commit user/session together. Price-alert evaluation inserts event/outbox and transitions the alert atomically. Signal evaluation locks/updates its market-preset state and inserts a deduplicated signal event, its feed stream row, and its one dispatch row atomically. Signal invalidation inserts its immutable invalidation and feed stream row atomically. Subscription lifecycle and Telegram-preference transitions update the mutable subscription row and insert one state-history row atomically; equivalent preference requests insert neither a new state row nor notification work. Dispatcher pages select occurrence-time state, create idempotent per-user outbox rows, advance the subscription cursor, and update counts in one transaction. The PostgreSQL notification is emitted before the occurrence transaction commits and carries only the stream sequence. Telegram sending changes only outbox delivery state after the occurrence and fan-out transactions.
 
 ## Retention and Cleanup
 
-Canonical candle retention defaults to 180 days; processed Telegram updates default to 30 days; signal-event retention configuration defaults to 365 days but no automatic signal-event deletion process is implemented. Feed stream cursor rows are retained for 7 days and the API listener deletes at most 10,000 expired rows in one maintenance transaction, without deleting referenced signal events. Signal dispatch and preset-signal outbox rows have no automatic cleanup in this change; terminal state remains available for recovery diagnosis and is governed by account-deletion FKs and future operational policy. Price events, alert records, and account-deletion retention remain governed by their FKs and operational policy.
+Canonical candle retention defaults to 180 days; processed Telegram updates default to 30 days; signal-event retention configuration defaults to 365 days but no automatic signal-event deletion process is implemented. Feed stream cursor rows are retained for 7 days and the API listener deletes at most 10,000 expired rows in one maintenance transaction, without deleting referenced signal events. Signal dispatch and preset-signal outbox rows have no automatic cleanup in this change; terminal state remains available for recovery diagnosis and is governed by account-deletion FKs and future operational policy. Historical-analysis runs have no cleanup process in this change; active runs must not be deleted automatically and terminal-run retention remains unresolved until the worker/report issue defines it. Price events, alert records, and account-deletion retention remain governed by their FKs and operational policy.
 
 ## Migration Inventory
 
-`20260728_0001` users/auth sessions; `20260730_0002` Telegram persistence; `0003` notification outbox; `0004` supported market catalogue; `0005` price alerts/events; `0006` live market state; `0007` price-alert notification kind; `0008` canonical candles; `0009` candle operational state; `0010` signal presets/subscriptions; `20260731_0011` signal evaluation/events/invalidations; `20260802_0012` durable signal-feed stream events and existing-event replay rows; `20260802_0013` explicit signal Telegram-delivery preference and immutable subscription state history with baseline rows; `20260802_0014` signal Telegram dispatch rows and preset-signal outbox references/indexes. The chain head is `20260802_0014`.
+`20260728_0001` users/auth sessions; `20260730_0002` Telegram persistence; `0003` notification outbox; `0004` supported market catalogue; `0005` price alerts/events; `0006` live market state; `0007` price-alert notification kind; `0008` canonical candles; `0009` candle operational state; `0010` signal presets/subscriptions; `20260731_0011` signal evaluation/events/invalidations; `20260802_0012` durable signal-feed stream events and existing-event replay rows; `20260802_0013` explicit signal Telegram-delivery preference and immutable subscription state history with baseline rows; `20260802_0014` signal Telegram dispatch rows and preset-signal outbox references/indexes; `20260803_0015` owner-scoped historical-analysis runs. The chain head is `20260803_0015`.
 
 ## Backup, Deletion, and Unresolved Storage Concerns
 

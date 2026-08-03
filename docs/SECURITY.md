@@ -22,9 +22,15 @@ The signal UI persists only the literal `true`/`false` sound preference under `f
 
 The server derives the principal from the session. Alert, subscription, Telegram, and notification repositories use that ID for ownership checks. Client-supplied user identifiers do not select resources. The Telegram-delivery preference endpoint locks and updates only a subscription owned by the authenticated principal. API responses are shaped to avoid exposing another user’s resource details.
 
+## Historical Analysis Runs
+
+Historical-analysis routes require an authenticated session; create and cancellation also require the existing CSRF token. The server derives `user_id` from that session, applies owner filtering to list/detail/cancel operations, serializes create attempts with the existing per-user advisory-lock pattern, and enforces the maximum of two queued or running runs per owner. A UUID `Idempotency-Key` is unique within the owner scope, and a replay with a different request identity is rejected without exposing another run.
+
+Run snapshots contain only controlled market/preset/version/range metadata and safe lifecycle fields. The response omits user IDs, lock IDs, raw errors, candle IDs, provider payloads, credentials, and report data. Run creation performs configuration and range checks only; it does not read candle history, call Binance, calculate indicators, simulate trades, create signal/alert/delivery work, or trust client-supplied formulas or assumptions.
+
 ## Input Validation and Abuse Controls
 
-Pydantic forbids unknown fields in security-sensitive request bodies; UUIDs, exact decimals, catalogue availability, and lifecycle transitions are validated server-side. Authentication, alert, signal, and Telegram actions use bounded 15-minute in-memory rate-limit buckets. Signal Telegram-delivery preference mutations are limited to 30 per user per 15 minutes. These controls are process-local, not distributed abuse protection.
+Pydantic forbids unknown fields in security-sensitive request bodies; UUIDs, exact decimals, catalogue availability, and lifecycle transitions are validated server-side. Authentication, alert, signal, Telegram, and historical-analysis actions use bounded 15-minute in-memory rate-limit buckets. Historical-analysis creates are limited to 10 per user and 30 per direct client IP, cancellations to 30 per user, and configuration/list/detail reads to 120 per user. Signal Telegram-delivery preference mutations are limited to 30 per user per 15 minutes. These controls are process-local, not distributed abuse protection.
 
 ## Telegram Security
 
