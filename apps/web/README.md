@@ -30,9 +30,9 @@ pnpm --filter @freecoinalert/web start
 - `/sign-in` — browser sign-in.
 - `/sign-up` — browser registration.
 
-The root signal surface uses native Fetch, EventSource, React state/effects, and the Web Audio API. Preset formulas and parameters remain server-controlled and read-only; browser sound is off by default and is never required for visual updates.
+The root signal surface uses native Fetch, EventSource, React state/effects, and the Web Audio API. Preset formulas and parameters remain server-controlled and read-only; browser sound is off by default and is never required for visual updates. Active preset cards also expose the server-owned Telegram-delivery preference and dynamic destination readiness.
 
-Preset Telegram-delivery preferences are currently represented by the API contract but have no browser controls or message-delivery behavior in this application.
+Telegram-delivery controls use credentialed native Fetch and the existing CSRF token, confirm enabling, apply only successful server responses, and keep browser history and sound separate from provider delivery. The browser does not contact Telegram or store preference, readiness, destination, or token data in local storage.
 
 ## Authoritative Documentation
 

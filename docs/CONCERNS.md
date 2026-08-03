@@ -6,18 +6,6 @@ This document records unresolved current risks and decisions, not feature histor
 
 ## Active Product Concerns
 
-### Preset Telegram browser controls are not implemented
-
-**Current fact:** Signal subscriptions store an explicit Telegram-delivery preference and expose dynamic readiness through the API. Live occurrence fan-out creates bounded, occurrence-time-eligible durable `telegram_preset_signal` jobs, and the notification worker can deliver them with immutable payload validation and send-time safety checks. Browser preference controls do not exist.
-
-**Risk/impact:** Users cannot manage the preference from the browser and could mistake an enabled preference or queued job for a guaranteed delivered signal. Per-occurrence delivery history is also not exposed by the current feed contract.
-
-**Current mitigation:** The API and product documentation describe preference, readiness, occurrence, dispatch, outbox, and provider delivery as separate concepts; the preference is disabled by default, enabling requires a connected non-degraded destination, fan-out excludes backfilled/expired/invalidated occurrences, and the worker rechecks consent, subscription, occurrence, and destination state before sending.
-
-**Follow-up:** Implement the separately approved #74 frontend-control issue before presenting browser-managed preset Telegram delivery as available.
-
-**Owning document:** [TELEGRAM.md](TELEGRAM.md) and [PRODUCT.md](PRODUCT.md).
-
 ### Subscription reactivation can exceed the active limit
 
 **Current fact:** New signal subscription rows are checked against the 20-enabled-subscription limit, but reactivation of an existing disabled row bypasses that count check.

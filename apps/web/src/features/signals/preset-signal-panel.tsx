@@ -18,7 +18,13 @@ import { useSignalSound } from "./use-signal-sound";
 import { useSignalStream } from "./use-signal-stream";
 import { useSignalSubscriptions } from "./use-signal-subscriptions";
 
-export function PresetSignalPanel() {
+type PresetSignalPanelProps = {
+  telegramConnectionRevision?: number;
+};
+
+export function PresetSignalPanel({
+  telegramConnectionRevision = 0,
+}: PresetSignalPanelProps) {
   const { csrfToken, refreshSession, status } = useAuth();
   const markets = useMarkets(status);
   const sound = useSignalSound(status);
@@ -53,6 +59,11 @@ export function PresetSignalPanel() {
     onSubscriptionChanged: handleSubscriptionChanged,
     refreshSession,
   });
+  useEffect(() => {
+    if (status === "authenticated" && telegramConnectionRevision > 0) {
+      void subscriptions.refresh();
+    }
+  }, [status, subscriptions.refresh, telegramConnectionRevision]);
   const recoverHistory = useCallback(async (): Promise<boolean> => {
     const [feedRecovered, subscriptionsRecovered] = await Promise.all([
       feed.refreshFirstPage(),
@@ -144,6 +155,12 @@ export function PresetSignalPanel() {
     },
     [subscriptions.disable],
   );
+  const onSetTelegramDelivery = useCallback(
+    (subscription: SignalSubscription, enabled: boolean) => {
+      void subscriptions.setTelegramDelivery(subscription, enabled);
+    },
+    [subscriptions.setTelegramDelivery],
+  );
 
   if (status !== "authenticated") {
     return null;
@@ -176,6 +193,13 @@ export function PresetSignalPanel() {
         onAskToDisable={subscriptions.askToDisable}
         onCancelDisable={subscriptions.cancelDisable}
         onConfirmDisable={onSubscriptionConfirmDisable}
+        onAskToEnableTelegramDelivery={
+          subscriptions.askToEnableTelegramDelivery
+        }
+        onCancelTelegramDeliveryConfirmation={
+          subscriptions.cancelTelegramDeliveryConfirmation
+        }
+        onSetTelegramDelivery={onSetTelegramDelivery}
         onRetryMarkets={() => void markets.refreshMarkets()}
         onSelectSymbol={setSelectedSymbol}
         onSubscribe={onSubscriptionSubscribe}
@@ -183,10 +207,12 @@ export function PresetSignalPanel() {
           setPresetFilter(`${preset.code}:${preset.version}`)
         }
         pendingKeys={subscriptions.pendingKeys}
+        pendingTelegramDeliveryIds={subscriptions.pendingTelegramDeliveryIds}
         presetError={presetError}
         presets={presets}
         selectedSymbol={selectedSymbol}
         subscriptions={subscriptions.subscriptions}
+        confirmingTelegramDeliveryId={subscriptions.confirmingTelegramDeliveryId}
       />
       <SignalFeed
         announcement={feed.announcement}

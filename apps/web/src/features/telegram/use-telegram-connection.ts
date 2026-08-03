@@ -32,6 +32,7 @@ type UseTelegramConnectionOptions = {
   authStatus: AuthStatus;
   csrfToken: string | null;
   refreshSession: () => Promise<void>;
+  onConnectionChanged?: () => void;
 };
 
 export type TelegramConnectionState = {
@@ -111,6 +112,17 @@ function hasExpired(linkExpiresAt: string | null | undefined): boolean {
   return Boolean(linkExpiresAt && Date.parse(linkExpiresAt) <= Date.now());
 }
 
+function connectionReadinessChanged(
+  previous: TelegramConnection | null,
+  next: TelegramConnection,
+): boolean {
+  return (
+    previous === null ||
+    previous.status !== next.status ||
+    previous.statusReason !== next.statusReason
+  );
+}
+
 function clearTelegramState(
   setConnection: Dispatch<SetStateAction<TelegramConnection | null>>,
   setDeepLink: Dispatch<SetStateAction<string | null>>,
@@ -129,6 +141,7 @@ export function useTelegramConnection({
   authStatus,
   csrfToken,
   refreshSession,
+  onConnectionChanged,
 }: UseTelegramConnectionOptions): TelegramConnectionState {
   const [connection, setConnection] = useState<TelegramConnection | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -146,6 +159,21 @@ export function useTelegramConnection({
   const linkingStartedAt = useRef<number | null>(null);
   const notificationPollingStartedAt = useRef<number | null>(null);
   const testIdempotencyKey = useRef<string | null>(null);
+  const connectionRef = useRef<TelegramConnection | null>(null);
+  const onConnectionChangedRef = useRef(onConnectionChanged);
+
+  useEffect(() => {
+    onConnectionChangedRef.current = onConnectionChanged;
+  }, [onConnectionChanged]);
+
+  const updateConnection = useCallback((next: TelegramConnection) => {
+    const previous = connectionRef.current;
+    connectionRef.current = next;
+    setConnection(next);
+    if (connectionReadinessChanged(previous, next)) {
+      onConnectionChangedRef.current?.();
+    }
+  }, []);
 
   const handleRequestError = useCallback(
     async (
@@ -172,7 +200,7 @@ export function useTelegramConnection({
 
     try {
       const response = await getTelegramConnection();
-      setConnection(response.connection);
+      updateConnection(response.connection);
 
       if (isTerminalConnectionStatus(response.connection.status)) {
         setDeepLink(null);
@@ -185,7 +213,7 @@ export function useTelegramConnection({
       connectionRequestInFlight.current = false;
       setIsConnectionLoading(false);
     }
-  }, [authStatus, handleRequestError]);
+  }, [authStatus, handleRequestError, updateConnection]);
 
   const refreshTestNotification = useCallback(async () => {
     if (!notification || notificationRequestInFlight.current) {
@@ -216,7 +244,7 @@ export function useTelegramConnection({
     try {
       const response = await createTelegramLink(csrfToken);
       linkingStartedAt.current = Date.now();
-      setConnection(response.connection);
+      updateConnection(response.connection);
       setDeepLink(response.telegramUrl);
       setIsLinkExpired(hasExpired(response.connection.linkExpiresAt));
       window.open(response.telegramUrl, "_blank", "noopener,noreferrer");
@@ -225,7 +253,7 @@ export function useTelegramConnection({
     } finally {
       setIsConnecting(false);
     }
-  }, [csrfToken, handleRequestError, isConnecting]);
+  }, [csrfToken, handleRequestError, isConnecting, updateConnection]);
 
   const queueTestNotification = useCallback(async () => {
     if (!csrfToken || isTestNotificationPending) {
@@ -263,7 +291,7 @@ export function useTelegramConnection({
       linkingStartedAt.current = null;
       notificationPollingStartedAt.current = null;
       testIdempotencyKey.current = null;
-      setConnection({ status: "disconnected" });
+      updateConnection({ status: "disconnected" });
       setDeepLink(null);
       setNotification(null);
       setNotificationError(null);
@@ -275,7 +303,7 @@ export function useTelegramConnection({
     } finally {
       setIsDisconnecting(false);
     }
-  }, [csrfToken, handleRequestError, isDisconnecting]);
+  }, [csrfToken, handleRequestError, isDisconnecting, updateConnection]);
 
   useEffect(() => {
     if (authStatus === "authenticated") {
@@ -286,6 +314,7 @@ export function useTelegramConnection({
     linkingStartedAt.current = null;
     notificationPollingStartedAt.current = null;
     testIdempotencyKey.current = null;
+    connectionRef.current = null;
     clearTelegramState(
       setConnection,
       setDeepLink,

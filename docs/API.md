@@ -147,7 +147,7 @@ The stream allows 10 connection attempts per user and 30 per direct client IP pe
 
 Stable feed errors are `SIGNAL_FEED_CURSOR_INVALID`, `SIGNAL_FEED_STREAM_CURSOR_INVALID`, `SIGNAL_FEED_REQUEST_INVALID`, `SIGNAL_FEED_RATE_LIMITED`, `SIGNAL_FEED_CONNECTION_LIMIT_REACHED`, and `SIGNAL_FEED_UNAVAILABLE`. Once streaming starts, control events and connection close replace a JSON error response.
 
-The authenticated root browser surface consumes these contracts with native credentialed Fetch and `EventSource`. It keeps the historical pagination cursor separate from the `streamCursor` watermark, closes the stream when the document is hidden, refreshes history before visibility recovery, and treats replay or recovery entries as non-live UI updates. Browser sound is an optional client-side presentation feature and is not part of the API or Telegram delivery contract.
+The authenticated root browser surface consumes these contracts with native credentialed Fetch and `EventSource`. It keeps the historical pagination cursor separate from the `streamCursor` watermark, closes the stream when the document is hidden, refreshes history before visibility recovery, and treats replay or recovery entries as non-live UI updates. Active preset cards use the server-owned Telegram-delivery preference endpoint with the existing CSRF token, confirm enabling, apply only successful responses, and refresh subscriptions after Telegram connection changes. Browser sound is an optional client-side presentation feature and is not part of the API or Telegram delivery contract.
 
 ## Ownership and Information-Exposure Rules
 

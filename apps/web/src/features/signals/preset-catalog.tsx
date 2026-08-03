@@ -21,6 +21,14 @@ type PresetCatalogProps = {
   onAskToDisable: (subscriptionId: string) => void;
   onCancelDisable: () => void;
   onConfirmDisable: (subscription: SignalSubscription) => void;
+  pendingTelegramDeliveryIds: Set<string>;
+  confirmingTelegramDeliveryId: string | null;
+  onAskToEnableTelegramDelivery: (subscriptionId: string) => void;
+  onCancelTelegramDeliveryConfirmation: () => void;
+  onSetTelegramDelivery: (
+    subscription: SignalSubscription,
+    enabled: boolean,
+  ) => void;
   onViewHistory: (preset: SignalPreset) => void;
   onRetryMarkets: () => void;
 };
@@ -45,6 +53,11 @@ export function PresetCatalog({
   onAskToDisable,
   onCancelDisable,
   onConfirmDisable,
+  pendingTelegramDeliveryIds,
+  confirmingTelegramDeliveryId,
+  onAskToEnableTelegramDelivery,
+  onCancelTelegramDeliveryConfirmation,
+  onSetTelegramDelivery,
   onViewHistory,
   onRetryMarkets,
 }: PresetCatalogProps) {
@@ -142,6 +155,12 @@ export function PresetCatalog({
                           confirmingDisableId === subscription?.id
                         }
                         isPending={pendingKeys.has(key)}
+                        isTelegramDeliveryPending={pendingTelegramDeliveryIds.has(
+                          subscription?.id ?? "",
+                        )}
+                        isConfirmingTelegramDelivery={
+                          confirmingTelegramDeliveryId === subscription?.id
+                        }
                         key={key}
                         marketSymbol={selectedMarket.symbol}
                         onAskToDisable={() => {
@@ -153,6 +172,19 @@ export function PresetCatalog({
                         onConfirmDisable={() => {
                           if (subscription) {
                             onConfirmDisable(subscription);
+                          }
+                        }}
+                        onAskToEnableTelegramDelivery={() => {
+                          if (subscription) {
+                            onAskToEnableTelegramDelivery(subscription.id);
+                          }
+                        }}
+                        onCancelTelegramDeliveryConfirmation={
+                          onCancelTelegramDeliveryConfirmation
+                        }
+                        onSetTelegramDelivery={(enabled) => {
+                          if (subscription) {
+                            onSetTelegramDelivery(subscription, enabled);
                           }
                         }}
                         onSubscribe={() => onSubscribe(selectedMarket.symbol, preset)}

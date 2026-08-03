@@ -71,6 +71,24 @@ export function enableSignalSubscription(
   });
 }
 
+export function setSignalTelegramDelivery(
+  csrfToken: string,
+  subscriptionId: string,
+  enabled: boolean,
+): Promise<SignalSubscriptionEnvelope> {
+  return requestSignals<SignalSubscriptionEnvelope>(
+    `/signal-subscriptions/${encodeURIComponent(subscriptionId)}/telegram-delivery`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": csrfToken,
+      },
+      body: JSON.stringify({ enabled }),
+    },
+  );
+}
+
 export async function disableSignalSubscription(
   csrfToken: string,
   subscriptionId: string,
