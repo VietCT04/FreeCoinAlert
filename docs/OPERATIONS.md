@@ -8,15 +8,37 @@ This document describes implemented local runtime entry points, settings, manual
 
 The authenticated API owns historical-analysis run creation, listing, detail, cancellation, and owner-scoped report reads. A separate `historical_analysis.worker` process claims bounded runs, prepares canonical snapshots, invokes the pure fixed-preset engine without provider calls, and publishes immutable reports. The explicit `historical_analysis.cleanup` command performs bounded terminal-run retention; it is not scheduled automatically.
 
-The web app, FastAPI API, and PostgreSQL run in the default Compose stack. The API process also starts the signal-feed PostgreSQL listener and local SSE connection manager through its FastAPI lifespan. Optional components are the singleton Binance market stream, Telegram update poller, signal Telegram dispatcher, and notification worker. Each uses the same database and configuration but is separately started.
+The web app, FastAPI API, and PostgreSQL run in the default Compose stack. The API process also starts the signal-feed PostgreSQL listener and local SSE connection manager through its FastAPI lifespan. Optional components are the singleton Binance market stream, Telegram update poller, signal Telegram dispatcher, and historical-analysis worker. Each uses the same database and configuration but is separately started through its Compose profile or direct module command.
 
 ## Default Local Stack
 
-`pnpm dev` runs `docker compose up --build`: web, API, and PostgreSQL. The API container applies Alembic head before FastAPI starts in local development. API and database host ports bind to loopback. `pnpm dev:detached`, `dev:status`, `dev:logs`, and `dev:down` respectively start detached/waited, inspect services, follow logs, and stop/remove orphans. `dev:reset` also removes volumes and is destructive local data removal.
+`pnpm dev` runs `docker compose up --build`. The core stack starts PostgreSQL, prepares the shared API environment, applies Alembic head, and then starts the API and web app. API and database host ports bind to loopback. `pnpm dev:detached`, `dev:status`, `dev:logs`, and `dev:down` respectively start detached/waited, inspect services, follow logs, and stop/remove orphans. `dev:reset` also removes volumes and is destructive local data removal.
 
 ## Optional Compose Profiles
 
-`pnpm dev:market` starts the `market` profile containing `market-stream`. `pnpm dev:telegram` starts the `telegram` profile containing `telegram-updates`, `signal-telegram-dispatcher`, and `notification-worker`. `docker compose --profile analysis up --build` starts only `historical-analysis-worker`; `pnpm analysis:worker` runs it directly and `pnpm analysis:cleanup` runs the one-shot cleanup command. Their log commands follow the matching profile service. The market stream contacts Binance; the poller and notification worker contact Telegram when configured; the signal dispatcher and historical-analysis worker contact only PostgreSQL. The analysis worker and profiles are long-running except for explicit cleanup.
+`pnpm dev:market` starts the core stack and the `market` profile. The profile runs `market-catalog-init` and `candle-bootstrap-init` before `market-stream`. `pnpm dev:telegram` starts the core stack and the `telegram` profile containing `telegram-updates`, `signal-telegram-dispatcher`, and `notification-worker`. `docker compose --profile historical-analysis up --build` starts the core stack and the real `historical-analysis-worker`; `pnpm analysis:worker` runs it directly and `pnpm analysis:cleanup` runs the one-shot cleanup command. Their log commands follow the matching profile service. The market catalog and candle initialization services contact Binance; the market stream contacts Binance; the poller and notification worker contact Telegram when configured; the signal dispatcher and historical-analysis worker contact only PostgreSQL. Initialization services are one-shot; the profile workers are long-running except for explicit cleanup.
+
+## Compose Initialization and Dependencies
+
+The shared `x-api-common` Compose extension centralizes the API image, source mount, persistent `api_venv` volume, database URL, and `init: true`. `api-prepare` runs `uv sync --frozen` once. `db-migrate` waits for a healthy PostgreSQL service and successful preparation before running `uv run --frozen alembic upgrade head`. All Python services wait for `api-prepare` through this migration dependency and use `uv run --frozen` without running `uv sync` themselves.
+
+The startup graph is:
+
+```text
+db (healthy)
+└── api-prepare (completed)
+    └── db-migrate (completed)
+        ├── api (healthy) ── web
+        ├── telegram-updates
+        ├── notification-worker
+        ├── signal-telegram-dispatcher
+        ├── historical-analysis-worker
+        └── market-catalog-init (completed)
+            └── candle-bootstrap-init (completed)
+                └── market-stream
+```
+
+`api-prepare`, `db-migrate`, `market-catalog-init`, and `candle-bootstrap-init` use `restart: "no"` through their one-shot lifecycle. A failed preparation or migration blocks dependent services; catalog or candle initialization failure blocks the market stream. Telegram and historical-analysis profiles remain optional and do not block the core stack. PostgreSQL and dependency volumes remain persistent, and repeating startup does not remove volumes or create duplicate logical initialization rows. The catalog initializer and candle bootstrap use the existing idempotent/gap-based paths.
 
 ## Root Commands
 
@@ -45,7 +67,7 @@ The commands invoke `freecoinalert_api.market_data.catalog_sync`, `.market_data.
 
 Historical-analysis range, version, active-run, request, and pure-engine resource limits are fixed server policy/constants in the API package. `CANDLE_RETENTION_DAYS` bounds the warm-up validation. The worker defaults to a 2-second poll, one claimed run, a 600-second stale-claim threshold, and one simulation at a time. `HISTORICAL_ANALYSIS_WORKER_POLL_SECONDS`, `HISTORICAL_ANALYSIS_WORKER_CLAIM_LIMIT` (1 through 4), `HISTORICAL_ANALYSIS_WORKER_STALE_SECONDS` (at least 60), `HISTORICAL_ANALYSIS_RETENTION_DAYS` (at least 1), and `HISTORICAL_ANALYSIS_CLEANUP_BATCH_SIZE` (1 through 1,000) configure the worker and explicit cleanup.
 
-`DATABASE_URL` is required and secret. `WEB_ORIGIN` defaults to `http://localhost:3000`; `SESSION_COOKIE_SECURE` defaults false; `SESSION_TTL_SECONDS` defaults 604800. Telegram username/token and TTL/retention are described in [TELEGRAM.md](TELEGRAM.md). Binance URLs are public provider settings. Market settings and defaults are in [MARKET_DATA.md](MARKET_DATA.md). `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration with no automatic catch-up implementation; `SIGNAL_HISTORY_DAYS=90` only bounds the placeholder backfill coverage check; `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Signal SSE defaults are 2 connections per user, 500 per process, queue size 100, 15-second heartbeats, 60-second session revalidation, and 7-day stream-cursor retention; these limits are configured by `SIGNAL_SSE_*` and `SIGNAL_STREAM_RETENTION_DAYS`. Signal Telegram fan-out defaults are batch size 100, claim limit 10, 2-second polling, and a 900-second maximum delivery age; these limits are configured by `SIGNAL_TELEGRAM_FANOUT_*`. Signal Telegram-delivery preference mutations use a process-local limit of 30 per user per 15 minutes. Environment examples contain names and safe defaults only; never commit secrets.
+`DATABASE_URL` is required and secret. `WEB_ORIGIN` defaults to `http://localhost:3000`; `SESSION_COOKIE_SECURE` defaults false; `SESSION_TTL_SECONDS` defaults 604800. Telegram username/token and TTL/retention are described in [TELEGRAM.md](TELEGRAM.md). Binance URLs are public provider settings. Market settings and defaults are in [MARKET_DATA.md](MARKET_DATA.md). The Compose market profile maps `LOCAL_CANDLE_BOOTSTRAP_DAYS` to `CANDLE_BOOTSTRAP_DAYS` for the bounded initialization service and defaults it to 35 days; the accepted range is 35 through 180 days. `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration with no automatic catch-up implementation; `SIGNAL_HISTORY_DAYS=90` only bounds the placeholder backfill coverage check; `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Signal SSE defaults are 2 connections per user, 500 per process, queue size 100, 15-second heartbeats, 60-second session revalidation, and 7-day stream-cursor retention; these limits are configured by `SIGNAL_SSE_*` and `SIGNAL_STREAM_RETENTION_DAYS`. Signal Telegram fan-out defaults are batch size 100, claim limit 10, 2-second polling, and a 900-second maximum delivery age; these limits are configured by `SIGNAL_TELEGRAM_FANOUT_*`. Signal Telegram-delivery preference mutations use a process-local limit of 30 per user per 15 minutes. Environment examples contain names and safe defaults only; never commit secrets.
 
 `NEXT_PUBLIC_API_BASE_URL` is the browser-visible API origin and must contain no secret. The browser signal and historical-analysis sections need no separate process, provider credential, audio asset, chart dependency, or runtime configuration beyond the existing API origin and credentialed CORS/SSE proxy requirements. Historical-analysis browser controls use the existing authenticated API and CSRF token; they do not contact Binance or Telegram from the browser or require provider configuration in the web app.
 
@@ -55,19 +77,19 @@ While visible, native EventSource uses the server retry value. After 60 seconds 
 
 The current chain also adds the owner-scoped `historical_analysis_runs`, `historical_analysis_datasets`, `historical_analysis_dataset_candles`, `historical_analysis_reports`, `historical_analysis_trades`, and `historical_analysis_equity_points` tables. Their migrations create no work rows, do not call Binance, and do not read candle history. Database backup, restore, and production rollout automation remain unimplemented.
 
-Apply migrations manually through the release/development workflow with `pnpm db:migrate`. The preceding signal Telegram migrations add the per-subscription delivery columns, immutable state-history table, dispatch table, and preset-signal outbox references. Their data steps create one disabled baseline state row per existing subscription and no dispatch rows or notification work for existing signal history. The historical-analysis migrations add request/lifecycle state, canonical dataset/snapshot tables, and immutable report series only; they create no work rows and perform no candle or provider work. The local Compose API startup is not production migration automation. Database backup, restore, and production rollout automation are not implemented.
+Apply migrations manually through the release/development workflow with `pnpm db:migrate`, or let the local Compose `db-migrate` one-shot service apply them before dependent services start. The preceding signal Telegram migrations add the per-subscription delivery columns, immutable state-history table, dispatch table, and preset-signal outbox references. Their data steps create one disabled baseline state row per existing subscription and no dispatch rows or notification work for existing signal history. The historical-analysis migrations add request/lifecycle state, canonical dataset/snapshot tables, and immutable report series only; they create no work rows and perform no candle or provider work. The local Compose migration service is not production migration automation. Database backup, restore, and production rollout automation are not implemented.
 
 ## Market Catalog Synchronization
 
-Run `market:sync` before expecting catalog readiness. It is one-shot, calls Binance only for the fixed catalog, and preserves the last valid metadata on failure. It is not scheduled by a separate service.
+`market-catalog-init` is the one-shot `market`-profile prerequisite for the stream. It calls Binance only for the fixed catalog, preserves the last valid metadata on failure, and returns non-zero so the dependent candle bootstrap and stream do not start. `market:sync` remains the equivalent direct operator command. Catalog synchronization is not scheduled by a separate service.
 
 ## Market Stream
 
-Run one `market-stream` owner only. It owns advisory lock `freecoinalert:market-stream:binance:spot`, refreshes catalog, reconnects with bounded backoff, and performs its implemented recent reconciliation. Two processes do not horizontally share stream ownership.
+Run one `market-stream` owner only. The Compose `market` profile starts it only after successful catalog and candle initialization. It owns advisory lock `freecoinalert:market-stream:binance:spot`, refreshes catalog, reconnects with bounded backoff, and performs its implemented recent reconciliation. Two processes do not horizontally share stream ownership.
 
 ## Candle Bootstrap and Reconciliation
 
-Use bootstrap for a new/empty bounded history and reconciliation for missing recent data. Bootstrap maximum is 180 days; reconciliation maximum is 168 hours. Both acquire the market singleton lock, page at 1,000 minutes, and must not run concurrently with the stream owner.
+Use bootstrap for a new/empty bounded history and reconciliation for missing recent data. The Compose `candle-bootstrap-init` service reuses the existing gap-based bootstrap, requests the bounded `LOCAL_CANDLE_BOOTSTRAP_DAYS` range (35 days by default, maximum 180), and runs after catalog initialization. `market:candles-bootstrap` remains the direct command and reads `CANDLE_BOOTSTRAP_DAYS` (default 150 for direct-host use). Reconciliation maximum is 168 hours. Both modes acquire the market singleton lock, page at 1,000 minutes, and must not run concurrently with the stream owner.
 
 ## Signal Backfill
 
@@ -99,7 +121,7 @@ Start PostgreSQL before direct API commands. API startup itself does not contact
 - Stuck notification claims: inspect the persisted job state. The worker detects stale claims and terminally records `telegram_delivery_outcome_unknown`; it does not resume or requeue an uncertain provider send.
 - Stuck signal fan-out: inspect `signal_telegram_dispatches` for `processing`, `retry_wait`, `failed`, `skipped`, counts, cursor, and safe failure code. The dispatcher requeues stale database-only claims, retries bounded database failures, and never retries beyond `max_attempts` or creates jobs older than the configured maximum age.
 - Historical-analysis cancellation: a queued run is cancelled immediately; a running run records a cancellation request and the worker acknowledges it before dataset preparation, before simulation, after simulation, or before report publication. Do not treat a non-succeeded run as a completed report.
-- Historical-analysis worker recovery: start `pnpm analysis:worker` or the `analysis` Compose profile. It claims due rows with row locks, requeues stale database-only work with bounded backoff, fails exhausted attempts safely, validates current snapshots immediately before simulation and publication, and never contacts Binance or mutates live alert/signal/delivery state.
+- Historical-analysis worker recovery: start `pnpm analysis:worker` or the `historical-analysis` Compose profile. It claims due rows with row locks, requeues stale database-only work with bounded backoff, fails exhausted attempts safely, validates current snapshots immediately before simulation and publication, and never contacts Binance or mutates live alert/signal/delivery state.
 - Historical-analysis cleanup: run `pnpm analysis:cleanup` explicitly after confirming the configured retention and batch size. It deletes only terminal runs and their cascaded report/dataset rows; it does not delete active work.
 - Provider rate limit: stop repeated commands, honor Retry-After, and wait for the bounded retry path; treat 418 as an incident.
 

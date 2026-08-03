@@ -24,9 +24,25 @@ flowchart LR
   Dispatcher[signal Telegram dispatcher module] --> DB
   Worker[notification worker module] --> DB
   Worker --> Telegram[Telegram Bot API]
+  Analysis[historical-analysis worker module] --> DB
 ```
 
-The default Compose stack is web, API, and PostgreSQL. The `telegram` profile starts the Telegram update poller, signal Telegram dispatcher, and notification worker; the `market` profile starts the market stream.
+The default Compose stack is web, API, and PostgreSQL. Its always-on initialization path is `api-prepare` followed by `db-migrate`; API startup waits for successful migration and web startup waits for API health. The `telegram` profile starts the Telegram update poller, signal Telegram dispatcher, and notification worker after migration. The `market` profile starts catalog and candle initialization before the market stream. The `historical-analysis` profile starts the real historical-analysis worker after migration.
+
+Compose uses one API extension for the API image, source mount, persistent `api_venv` volume, database URL, and `init: true`. Initialization failures stop their dependent branches: migration blocks the API, web, Telegram, market, and historical-analysis services; catalog or candle initialization blocks the market stream. Re-running this graph preserves PostgreSQL and dependency volumes and uses the existing idempotent migration, catalog, and gap-based candle paths.
+
+```mermaid
+flowchart TD
+  DB[PostgreSQL healthy] --> Prepare[api-prepare completed]
+  Prepare --> Migrate[db-migrate completed]
+  Migrate --> API[FastAPI API healthy]
+  API --> Web[Next.js web]
+  Migrate --> Telegram[Telegram profile]
+  Migrate --> Analysis[historical-analysis profile]
+  Migrate --> Catalog[market-catalog-init completed]
+  Catalog --> Bootstrap[candle-bootstrap-init completed]
+  Bootstrap --> Market[market-stream]
+```
 
 ## Component Responsibilities
 

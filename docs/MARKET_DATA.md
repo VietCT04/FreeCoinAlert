@@ -40,7 +40,7 @@ The browser preset and historical-analysis surfaces consume only server-provided
 
 ## Bootstrap
 
-`market:candles-bootstrap` is an explicit one-shot, singleton-locked operator command. It reconciles up to `CANDLE_BOOTSTRAP_DAYS` (default 150; 35–180) using chronological pages of at most 1,000 minutes. It contacts Binance's public `/api/v3/klines` endpoint and writes through the same closed-candle boundary.
+`market:candles-bootstrap` is an explicit one-shot, singleton-locked operator command. It reconciles up to `CANDLE_BOOTSTRAP_DAYS` (default 150 for direct-host use; 35–180) using chronological pages of at most 1,000 minutes. The Compose `market` profile runs this same gap-based module through `candle-bootstrap-init`, maps `LOCAL_CANDLE_BOOTSTRAP_DAYS` to `CANDLE_BOOTSTRAP_DAYS`, and defaults the local bounded range to 35 days. It contacts Binance's public `/api/v3/klines` endpoint and writes through the same closed-candle boundary.
 
 ## Reconciliation and Gap Repair
 
@@ -72,7 +72,7 @@ REST kline calls use a ten-second timeout, one request at a time, and up to thre
 | `MARKET_EVENT_MAX_AGE_SECONDS` / `MARKET_EVENT_FUTURE_TOLERANCE_SECONDS` | `10` / `2` | Aggregate-trade time acceptance window. |
 | `MARKET_CATALOG_REFRESH_SECONDS` / `MARKET_STATE_WRITE_INTERVAL_SECONDS` | `21600` / `1` | Stream catalog refresh and snapshot write cadence. |
 | `MARKET_STREAM_RECONNECT_MAX_SECONDS` | `30` | Reconnect backoff cap. |
-| `CANDLE_*` settings | See [OPERATIONS.md](OPERATIONS.md) | Candle freshness, bootstrap, repair, and retention bounds. |
+| `CANDLE_*` settings / `LOCAL_CANDLE_BOOTSTRAP_DAYS` | See [OPERATIONS.md](OPERATIONS.md) | Candle freshness, bootstrap, repair, and retention bounds; the Compose market profile maps the local bootstrap setting into the API setting. |
 
 ## Failure Handling and Recovery
 

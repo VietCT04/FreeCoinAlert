@@ -26,7 +26,7 @@ See the authoritative [product overview](docs/PRODUCT.md) for capabilities, limi
 
 ## Local Development
 
-Use Node.js `24.18.0`, pnpm `11.4.0`, Docker Compose, CPython `3.14`, and uv. Copy [`.env.example`](.env.example) to `.env`, then install dependencies and start the local stack:
+Use Node.js `24.18.0`, pnpm `11.4.0`, Docker Compose, CPython `3.14`, and uv. Copy [`.env.example`](.env.example) to `.env`, then install dependencies and start the local core stack:
 
 ```bash
 pnpm install
@@ -50,7 +50,7 @@ pnpm db:migrate
 
 ## Runtime Profiles
 
-The default Compose stack starts the web app, API, and PostgreSQL. The `market` profile starts the Binance market stream; the `telegram` profile starts the Telegram poller, notification worker, and signal fan-out dispatcher; the `analysis` profile starts only the historical-analysis worker. The dispatcher does not contact Telegram; the notification worker delivers eligible preset-signal jobs when configured. Browser Telegram-delivery controls use the existing authenticated API and do not contact the provider directly. See [OPERATIONS.md](docs/OPERATIONS.md) for entry points and provider-contact boundaries.
+The default Compose stack starts PostgreSQL, prepares the shared API environment, applies migrations, and then starts the web app and API. The `market` profile first synchronizes the controlled catalog and runs the bounded candle bootstrap before starting the Binance market stream. The `telegram` profile starts the Telegram poller, notification worker, and signal fan-out dispatcher after migrations. The `historical-analysis` profile starts the real historical-analysis worker after migrations. The dispatcher does not contact Telegram; the notification worker delivers eligible preset-signal jobs when configured. Browser Telegram-delivery controls use the existing authenticated API and do not contact the provider directly. See [OPERATIONS.md](docs/OPERATIONS.md) for entry points, dependency ordering, and provider-contact boundaries.
 
 ## Documentation
 
