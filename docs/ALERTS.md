@@ -56,7 +56,7 @@ When a candle changes revision, the affected evaluation state is marked stale wi
 
 ### Historical Simulation Boundary
 
-The pure historical-analysis engine recalculates fixed-preset values from an immutable dataset snapshot and applies the same equality-aware crossing semantics as live evaluation. It does not read or create `signal_events`, change live evaluation state, create subscriptions or alerts, or create Telegram work. Historical simulation is hypothetical analysis; it is separate from a global signal occurrence, in-app visibility, and provider delivery. No worker, report, or browser flow invokes the engine yet.
+The pure historical-analysis engine recalculates fixed-preset values from an immutable dataset snapshot and applies the same equality-aware crossing semantics as live evaluation. The separate worker invokes it and persists an immutable report, but it does not read or create `signal_events`, change live evaluation state, create subscriptions or alerts, or create Telegram work. Historical simulation is hypothetical analysis; it is separate from a global signal occurrence, in-app visibility, and provider delivery. Browser presentation remains a future flow.
 
 ## Deduplication and Restart Safety
 

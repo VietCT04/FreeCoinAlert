@@ -110,6 +110,27 @@ services:
       - ./apps/api:/app
       - api_venv:/app/.venv
 
+  historical-analysis-worker:
+    profiles: ["analysis"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile.dev
+    command: uv sync --frozen && uv run python -m freecoinalert_api.historical_analysis.worker
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      HISTORICAL_ANALYSIS_WORKER_POLL_SECONDS: ${HISTORICAL_ANALYSIS_WORKER_POLL_SECONDS:-2}
+      HISTORICAL_ANALYSIS_WORKER_CLAIM_LIMIT: ${HISTORICAL_ANALYSIS_WORKER_CLAIM_LIMIT:-1}
+      HISTORICAL_ANALYSIS_WORKER_STALE_SECONDS: ${HISTORICAL_ANALYSIS_WORKER_STALE_SECONDS:-600}
+      HISTORICAL_ANALYSIS_RETENTION_DAYS: ${HISTORICAL_ANALYSIS_RETENTION_DAYS:-30}
+      HISTORICAL_ANALYSIS_CLEANUP_BATCH_SIZE: ${HISTORICAL_ANALYSIS_CLEANUP_BATCH_SIZE:-100}
+    init: true
+    volumes:
+      - ./apps/api:/app
+      - api_venv:/app/.venv
+
   market-stream:
     profiles: ["market"]
     build:

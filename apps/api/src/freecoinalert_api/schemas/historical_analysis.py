@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
 
@@ -118,3 +118,117 @@ class HistoricalAnalysisRunListEnvelope(BaseModel):
     runs: list[HistoricalAnalysisRunResponse]
     next_cursor: str | None
 
+
+class HistoricalAnalysisReportSummaryResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    analysis_candle_count: int
+    signal_count: int
+    trade_count: int
+    winning_trade_count: int
+    losing_trade_count: int
+    flat_trade_count: int
+    overlapping_signal_count: int
+    insufficient_forward_signal_count: int
+    equity_exhausted_signal_count: int
+    initial_equity: str
+    final_equity: str
+    gross_return: str
+    net_return: str
+    maximum_drawdown: str
+    win_rate: str | None
+    win_rate_undefined_reason: str | None
+    profit_factor: str | None
+    profit_factor_undefined_reason: str | None
+
+
+class HistoricalAnalysisTradeResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    sequence: int
+    signal_candle_id: uuid.UUID
+    signal_candle_revision: int
+    signal_open_time: datetime
+    signal_close_time: datetime
+    signal_direction: str
+    position_direction: str
+    entry_candle_id: uuid.UUID
+    entry_candle_revision: int
+    entry_open_time: datetime
+    entry_raw_price: str
+    entry_fill_price: str
+    exit_candle_id: uuid.UUID
+    exit_candle_revision: int
+    exit_close_time: datetime
+    exit_raw_price: str
+    exit_fill_price: str
+    holding_candle_count: int
+    fee_rate: str
+    slippage_rate: str
+    equity_before: str
+    gross_return: str
+    net_return: str
+    gross_pnl: str
+    net_pnl: str
+    equity_after: str
+    outcome: str
+
+
+class HistoricalAnalysisEquityPointResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    sequence: int
+    candle_id: uuid.UUID
+    candle_revision: int
+    candle_open_time: datetime
+    candle_close_time: datetime
+    equity: str
+    drawdown: str
+    position_state: str
+    active_trade_sequence: int | None
+
+
+class HistoricalAnalysisReportResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    report_id: uuid.UUID
+    run_id: uuid.UUID
+    dataset_id: uuid.UUID
+    market: HistoricalAnalysisMarketSnapshotResponse
+    preset: HistoricalAnalysisPresetSnapshotResponse
+    calculation_version: str
+    engine_version: str
+    assumption_version: str
+    result_fingerprint: str
+    dataset_fingerprint: str
+    analysis_start: datetime
+    analysis_end: datetime
+    coverage: dict[str, Any]
+    assumptions: dict[str, Any]
+    summary: HistoricalAnalysisReportSummaryResponse
+    safety_disclosures: list[str]
+    equity_preview: list[HistoricalAnalysisEquityPointResponse]
+    trades_available: bool
+    equity_available: bool
+    trades_path: str
+    equity_path: str
+
+
+class HistoricalAnalysisReportEnvelope(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    report: HistoricalAnalysisReportResponse
+
+
+class HistoricalAnalysisTradesEnvelope(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    trades: list[HistoricalAnalysisTradeResponse]
+    next_cursor: str | None
+
+
+class HistoricalAnalysisEquityEnvelope(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    equity: list[HistoricalAnalysisEquityPointResponse]
+    next_cursor: str | None

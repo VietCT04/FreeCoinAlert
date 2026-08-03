@@ -284,105 +284,14 @@ async def validate_historical_analysis_dataset_current(
     """Mark a ready dataset stale when its canonical source no longer matches."""
 
     try:
-        dataset = await get_historical_analysis_dataset(
+        result = await _validate_historical_analysis_dataset_current_in_transaction(
             session,
-            dataset_id=dataset_id,
-            for_update=True,
+            dataset_id,
         )
-        if dataset is None:
-            await session.rollback()
-            return HistoricalAnalysisDatasetValidationResult(
-                dataset=None,
-                stale=False,
-                failure_code="historical_dataset_unavailable",
-            )
-        if dataset.status != "ready":
-            await session.commit()
-            return HistoricalAnalysisDatasetValidationResult(
-                dataset=dataset,
-                stale=dataset.status == "stale",
-                failure_code=dataset.failure_code,
-            )
-
-        run = await get_historical_analysis_run_by_id(
-            session,
-            run_id=dataset.run_id,
-        )
-        snapshots = await list_historical_analysis_dataset_candles(
-            session,
-            dataset_id=dataset.id,
-        )
-        stale = (
-            run is None
-            or not _run_matches_dataset(run, dataset)
-            or not _snapshot_sequence_is_valid(dataset, snapshots)
-        )
-        current_by_id: dict[uuid.UUID, MarketCandle] = {}
-        if not stale:
-            current_candles = await get_market_candles_for_historical_dataset_share(
-                session,
-                candle_ids=[snapshot.candle_id for snapshot in snapshots],
-            )
-            current_by_id = {candle.id: candle for candle in current_candles}
-            stale = len(current_by_id) != len(snapshots)
-
-        if not stale:
-            stale = any(
-                not _snapshot_matches_current(
-                    dataset,
-                    snapshot,
-                    current_by_id[snapshot.candle_id],
-                )
-                for snapshot in snapshots
-            )
-
-        if not stale and run is not None:
-            try:
-                bounds = bounds_from_dataset(dataset)
-                fingerprint = calculate_historical_dataset_fingerprint(
-                    run=run,
-                    bounds=bounds,
-                    candles=tuple(
-                        manifest_candle_from_snapshot(snapshot)
-                        for snapshot in snapshots
-                    ),
-                )
-                stale = fingerprint != dataset.manifest_fingerprint
-            except ValueError:
-                stale = True
-
-        if stale:
-            now = utc_now()
-            dataset.status = "stale"
-            dataset.failure_code = "historical_dataset_stale"
-            dataset.stale_at = now
-            dataset.updated_at = now
-            await session.commit()
-            logger.info(
-                "historical.dataset.stale run_id=%s dataset_id=%s market_id=%s "
-                "preset_id=%s timeframe=%s warmup_count=%s analysis_count=%s "
-                "total_count=%s failure_category=historical_dataset_stale",
-                dataset.run_id,
-                dataset.id,
-                dataset.supported_market_id,
-                dataset.signal_preset_id,
-                dataset.timeframe,
-                dataset.warmup_candle_count,
-                dataset.analysis_candle_count,
-                dataset.total_candle_count,
-            )
-            return HistoricalAnalysisDatasetValidationResult(
-                dataset=dataset,
-                stale=True,
-                failure_code="historical_dataset_stale",
-            )
-
         await session.commit()
-        return HistoricalAnalysisDatasetValidationResult(
-            dataset=dataset,
-            stale=False,
-            failure_code=None,
-        )
+        if result.stale and result.dataset is not None:
+            _log_dataset_stale(result.dataset)
+        return result
     except SQLAlchemyError:
         await session.rollback()
         return HistoricalAnalysisDatasetValidationResult(
@@ -390,6 +299,106 @@ async def validate_historical_analysis_dataset_current(
             stale=False,
             failure_code="historical_dataset_unavailable",
         )
+
+
+async def validate_historical_analysis_dataset_current_for_publication(
+    session: AsyncSession,
+    dataset_id: uuid.UUID,
+) -> HistoricalAnalysisDatasetValidationResult:
+    """Validate while the caller holds the final publication transaction."""
+
+    return await _validate_historical_analysis_dataset_current_in_transaction(
+        session,
+        dataset_id,
+    )
+
+
+async def _validate_historical_analysis_dataset_current_in_transaction(
+    session: AsyncSession,
+    dataset_id: uuid.UUID,
+) -> HistoricalAnalysisDatasetValidationResult:
+    dataset = await get_historical_analysis_dataset(
+        session,
+        dataset_id=dataset_id,
+        for_update=True,
+    )
+    if dataset is None:
+        return HistoricalAnalysisDatasetValidationResult(
+            dataset=None,
+            stale=False,
+            failure_code="historical_dataset_unavailable",
+        )
+    if dataset.status != "ready":
+        return HistoricalAnalysisDatasetValidationResult(
+            dataset=dataset,
+            stale=dataset.status == "stale",
+            failure_code=dataset.failure_code,
+        )
+
+    run = await get_historical_analysis_run_by_id(
+        session,
+        run_id=dataset.run_id,
+    )
+    snapshots = await list_historical_analysis_dataset_candles(
+        session,
+        dataset_id=dataset.id,
+    )
+    stale = (
+        run is None
+        or not _run_matches_dataset(run, dataset)
+        or not _snapshot_sequence_is_valid(dataset, snapshots)
+    )
+    current_by_id: dict[uuid.UUID, MarketCandle] = {}
+    if not stale:
+        current_candles = await get_market_candles_for_historical_dataset_share(
+            session,
+            candle_ids=[snapshot.candle_id for snapshot in snapshots],
+        )
+        current_by_id = {candle.id: candle for candle in current_candles}
+        stale = len(current_by_id) != len(snapshots)
+
+    if not stale:
+        stale = any(
+            not _snapshot_matches_current(
+                dataset,
+                snapshot,
+                current_by_id[snapshot.candle_id],
+            )
+            for snapshot in snapshots
+        )
+
+    if not stale and run is not None:
+        try:
+            bounds = bounds_from_dataset(dataset)
+            fingerprint = calculate_historical_dataset_fingerprint(
+                run=run,
+                bounds=bounds,
+                candles=tuple(
+                    manifest_candle_from_snapshot(snapshot)
+                    for snapshot in snapshots
+                ),
+            )
+            stale = fingerprint != dataset.manifest_fingerprint
+        except ValueError:
+            stale = True
+
+    if stale:
+        now = utc_now()
+        dataset.status = "stale"
+        dataset.failure_code = "historical_dataset_stale"
+        dataset.stale_at = now
+        dataset.updated_at = now
+        return HistoricalAnalysisDatasetValidationResult(
+            dataset=dataset,
+            stale=True,
+            failure_code="historical_dataset_stale",
+        )
+
+    return HistoricalAnalysisDatasetValidationResult(
+        dataset=dataset,
+        stale=False,
+        failure_code=None,
+    )
 
 
 def resolve_historical_dataset_bounds(
@@ -924,4 +933,20 @@ def _log_dataset_rejected(
         dataset.analysis_candle_count,
         dataset.total_candle_count,
         failure_code,
+    )
+
+
+def _log_dataset_stale(dataset: HistoricalAnalysisDataset) -> None:
+    logger.info(
+        "historical.dataset.stale run_id=%s dataset_id=%s market_id=%s "
+        "preset_id=%s timeframe=%s warmup_count=%s analysis_count=%s "
+        "total_count=%s failure_category=historical_dataset_stale",
+        dataset.run_id,
+        dataset.id,
+        dataset.supported_market_id,
+        dataset.signal_preset_id,
+        dataset.timeframe,
+        dataset.warmup_candle_count,
+        dataset.analysis_candle_count,
+        dataset.total_candle_count,
     )

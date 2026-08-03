@@ -42,6 +42,11 @@ class AuthenticationSettings(BaseSettings):
     signal_telegram_fanout_claim_limit: int = Field(default=10, gt=0, le=100)
     signal_telegram_fanout_poll_seconds: float = Field(default=2, gt=0)
     signal_telegram_fanout_max_age_seconds: int = Field(default=900, gt=0)
+    historical_analysis_worker_poll_seconds: float = Field(default=2, gt=0)
+    historical_analysis_worker_claim_limit: int = Field(default=1, ge=1, le=4)
+    historical_analysis_worker_stale_seconds: int = Field(default=600, ge=60)
+    historical_analysis_retention_days: int = Field(default=30, ge=1)
+    historical_analysis_cleanup_batch_size: int = Field(default=100, ge=1, le=1000)
 
     model_config = SettingsConfigDict(
         env_file=".env",
