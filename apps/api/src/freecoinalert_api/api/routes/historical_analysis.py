@@ -17,6 +17,9 @@ from freecoinalert_api.historical_analysis.rate_limit import (
     historical_analysis_rate_limiter,
     read_user_key,
 )
+from freecoinalert_api.historical_analysis.reports import (
+    historical_analysis_report_service,
+)
 from freecoinalert_api.historical_analysis.errors import request_invalid_error
 from freecoinalert_api.historical_analysis.service import (
     configuration_response,
@@ -26,7 +29,10 @@ from freecoinalert_api.historical_analysis.service import (
 )
 from freecoinalert_api.schemas.historical_analysis import (
     HistoricalAnalysisCreateRequest,
+    HistoricalAnalysisEquityEnvelope,
+    HistoricalAnalysisReportEnvelope,
     HistoricalAnalysisRunEnvelope,
+    HistoricalAnalysisTradesEnvelope,
 )
 
 historical_analysis_router = APIRouter(tags=["historical-analysis"])
@@ -139,6 +145,90 @@ async def get_historical_analysis(
         run_id=parse_run_id(run_id),
     )
     return run_response(response_body, status_code=status.HTTP_200_OK)
+
+
+@historical_analysis_router.get("/historical-analyses/{run_id}/report")
+async def get_historical_analysis_report(
+    run_id: str,
+    authenticated_principal: AuthenticatedPrincipal = Depends(
+        require_authenticated_principal
+    ),
+    database_session: AsyncSession = Depends(get_database_session),
+) -> JSONResponse:
+    await historical_analysis_rate_limiter.consume(
+        read_user_key(str(authenticated_principal.user_id)),
+        limit=120,
+    )
+    response_body: HistoricalAnalysisReportEnvelope = (
+        await historical_analysis_report_service.get_report_for_user(
+            database_session,
+            user_id=authenticated_principal.user_id,
+            run_id=parse_run_id(run_id),
+        )
+    )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=response_body.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@historical_analysis_router.get("/historical-analyses/{run_id}/trades")
+async def get_historical_analysis_trades(
+    request: Request,
+    run_id: str,
+    authenticated_principal: AuthenticatedPrincipal = Depends(
+        require_authenticated_principal
+    ),
+    database_session: AsyncSession = Depends(get_database_session),
+) -> JSONResponse:
+    await historical_analysis_rate_limiter.consume(
+        read_user_key(str(authenticated_principal.user_id)),
+        limit=120,
+    )
+    response_body: HistoricalAnalysisTradesEnvelope = (
+        await historical_analysis_report_service.list_trades_for_user(
+            database_session,
+            user_id=authenticated_principal.user_id,
+            run_id=parse_run_id(run_id),
+            limit_value=request.query_params.get("limit"),
+            cursor_value=request.query_params.get("cursor"),
+        )
+    )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=response_body.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@historical_analysis_router.get("/historical-analyses/{run_id}/equity")
+async def get_historical_analysis_equity(
+    request: Request,
+    run_id: str,
+    authenticated_principal: AuthenticatedPrincipal = Depends(
+        require_authenticated_principal
+    ),
+    database_session: AsyncSession = Depends(get_database_session),
+) -> JSONResponse:
+    await historical_analysis_rate_limiter.consume(
+        read_user_key(str(authenticated_principal.user_id)),
+        limit=120,
+    )
+    response_body: HistoricalAnalysisEquityEnvelope = (
+        await historical_analysis_report_service.list_equity_for_user(
+            database_session,
+            user_id=authenticated_principal.user_id,
+            run_id=parse_run_id(run_id),
+            limit_value=request.query_params.get("limit"),
+            cursor_value=request.query_params.get("cursor"),
+        )
+    )
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=response_body.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @historical_analysis_router.post("/historical-analyses/{run_id}/cancel")

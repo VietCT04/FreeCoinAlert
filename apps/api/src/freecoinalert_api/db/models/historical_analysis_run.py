@@ -40,7 +40,7 @@ class HistoricalAnalysisRun(Base):
             name="ck_historical_analysis_runs_attempts",
         ),
         CheckConstraint(
-            "((status = 'queued' AND started_at IS NULL AND completed_at IS NULL "
+            "((status = 'queued' AND completed_at IS NULL "
             "AND failed_at IS NULL AND cancelled_at IS NULL "
             "AND cancellation_requested_at IS NULL) OR "
             "(status = 'running' AND started_at IS NOT NULL AND completed_at IS NULL "

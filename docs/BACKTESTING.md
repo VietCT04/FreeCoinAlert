@@ -2,13 +2,13 @@
 
 ## Current Availability
 
-The authenticated owner-scoped historical-analysis run API, canonical dataset-manifest persistence, and pure deterministic fixed-preset simulation engine are Implemented but Unverified. The API stores a bounded request snapshot and lifecycle metadata for queued, running, succeeded, failed, or cancelled work. An internal database-facing preparation service validates canonical coverage and persists one ready/failed dataset plus immutable candle snapshots per run. The pure engine consumes equivalent immutable manifest/snapshot inputs and produces an in-memory result; no worker invokes either boundary, no result is persisted, and no browser analysis flow exists.
+The authenticated owner-scoped historical-analysis run API, canonical dataset-manifest persistence, bounded worker, immutable report persistence, and pure deterministic fixed-preset simulation engine are Implemented but Unverified. The API stores a bounded request snapshot and lifecycle metadata for queued, running, succeeded, failed, or cancelled work. The separate database worker validates canonical coverage, runs the pure engine from immutable snapshots without contacting Binance, and publishes one immutable report plus trades and equity points per successful run. No browser analysis flow exists.
 
 ## Current Run Contract
 
 Run creation supports only controlled Binance Spot markets, active fixed preset code/version pairs, `1h` and `4h` preset timeframes, `historical_fixed_preset_v1`, `fixed_horizon_v1`, and explicit UTC start-inclusive/end-exclusive ranges of 7 through 90 days. The server resolves the SMA `sma_close_v1` or RSI `rsi_wilder_close_v1` calculation snapshot and the required 200- or 15-candle warm-up boundary. Dataset preparation then reads only current canonical rows for the exact `[warmup_start, analysis_end)` window, requires complete contiguous coverage, snapshots full values and source metadata, and stores a deterministic `historical_dataset_fingerprint_v1`. The visible analysis range remains distinct from warm-up data.
 
-Users can create, list, inspect, and cancel only their own runs. Creation requires CSRF and a UUID idempotency key, uses bounded process-local rate limits, and allows at most two queued or running runs per user. A queued cancellation is immediate; a running cancellation is recorded for a future worker to acknowledge. Responses contain safe snapshots, progress, timestamps, and failure categories only. No run state creates live signal occurrences, alerts, subscriptions, Telegram jobs, browser notifications, or trading actions.
+Users can create, list, inspect, and cancel only their own runs. Creation requires CSRF and a UUID idempotency key, uses bounded process-local rate limits, and allows at most two queued or running runs per user. A queued cancellation is immediate; a running cancellation is recorded for the worker to acknowledge at safe stage boundaries. Responses contain safe snapshots, progress, timestamps, and failure categories only. No run state creates live signal occurrences, alerts, subscriptions, Telegram jobs, browser notifications, or trading actions.
 
 ## Deterministic Fixed-Preset Simulation Engine
 
@@ -30,7 +30,11 @@ The platform stores canonical closed candles, derives UTC-aligned `1h`/`4h` cand
 
 ## Worker and Report Boundary
 
-Future worker execution must call current-dataset validation immediately before simulation and again before report publication. It must pass immutable dataset rows to the pure engine after coverage is validated, remain isolated from live ingestion, and make all input range and strategy-version choices explicit. A stale dataset fails safely and is not rebuilt under the same run.
+`freecoinalert_api.historical_analysis.worker` is a separately runnable database worker. It claims due queued rows with `FOR UPDATE SKIP LOCKED`, runs one simulation at a time by default, and never contacts Binance or another provider. A claim records `running`, `preparing_dataset`, 10 percent, a worker identifier, and an incremented attempt count. Stale running claims are safely requeued with bounded delays of 5 seconds, 30 seconds, or 2 minutes, or fail with `historical_analysis_attempts_exhausted`; database/transient orchestration failures are the only retried category.
+
+The worker prepares or reuses one immutable dataset, validates it immediately before simulation, loads at most 2,500 snapshot candles into memory, releases database locks, and invokes `simulate_fixed_preset` synchronously. It checks cancellation before preparation, after preparation, before simulation, and after simulation. Before publication it locks the run and dataset, takes share locks on the referenced canonical candle rows, revalidates the dataset fingerprint, and atomically inserts the report, complete immutable trade rows, complete ordered equity points, and the `succeeded` transition. A stale or mismatched dataset fails safely and is never rebuilt under the same run. Repeated publication with the same result fingerprint is idempotent; a different fingerprint fails with `historical_analysis_result_conflict`.
+
+Reports persist schema-versioned market, preset, coverage, and assumptions snapshots, result and dataset fingerprints, engine/calculation/assumption versions, all summary metrics and undefined reasons, safety disclosures, immutable trades, and one equity point per visible analysis candle. The explicit `analysis:cleanup` command deletes only terminal runs older than `HISTORICAL_ANALYSIS_RETENTION_DAYS`, oldest first, up to `HISTORICAL_ANALYSIS_CLEANUP_BATCH_SIZE`; it does not run as a scheduler and never deletes queued or running work.
 
 ## Data and Strategy Version Requirements
 
@@ -46,4 +50,4 @@ Any future presentation must disclose assumptions, date range, sample size, fees
 
 ## Explicitly Not Implemented
 
-Strategy reports, worker processing, optimizers, customer-specific Binance queries, automated trading, profitability claims, and report/result persistence are not implemented. The dataset preparation service and pure engine have no process entry point or worker consumer yet. Terminal-run and dataset retention remain unresolved until the worker/report boundary defines bounded cleanup; active runs and referenced datasets must not be removed automatically.
+Browser analysis presentation, optimizers, comparison, exports, public sharing, customer-specific Binance queries, automated trading, and profitability claims are not implemented. The worker and owner-scoped report APIs are implemented but unverified. Scheduled cleanup, custom strategies/assumptions, and provider-backed historical analysis remain unsupported or out of scope; active runs are never deleted automatically.

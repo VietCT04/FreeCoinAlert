@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`apps/api` is the FastAPI application. It owns HTTP routes, owner-scoped historical-analysis run persistence, the pure deterministic historical-analysis engine, an internal canonical dataset service, and the runnable market-data, Telegram-update, signal-dispatch, and notification-worker modules.
+`apps/api` is the FastAPI application. It owns HTTP routes, owner-scoped historical-analysis run and report persistence, the bounded historical-analysis worker and cleanup command, the pure deterministic historical-analysis engine, an internal canonical dataset service, and the runnable market-data, Telegram-update, signal-dispatch, and notification-worker modules.
 
 ## Prerequisites and Setup
 
@@ -32,6 +32,8 @@ pnpm dev:telegram
 pnpm dev:telegram-updates
 pnpm dev:notification-worker
 pnpm dev:signal-telegram-dispatcher
+pnpm analysis:worker
+pnpm analysis:cleanup
 ```
 
 `market:sync`, `dev:market-stream`, `market:candles-bootstrap`, and `market:candles-reconcile` contact Binance. `dev:telegram-updates` and `dev:notification-worker` contact Telegram when configured; the worker also records a safe terminal failure when bot configuration is missing. `dev:signal-telegram-dispatcher` contacts only PostgreSQL and creates durable preset-signal outbox jobs; it does not contact Telegram. `signals:backfill` is a placeholder validation boundary, not automatic signal catch-up. API startup also starts the PostgreSQL signal-feed listener and bounded local SSE manager through FastAPI lifespan. See [Operations](../../docs/OPERATIONS.md) before using these commands.
@@ -50,4 +52,4 @@ pnpm dev:signal-telegram-dispatcher
 - [Signal subscription delivery preference](../../docs/API.md#signal-presets-and-subscriptions)
 - [Historical-analysis run API](../../docs/API.md#historical-analysis-runs)
 
-The historical-analysis API stores bounded authenticated run requests and safe lifecycle metadata. The internal dataset service validates stored canonical coverage and persists immutable snapshots when called by future worker code. The pure engine calculates only from caller-supplied immutable snapshots and fixed server assumptions; neither module has a command or process entry point, and no worker or report persistence invokes the engine yet.
+The historical-analysis API stores bounded authenticated run requests and exposes owner-only immutable reports, trades, and equity pages after the separate worker publishes a successful result. The worker validates canonical coverage, runs the pure engine from immutable snapshots without provider calls, and publishes reports atomically. `analysis:cleanup` is an explicit bounded terminal-run retention command; it is not scheduled automatically.

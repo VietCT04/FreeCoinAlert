@@ -28,6 +28,8 @@ Authentication errors are `{ "code": string, "message": string, "details": [] }`
 | GET | `/historical-analysis/configuration` | yes / no | server-controlled run configuration |
 | POST/GET | `/historical-analyses` | yes / post CSRF | create and list owner-scoped analysis runs |
 | GET/POST | `/historical-analyses/{id}`, `/historical-analyses/{id}/cancel` | yes / cancel CSRF | read and cancel an owner-scoped run |
+| GET | `/historical-analyses/{id}/report` | yes / no | owner-scoped immutable report and equity preview |
+| GET | `/historical-analyses/{id}/trades`, `/historical-analyses/{id}/equity` | yes / no | owner-scoped paginated immutable series |
 | POST/GET/DELETE | `/telegram/link-tokens`, `/telegram/connection`, `/telegram/connection` | yes / post+delete | Telegram connection |
 | POST/GET | `/telegram/test-notifications`, `/telegram/test-notifications/{id}` | yes / post only | test delivery |
 
@@ -154,7 +156,7 @@ The authenticated root browser surface consumes these contracts with native cred
 
 ## Historical Analysis Runs
 
-The authenticated HTTP API exposes bounded owner-scoped historical-analysis requests and lifecycle metadata. Its routes do not read candles, prepare a dataset, calculate indicators, simulate trades, start a worker, contact Binance, create alerts or signals, or return a report. A separate internal database-facing service prepares canonical immutable datasets, and a separate pure engine can simulate fixed presets from validated immutable inputs; neither is invoked by these routes, and execution, report persistence, and browser behavior remain future boundaries.
+The authenticated HTTP API exposes bounded owner-scoped historical-analysis requests, lifecycle metadata, and report reads. Run creation/list/detail/cancel routes do not read candles, calculate indicators, contact Binance, create alerts or signals, or perform simulation. A separate database worker prepares canonical immutable datasets and invokes the pure engine; report publication is atomic and the report routes read only the owner's persisted result.
 
 `GET /historical-analysis/configuration` requires authentication and returns `Cache-Control: no-store` with the fixed server contract:
 
@@ -178,7 +180,7 @@ The authenticated HTTP API exposes bounded owner-scoped historical-analysis requ
 }
 ```
 
-The configuration endpoint describes the fixed simulation contract; it does not invoke the pure engine or claim that a simulation result/report is available through HTTP.
+The configuration endpoint describes the fixed simulation contract; it does not invoke the pure engine. A report is available only after the worker publishes a successful run.
 
 `POST /historical-analyses` requires authentication, CSRF, and a UUID `Idempotency-Key` header. The body is:
 
@@ -200,9 +202,13 @@ A new request returns `201` with `{ "run": ... }`, status `queued`, progress sta
 
 `GET /historical-analyses` requires authentication, returns newest-first owner-only rows, uses a default limit of 20 and maximum of 100, accepts one lifecycle status filter, and uses an opaque cursor based on `(created_at, id)`. `GET /historical-analyses/{run_id}` returns the same safe owner-only envelope. Unknown, malformed, or foreign run identifiers do not disclose another user's run.
 
-`POST /historical-analyses/{run_id}/cancel` requires CSRF and no body. A queued run becomes `cancelled` immediately; a running run records `cancellationRequested` and remains `running` until a future worker acknowledges it; repeated cancellation is idempotent; and succeeded, failed, or cancelled runs remain unchanged. The response is `200` with the complete safe run envelope.
+`POST /historical-analyses/{run_id}/cancel` requires CSRF and no body. A queued run becomes `cancelled` immediately; a running run records `cancellationRequested` and the separate worker acknowledges it at safe stage boundaries; repeated cancellation is idempotent; and succeeded, failed, or cancelled runs remain unchanged. The response is `200` with the complete safe run envelope.
 
-Creation is limited to 10 per user and 30 per direct client IP per 15 minutes; cancellation is limited to 30 per user; configuration/list/detail reads share a limit of 120 per user per 15 minutes. Rate-limited responses use `429 HISTORICAL_ANALYSIS_RATE_LIMITED` and `Retry-After`. Stable domain errors are `422 HISTORICAL_ANALYSIS_REQUEST_INVALID`, `404 HISTORICAL_ANALYSIS_MARKET_NOT_FOUND`, `404 HISTORICAL_ANALYSIS_PRESET_NOT_FOUND`, `409 HISTORICAL_ANALYSIS_PRESET_UNAVAILABLE`, `409 HISTORICAL_ANALYSIS_RANGE_UNAVAILABLE`, `409 HISTORICAL_ANALYSIS_ACTIVE_LIMIT_REACHED`, `409 HISTORICAL_ANALYSIS_IDEMPOTENCY_CONFLICT`, `404 HISTORICAL_ANALYSIS_NOT_FOUND`, and `503 HISTORICAL_ANALYSIS_UNAVAILABLE`.
+Creation is limited to 10 per user and 30 per direct client IP per 15 minutes; cancellation is limited to 30 per user; configuration/list/detail/report/trade/equity reads share a limit of 120 per user per 15 minutes. Rate-limited responses use `429 HISTORICAL_ANALYSIS_RATE_LIMITED` and `Retry-After`. Stable domain errors are `422 HISTORICAL_ANALYSIS_REQUEST_INVALID`, `404 HISTORICAL_ANALYSIS_MARKET_NOT_FOUND`, `404 HISTORICAL_ANALYSIS_PRESET_NOT_FOUND`, `409 HISTORICAL_ANALYSIS_PRESET_UNAVAILABLE`, `409 HISTORICAL_ANALYSIS_RANGE_UNAVAILABLE`, `409 HISTORICAL_ANALYSIS_ACTIVE_LIMIT_REACHED`, `409 HISTORICAL_ANALYSIS_IDEMPOTENCY_CONFLICT`, `404 HISTORICAL_ANALYSIS_NOT_FOUND`, `409 HISTORICAL_ANALYSIS_REPORT_NOT_READY`, and `503 HISTORICAL_ANALYSIS_UNAVAILABLE`.
+
+`GET /historical-analyses/{run_id}/report` is owner-only and returns `Cache-Control: no-store`. Unknown or foreign runs return `404 HISTORICAL_ANALYSIS_NOT_FOUND`; a queued, running, failed, or cancelled run returns `409 HISTORICAL_ANALYSIS_REPORT_NOT_READY`, while the run detail retains its lifecycle and safe failure category. A successful report includes the run/range identity, server-snapshot market and preset meaning, calculation/engine/assumption versions, result and dataset fingerprints, coverage and assumptions snapshots, all summary metrics and undefined reasons, safety disclosures, an evenly downsampled equity preview of at most 200 points preserving the first and last points, and links indicating that full trades and equity are available through the paginated endpoints. Decimal values are strings.
+
+`GET /historical-analyses/{run_id}/trades` defaults to 50 rows and accepts a maximum of 100. `GET /historical-analyses/{run_id}/equity` defaults to 200 rows and accepts a maximum of 500. Both return ascending immutable sequence rows and an opaque sequence cursor; every trade includes signal, entry, exit, execution, return, PnL, equity, and outcome fields, while every equity row includes candle identity/revision/times, equity, drawdown, position state, and active trade sequence. The endpoints are owner-scoped and never expose user IDs, provider payloads, raw errors, or mutable live state.
 
 ## Ownership and Information-Exposure Rules
 

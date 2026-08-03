@@ -19,6 +19,11 @@ from freecoinalert_api.db.models.historical_analysis_dataset import HistoricalAn
 from freecoinalert_api.db.models.historical_analysis_dataset_candle import (
     HistoricalAnalysisDatasetCandle,
 )
+from freecoinalert_api.db.models.historical_analysis_equity_point import (
+    HistoricalAnalysisEquityPoint,
+)
+from freecoinalert_api.db.models.historical_analysis_report import HistoricalAnalysisReport
+from freecoinalert_api.db.models.historical_analysis_trade import HistoricalAnalysisTrade
 from freecoinalert_api.db.models.supported_market import SupportedMarket
 from freecoinalert_api.db.models.telegram_connection import TelegramConnection
 from freecoinalert_api.db.models.telegram_link_token import TelegramLinkToken
@@ -34,6 +39,9 @@ __all__ = [
     "HistoricalAnalysisRun",
     "HistoricalAnalysisDataset",
     "HistoricalAnalysisDatasetCandle",
+    "HistoricalAnalysisReport",
+    "HistoricalAnalysisTrade",
+    "HistoricalAnalysisEquityPoint",
     "AuthSession",
     "NotificationOutbox",
     "PriceAlert",

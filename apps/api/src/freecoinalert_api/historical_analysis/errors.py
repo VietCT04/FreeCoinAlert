@@ -76,3 +76,10 @@ def unavailable_error() -> HistoricalAnalysisError:
         message="Historical analysis is temporarily unavailable.",
     )
 
+
+def report_not_ready_error() -> HistoricalAnalysisError:
+    return HistoricalAnalysisError(
+        status_code=409,
+        code="HISTORICAL_ANALYSIS_REPORT_NOT_READY",
+        message="The historical-analysis report is not ready.",
+    )

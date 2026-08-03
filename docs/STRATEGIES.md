@@ -63,11 +63,11 @@ The browser preset catalog renders these definitions read-only. It does not subm
 
 ## Unsupported Strategy Features
 
-MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, user-facing historical analysis, and report presentation are not implemented.
+MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, browser historical-analysis presentation, and public report sharing are not implemented. The owner-scoped historical-analysis API exposes only reports produced by the fixed server-controlled worker and engine.
 
 ## Historical Simulation Compatibility
 
-Historical-analysis dataset preparation supplies the pure engine with immutable snapshots of canonical complete `1h`/`4h` candles. SMA 200 uses exactly 200 warm-up candles and RSI 14 uses 15; the first visible analysis candle is outside the warm-up range. The engine recalculates from these rows with the same versioned calculations and equality-aware crossing helper used by live evaluation, preserves UTC ordering and completeness, and discloses the fixed simulation assumptions. It does not call Binance per user request, reuse stored `signal_events`, or read mutable current candle rows after preparation. The engine is an internal library boundary; no worker, API result route, report, or frontend analysis flow invokes it yet.
+Historical-analysis dataset preparation supplies the pure engine with immutable snapshots of canonical complete `1h`/`4h` candles. SMA 200 uses exactly 200 warm-up candles and RSI 14 uses 15; the first visible analysis candle is outside the warm-up range. The engine recalculates from these rows with the same versioned calculations and equality-aware crossing helper used by live evaluation, preserves UTC ordering and completeness, and discloses the fixed simulation assumptions. The separate worker invokes it without calling Binance per user request, reusing stored `signal_events`, or reading mutable current candle rows after preparation. Successful output is persisted as an immutable owner-scoped report with complete trades and equity points; the browser does not calculate or reinterpret it.
 
 ## Verification Status
 
