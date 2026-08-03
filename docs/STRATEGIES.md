@@ -63,7 +63,7 @@ The browser preset catalog renders these definitions read-only. It does not subm
 
 ## Unsupported Strategy Features
 
-MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, browser historical-analysis presentation, and public report sharing are not implemented. The owner-scoped historical-analysis API exposes only reports produced by the fixed server-controlled worker and engine.
+MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, and public report sharing are not implemented. The authenticated browser historical-analysis presentation exposes only reports produced by the fixed server-controlled worker and engine; it does not expose formulas or editable parameters.
 
 ## Historical Simulation Compatibility
 

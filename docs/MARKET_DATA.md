@@ -32,7 +32,7 @@ The dataset keeps warm-up candles separate from the user-visible analysis range 
 
 The pure historical-analysis engine consumes these immutable snapshot values only after dataset validation. It recalculates fixed SMA/RSI signals without querying Binance, repairing gaps, aggregating new candles, or reading mutable current rows. The engine is not part of live market ingestion; the separate historical-analysis worker owns execution, cancellation boundaries, and report publication.
 
-The browser preset surface consumes only the server-provided supported-market catalogue and the confirmed candle-close signal snapshots. It does not request provider data directly, accept arbitrary symbols, or calculate indicators in the browser.
+The browser preset and historical-analysis surfaces consume only server-provided supported-market, fixed-preset, and report snapshots. They do not request provider data directly, accept arbitrary symbols or presets, or calculate indicators in the browser. Historical analysis uses the worker's stored canonical dataset rather than a browser or per-request provider query.
 
 ## UTC 1h and 4h Aggregation
 

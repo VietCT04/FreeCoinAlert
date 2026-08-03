@@ -64,6 +64,8 @@ Structured logs may contain lifecycle identifiers and safe failure codes. They m
 
 The frontend receives only response DTOs for its authenticated principal and public catalogue/preset data. It does not receive password hashes, session hashes, internal signal calculation state, provider secrets, Telegram destination identifiers, raw provider payloads, or other users’ data. Telegram controls send only the boolean preference with the existing CSRF token.
 
+Historical-analysis presentation receives only the approved owner-scoped run/report/trade/equity contract, keeps run IDs, fingerprints, reports, series, and idempotency keys in memory, and never stores them in browser persistence. It does not calculate indicators or metrics and does not contact Binance or Telegram.
+
 ## Current Limitations and Unresolved Risks
 
 Rate limits are process-local. There is no documented production backup, account-deletion, distributed rate-limit, security-review, penetration-test, or provider-verification outcome. Runtime CORS/cookie deployment values require an explicit operational review before exposure beyond the configured origin.

@@ -2,7 +2,7 @@
 
 ## Current Availability
 
-The authenticated owner-scoped historical-analysis run API, canonical dataset-manifest persistence, bounded worker, immutable report persistence, and pure deterministic fixed-preset simulation engine are Implemented but Unverified. The API stores a bounded request snapshot and lifecycle metadata for queued, running, succeeded, failed, or cancelled work. The separate database worker validates canonical coverage, runs the pure engine from immutable snapshots without contacting Binance, and publishes one immutable report plus trades and equity points per successful run. No browser analysis flow exists.
+The authenticated owner-scoped historical-analysis run API, canonical dataset-manifest persistence, bounded worker, immutable report persistence, pure deterministic fixed-preset simulation engine, and authenticated browser request/lifecycle/report flow are Implemented but Unverified. The API stores a bounded request snapshot and lifecycle metadata for queued, running, succeeded, failed, or cancelled work. The separate database worker validates canonical coverage, runs the pure engine from immutable snapshots without contacting Binance, and publishes one immutable report plus trades and equity points per successful run. The browser selects only server-returned markets and fixed preset versions, displays server-controlled assumptions, polls visible selected work, and presents only server-provided report data.
 
 ## Current Run Contract
 
@@ -42,12 +42,18 @@ Results must identify data source/coverage, exchange, market type, symbol, timef
 
 ## Bias and Execution Assumptions
 
-A future simulator must prevent look-ahead bias and define entry timing, execution price, exit, stop loss, take profit, duration, fees, slippage, sizing, and treatment of gaps/corrections. A signal alone is not a win-rate or profit claim.
+The fixed simulator prevents look-ahead bias and defines entry timing, execution price, exit, stop loss, take profit, duration, fees, slippage, sizing, and treatment of gaps/corrections. A signal alone is not a win-rate or profit claim.
 
 ## Required Result Disclosure
 
-Any future presentation must disclose assumptions, date range, sample size, fees, slippage, strategy version, data source, and limitations, and must not present analysis as financial advice or a guarantee.
+The authenticated browser presentation discloses assumptions, date range, sample size, fees, slippage, strategy version, data source, and limitations, and does not present analysis as financial advice or a guarantee.
+
+## Browser Presentation Boundary
+
+The authenticated root `Historical analysis` section appears after `Preset signals`. It uses native credentialed Fetch with the existing CSRF token for configuration, owner-scoped run creation/list/detail/cancellation, report, trade, and equity endpoints. A confirmation step creates one UUID idempotency key and reuses it for an ambiguous retry; no optimistic run is shown and the key is kept in memory only. Selected queued/running runs are polled every five seconds while the document is visible, with polling paused while hidden and resumed immediately when visible.
+
+The browser formats server-provided decimal strings and timestamps for display, renders the server's at-most-200-point equity preview as an inline accessible SVG plus table, and loads full immutable trades/equity through bounded opaque-cursor pages. It does not calculate indicators, metrics, drawdown, equity, or trade outcomes. Reports are labelled historical hypothetical simulations and remain separate from signal occurrences, alerts, sound, Telegram delivery, provider calls, recommendations, and financial advice.
 
 ## Explicitly Not Implemented
 
-Browser analysis presentation, optimizers, comparison, exports, public sharing, customer-specific Binance queries, automated trading, and profitability claims are not implemented. The worker and owner-scoped report APIs are implemented but unverified. Scheduled cleanup, custom strategies/assumptions, and provider-backed historical analysis remain unsupported or out of scope; active runs are never deleted automatically.
+Optimizers, comparison, exports, public sharing, customer-specific Binance queries, automated trading, and profitability claims are not implemented. The worker, owner-scoped report APIs, and browser presentation are implemented but unverified. Scheduled cleanup, custom strategies/assumptions, and provider-backed historical analysis remain unsupported or out of scope; active runs are never deleted automatically.
