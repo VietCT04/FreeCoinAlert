@@ -8,6 +8,7 @@ from freecoinalert_api.db.session import get_async_session_factory
 from freecoinalert_api.market_data.events import PriceEvent
 
 logger = logging.getLogger(__name__)
+SINGLETON_LOCK_KEY = "freecoinalert:market-stream:binance:spot"
 
 
 class MarketStateRecorder:

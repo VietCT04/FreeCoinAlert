@@ -33,10 +33,9 @@ from freecoinalert_api.market_data.candles.reconciliation import reconcile_recen
 from freecoinalert_api.market_data.candles.state import CandleStateRecorder
 from freecoinalert_api.signals.evaluator import PresetSignalEvaluator
 from freecoinalert_api.signals.reconciliation import reconcile_disabled_presets
-from freecoinalert_api.market_data.state import MarketStateRecorder
+from freecoinalert_api.market_data.state import MarketStateRecorder, SINGLETON_LOCK_KEY
 
 logger = logging.getLogger(__name__)
-SINGLETON_LOCK_KEY = "freecoinalert:market-stream:binance:spot"
 CATALOG_MAXIMUM_AGE_SECONDS = 24 * 60 * 60
 HEALTHY_CONNECTION_SECONDS = 60
 PROACTIVE_RECONNECT_SECONDS = 23 * 60 * 60 + 50 * 60

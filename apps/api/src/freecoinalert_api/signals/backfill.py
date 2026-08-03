@@ -10,7 +10,7 @@ from freecoinalert_api.core.config import get_settings
 from freecoinalert_api.db.models.market_candle import MarketCandle
 from freecoinalert_api.db.models.supported_market import SupportedMarket
 from freecoinalert_api.db.session import get_async_engine
-from freecoinalert_api.market_data.stream import SINGLETON_LOCK_KEY
+from freecoinalert_api.market_data.state import SINGLETON_LOCK_KEY
 
 logger = logging.getLogger(__name__)
 

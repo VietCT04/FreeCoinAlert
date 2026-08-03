@@ -12,7 +12,7 @@ from freecoinalert_api.market_data.binance_rest import BinanceMetadataError, Bin
 from freecoinalert_api.market_data.candles.ingestion import CandleIngestionService
 from freecoinalert_api.market_data.catalog import is_market_ready, utc_now
 from freecoinalert_api.market_data.events import ClosedOneMinuteCandleEvent
-from freecoinalert_api.market_data.stream import SINGLETON_LOCK_KEY
+from freecoinalert_api.market_data.state import SINGLETON_LOCK_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ async def reconcile_recent(
     hours: int,
     kind: str = "recent_reconciliation",
     acquire_lock: bool = True,
-) -> int:
+) -> int | None:
     settings = get_settings()
     maximum_hours = 180 * 24 if kind == "bootstrap" else 168
     if hours <= 0 or hours > maximum_hours:
@@ -63,8 +63,9 @@ async def reconcile_recent(
                         start_open_time=page_start,
                         end_open_time=page_end,
                     )
+                    events = []
                     for kline in klines:
-                        event = ClosedOneMinuteCandleEvent(
+                        events.append(ClosedOneMinuteCandleEvent(
                             exchange="binance", market_type="spot", supported_market_id=market.id,
                             symbol=market.symbol, timeframe="1m", open_time=kline.open_time,
                             close_time=kline.close_time, provider_close_time=kline.close_time - timedelta(milliseconds=1),
@@ -73,11 +74,11 @@ async def reconcile_recent(
                             trade_count=kline.trade_count, first_trade_id=kline.first_trade_id,
                             last_trade_id=kline.last_trade_id, provider_event_time=datetime.now(UTC),
                             received_at=datetime.now(UTC), connection_generation=__import__("uuid").uuid4(),
-                        )
-                        repaired += len(await ingestion.persist_closed_candle(event))
+                        ))
+                    repaired += await ingestion.persist_closed_candles(events)
                     page_start = page_end
         logger.info("market.candle.reconciliation_completed kind=%s repaired=%s", kind, repaired)
-        return repaired
+        return None
     except BinanceMetadataError as error:
         logger.warning("market.candle.reconciliation_failed category=%s", error.category)
         return 1

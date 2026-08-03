@@ -18,7 +18,7 @@ Aggregate trades are normalized to exact `Decimal` price events only when wrappe
 
 ## Closed One-Minute Kline Flow
 
-Only Binance `x=true` one-minute klines enter canonical persistence; open updates are ignored. Provider close time remains the provider's inclusive millisecond while stored candle `close_time` is exclusive (`open_time + 1 minute`). REST kline requests also accept only consecutive, valid one-minute rows with possible OHLC and non-negative numeric values.
+Only Binance `x=true` one-minute klines enter canonical persistence; open updates are ignored. Provider close time remains the provider's inclusive millisecond while stored candle `close_time` is exclusive (`open_time + 1 minute`). REST kline requests also accept only consecutive, valid one-minute rows with possible OHLC and non-negative numeric values. Binance REST klines provide trade count but not first/last trade IDs, so those IDs remain null for REST-reconciled rows; closed WebSocket kline events populate them when supplied by the provider.
 
 ## Canonical Candle Semantics
 
@@ -84,4 +84,4 @@ Futures, other exchanges, arbitrary symbols, raw-trade history, synthetic missin
 
 ## Verification Status
 
-Implemented code and configuration were inspected statically. Provider connections, streams, repair, bootstrap, retention, and production behavior are unverified.
+The maintainer-requested local startup pass exercised Binance catalogue synchronization, REST candle bootstrap, and market-stream startup. Gap repair, correction/reconnect behavior, retention, and production behavior remain unverified.

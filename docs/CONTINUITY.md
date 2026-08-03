@@ -11,7 +11,7 @@
 - Per-subscription Telegram-delivery preference storage, immutable occurrence-time subscription state history, owner-scoped readiness responses, and the CSRF-protected preference API are implemented; the preference is disabled by default. Active preset cards provide server-confirmed enable/disable controls with inline enable confirmation, and Telegram connection changes refresh readiness without changing subscription state. New live occurrences also have durable dispatch rows, occurrence-time eligibility, bounded cursor fan-out, idempotent immutable-snapshot outbox jobs, database-only recovery, and notification-worker delivery with strict payload and send-time safety checks. See [API.md](API.md), [DATABASE.md](DATABASE.md), [ALERTS.md](ALERTS.md), and [TELEGRAM.md](TELEGRAM.md).
 - The authenticated historical/live signal-feed API and SSE transport are implemented and Unverified; the authenticated browser preset catalog, subscription controls, Telegram-delivery controls, history feed, visibility recovery, and optional browser sound are implemented by the current frontend surface.
 - The authenticated historical-analysis run API, canonical dataset preparation, immutable candle snapshots, pure deterministic fixed-preset simulation engine, bounded worker, immutable report persistence, owner-scoped report/trade/equity reads, explicit terminal-run cleanup, and authenticated browser request/lifecycle/report flow are Implemented and Unverified. See [BACKTESTING.md](BACKTESTING.md), [DATABASE.md](DATABASE.md), and [MARKET_DATA.md](MARKET_DATA.md).
-- Local Compose orchestration is Implemented and Unverified: the persistent core waits for shared API preparation and migration, the `market` profile gates the stream behind catalog and bounded candle initialization, the `telegram` profile waits for migration, and the `historical-analysis` profile starts the real worker after migration. See [OPERATIONS.md](OPERATIONS.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
+- Local Compose orchestration is Implemented and Verified for the full-stack startup path: the persistent core waits for shared API preparation and migration, the `market` profile gates the stream behind catalog and bounded candle initialization, the `telegram` profile waits for migration, and the `historical-analysis` profile starts the real worker after migration. Broader recovery paths remain Unverified. See [OPERATIONS.md](OPERATIONS.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
 - Local setup, one-command startup, readiness, status, logs, shutdown, and reset controls are Implemented and Unverified: the dependency-free Node entry point preserves an existing `.env`, validates the strict local contract, resolves enabled Compose profiles, waits for one-shot/health state, reports normalized statuses and local URLs, follows foreground logs, preserves volumes on shutdown, and requires explicit reset confirmation. See [OPERATIONS.md](OPERATIONS.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [OBSERVABILITY.md](OBSERVABILITY.md).
 
 ## Active Work
@@ -20,7 +20,7 @@
 
 ## Current Blockers
 
-- There is no current implementation blocker. A maintainer-requested browser/runtime verification pass remains outstanding.
+- There is no current implementation blocker. A maintainer-requested browser and broader runtime verification pass remains outstanding.
 
 See [CONCERNS.md](CONCERNS.md) for risks that do not block current work or safe operation.
 
@@ -30,7 +30,7 @@ See [CONCERNS.md](CONCERNS.md) for risks that do not block current work or safe 
 | --- | --- | --- | --- |
 | Browser account and price alerts | Implemented | Unverified | No explicit browser or end-to-end pass was requested. |
 | Telegram linking and delivery | Implemented | Unverified | Provider and worker paths were not exercised. |
-| Market data and candles | Implemented | Unverified | Binance, maintenance, and reconciliation paths were not exercised. |
+| Market data and candles | Implemented | Unverified | Binance catalogue/bootstrap and market-stream startup were exercised; maintenance, reconciliation, correction, and reconnect paths remain unverified. |
 | Preset signal occurrences | Implemented | Unverified | Global occurrence evaluation and the authenticated feed boundary are available. |
 | Signal history and live SSE | Implemented | Unverified | Durable history, cursor recovery, listener, and stream paths were not exercised. |
 | Browser preset subscriptions, Telegram controls, and live feed | Implemented | Unverified | Browser, Telegram-control, visibility, EventSource, and audio paths were not exercised. |
@@ -38,12 +38,12 @@ See [CONCERNS.md](CONCERNS.md) for risks that do not block current work or safe 
 | Preset signal Telegram fan-out | Implemented | Unverified | Live occurrence dispatch, occurrence-time eligibility, bounded cursor recovery, and durable outbox-job creation are available; no runtime pass was requested. |
 | Preset signal Telegram provider delivery | Implemented | Unverified | The notification worker validates, safety-checks, formats, and sends `telegram_preset_signal` jobs; per-occurrence delivery history is not exposed. |
 | Historical-analysis run, dataset, worker, report, series, and browser flow | Implemented | Unverified | Owner-scoped lifecycle API, canonical coverage validation, immutable snapshots, restart-safe worker/recovery, report publication, owner-only series reads, explicit cleanup, and visible-document browser presentation; no runtime/browser pass was requested. |
-| Local Compose initialization and profile dependency graph | Implemented | Unverified | Shared API preparation, migration gating, market catalog/candle prerequisites, optional Telegram and historical-analysis profiles; no Compose pass was requested. |
-| Local setup and one-command lifecycle controls | Implemented | Unverified | Missing-only `.env` copy, strict configuration/URL/boolean/range validation, profile-aware Compose startup/wait/readiness, normalized status/logs/shutdown controls, and confirmed reset; no local lifecycle pass was requested. |
+| Local Compose initialization and profile dependency graph | Implemented | Verified | API preparation, migration gating, market catalogue/candle prerequisites, API/web health, market stream, and historical-analysis worker were exercised by the full-stack startup pass; Telegram was disabled. |
+| Local setup and one-command lifecycle controls | Implemented | Unverified | Full-stack startup, readiness, status, and volume-preserving shutdown were exercised; setup/preflight, log following, and reset remain unverified. |
 
 ## Next Actions
 
-1. Request a dedicated verification pass when the maintainer is ready.
+1. Request dedicated browser, Telegram-delivery, maintenance, and broader end-to-end verification when the maintainer is ready.
 
 ## Handoff Constraints
 
