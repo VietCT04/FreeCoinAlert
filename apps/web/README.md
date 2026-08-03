@@ -36,6 +36,12 @@ Telegram-delivery controls use credentialed native Fetch and the existing CSRF t
 
 The historical-analysis section uses credentialed native Fetch and the existing CSRF token for bounded run creation and cancellation. It polls selected queued/running runs only while the document is visible, presents server-provided assumptions and reports, and does not calculate indicators or metrics in the browser. Run IDs, reports, trades, equity points, fingerprints, and idempotency keys remain in memory only. In Compose, the web service waits for the API health check and carries no API, database, Telegram, or provider credentials.
 
+The browser also owns a shadcn/ui foundation under `src/components/ui` and shared presentational patterns under `src/components`. It uses the approved New York-style neutral/zinc tokens, Lucide icons, Radix primitives, Recharts chart composition, and Sonner for non-sensitive success confirmations. This foundation establishes reusable boundaries without moving routes, migrating feature panels, or changing application behavior.
+
+## Accessibility Foundation
+
+The repository-owned foundation provides keyboard-visible focus, semantic buttons, labels, alerts, dialogs, tabs, tables, responsive overflow handling, status text alongside visual treatments, reduced-motion handling, and accessible chart alternatives through the existing table pattern. Theme selection supports light, dark, and system modes through one shared provider boundary. The foundation is implemented and remains unverified until a maintainer requests a browser or accessibility pass.
+
 ## Authoritative Documentation
 
 - [Product](../../docs/PRODUCT.md)

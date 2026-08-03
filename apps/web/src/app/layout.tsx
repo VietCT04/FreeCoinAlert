@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
-import { AuthProvider } from "../features/auth/auth-provider";
+import { AppProviders } from "../components/providers/app-providers";
 
 import "./globals.css";
 
@@ -29,9 +29,10 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
-        <AuthProvider>{children}</AuthProvider>
+      <body className="min-h-svh bg-background font-sans text-foreground">
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

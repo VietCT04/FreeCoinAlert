@@ -16,6 +16,8 @@ Passwords are validated at 15–128 characters and stored using pwdlib’s recom
 
 Authenticated mutations compare `X-CSRF-Token` with the session token using constant-time comparison. Registration/login accept only `WEB_ORIGIN` or the API origin when `Origin` is present. CORS is one configured origin with credentials and a narrow method/header list that includes `PUT` for the signal Telegram-delivery preference. The web client keeps authentication and CSRF values in memory; no sensitive session or linking token is intentionally persisted in browser storage. Telegram-delivery preference and readiness are server-owned response state and are not stored in `localStorage`.
 
+The shared theme provider may persist only the light/dark/system UI preference under `freecoinalert.theme`; this value is non-sensitive and is not used for authentication, ownership, delivery, alert, signal, analysis, cursor, or provider state.
+
 The signal UI persists only the literal `true`/`false` sound preference under `freecoinalert.signalSound.enabled.v1`; it never persists events, cursors, IDs, authentication, or Telegram data. Credentialed `EventSource` carries only the safe live-feed snapshots and control events.
 
 ## Authorization and Ownership
@@ -67,6 +69,8 @@ Structured logs may contain lifecycle identifiers and safe failure codes. They m
 The frontend receives only response DTOs for its authenticated principal and public catalogue/preset data. It does not receive password hashes, session hashes, internal signal calculation state, provider secrets, Telegram destination identifiers, raw provider payloads, or other users’ data. Telegram controls send only the boolean preference with the existing CSRF token.
 
 Historical-analysis presentation receives only the approved owner-scoped run/report/trade/equity contract, keeps run IDs, fingerprints, reports, series, and idempotency keys in memory, and never stores them in browser persistence. It does not calculate indicators or metrics and does not contact Binance or Telegram.
+
+Repository-owned UI primitives, theme controls, and toast composition do not log component props, API responses, authentication values, or Telegram data, and no analytics or telemetry dependency is added.
 
 ## Current Limitations and Unresolved Risks
 
