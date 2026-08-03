@@ -12,7 +12,7 @@ Use CPython `3.14` and [uv](https://docs.astral.sh/uv/). From this directory, co
 uv sync
 ```
 
-Repository-wide Compose setup and shared environment values are in [`../../.env.example`](../../.env.example) and [Operations](../../docs/OPERATIONS.md).
+Repository-wide Compose setup and shared environment values are in [`../../.env.example`](../../.env.example) and [Operations](../../docs/OPERATIONS.md). Compose prepares the shared `api_venv` volume once through `api-prepare`, then applies migrations through `db-migrate` before API or worker processes start; direct-host development keeps its own explicit `uv sync` setup.
 
 ## Entry Points
 
@@ -52,4 +52,4 @@ pnpm analysis:cleanup
 - [Signal subscription delivery preference](../../docs/API.md#signal-presets-and-subscriptions)
 - [Historical-analysis run API](../../docs/API.md#historical-analysis-runs)
 
-The historical-analysis API stores bounded authenticated run requests and exposes owner-only immutable reports, trades, and equity pages after the separate worker publishes a successful result. The worker validates canonical coverage, runs the pure engine from immutable snapshots without provider calls, and publishes reports atomically. `analysis:cleanup` is an explicit bounded terminal-run retention command; it is not scheduled automatically.
+The historical-analysis API stores bounded authenticated run requests and exposes owner-only immutable reports, trades, and equity pages after the separate worker publishes a successful result. The worker validates canonical coverage, runs the pure engine from immutable snapshots without provider calls, and publishes reports atomically. The Compose `historical-analysis` profile starts that real worker after `db-migrate`; `analysis:cleanup` is an explicit bounded terminal-run retention command and is not scheduled automatically.

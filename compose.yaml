@@ -1,9 +1,23 @@
+x-api-common: &api-common
+  build:
+    context: .
+    dockerfile: apps/api/Dockerfile.dev
+  environment: &api-environment
+    DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+  init: true
+  volumes:
+    - ./apps/api:/app
+    - api_venv:/app/.venv
+
 services:
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile.dev
     command: pnpm install --frozen-lockfile && pnpm --filter @freecoinalert/web dev --hostname 0.0.0.0
+    depends_on:
+      api:
+        condition: service_healthy
     environment:
       NEXT_TELEMETRY_DISABLED: "1"
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
@@ -23,16 +37,29 @@ services:
       - web_node_modules:/workspace/apps/web/node_modules
       - pnpm_store:/pnpm/store
 
-  api:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile.dev
-    command: uv sync --frozen && uv run alembic upgrade head && uv run fastapi dev src/freecoinalert_api/main.py --host 0.0.0.0 --port 8000
+  api-prepare:
+    <<: *api-common
+    command: uv sync --frozen
+    restart: "no"
+
+  db-migrate:
+    <<: *api-common
+    command: uv run --frozen alembic upgrade head
+    restart: "no"
     depends_on:
       db:
         condition: service_healthy
+      api-prepare:
+        condition: service_completed_successfully
+
+  api:
+    <<: *api-common
+    command: uv run --frozen fastapi dev src/freecoinalert_api/main.py --host 0.0.0.0 --port 8000
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      <<: *api-environment
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-604800}
@@ -47,101 +74,96 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
-    init: true
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
-    volumes:
-      - ./apps/api:/app
-      - api_venv:/app/.venv
 
   telegram-updates:
     profiles: ["telegram"]
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile.dev
-    command: uv sync --frozen && uv run python -m freecoinalert_api.telegram.poller
+    <<: *api-common
+    command: uv run --frozen python -m freecoinalert_api.telegram.poller
     depends_on:
-      db:
-        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      <<: *api-environment
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       TELEGRAM_UPDATE_RETENTION_DAYS: ${TELEGRAM_UPDATE_RETENTION_DAYS:-30}
-    init: true
-    volumes:
-      - ./apps/api:/app
-      - api_venv:/app/.venv
 
   notification-worker:
     profiles: ["telegram"]
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile.dev
-    command: uv sync --frozen && uv run python -m freecoinalert_api.notifications.worker
+    <<: *api-common
+    command: uv run --frozen python -m freecoinalert_api.notifications.worker
     depends_on:
-      db:
-        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      <<: *api-environment
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-    init: true
-    volumes:
-      - ./apps/api:/app
-      - api_venv:/app/.venv
 
   signal-telegram-dispatcher:
     profiles: ["telegram"]
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile.dev
-    command: uv sync --frozen && uv run python -m freecoinalert_api.notifications.signal_dispatcher
+    <<: *api-common
+    command: uv run --frozen python -m freecoinalert_api.notifications.signal_dispatcher
     depends_on:
-      db:
-        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      <<: *api-environment
       SIGNAL_TELEGRAM_FANOUT_BATCH_SIZE: ${SIGNAL_TELEGRAM_FANOUT_BATCH_SIZE:-100}
       SIGNAL_TELEGRAM_FANOUT_CLAIM_LIMIT: ${SIGNAL_TELEGRAM_FANOUT_CLAIM_LIMIT:-10}
       SIGNAL_TELEGRAM_FANOUT_POLL_SECONDS: ${SIGNAL_TELEGRAM_FANOUT_POLL_SECONDS:-2}
       SIGNAL_TELEGRAM_FANOUT_MAX_AGE_SECONDS: ${SIGNAL_TELEGRAM_FANOUT_MAX_AGE_SECONDS:-900}
-    init: true
-    volumes:
-      - ./apps/api:/app
-      - api_venv:/app/.venv
 
   historical-analysis-worker:
-    profiles: ["analysis"]
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile.dev
-    command: uv sync --frozen && uv run python -m freecoinalert_api.historical_analysis.worker
+    profiles: ["historical-analysis"]
+    <<: *api-common
+    command: uv run --frozen python -m freecoinalert_api.historical_analysis.worker
     depends_on:
-      db:
-        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      <<: *api-environment
       HISTORICAL_ANALYSIS_WORKER_POLL_SECONDS: ${HISTORICAL_ANALYSIS_WORKER_POLL_SECONDS:-2}
       HISTORICAL_ANALYSIS_WORKER_CLAIM_LIMIT: ${HISTORICAL_ANALYSIS_WORKER_CLAIM_LIMIT:-1}
       HISTORICAL_ANALYSIS_WORKER_STALE_SECONDS: ${HISTORICAL_ANALYSIS_WORKER_STALE_SECONDS:-600}
       HISTORICAL_ANALYSIS_RETENTION_DAYS: ${HISTORICAL_ANALYSIS_RETENTION_DAYS:-30}
       HISTORICAL_ANALYSIS_CLEANUP_BATCH_SIZE: ${HISTORICAL_ANALYSIS_CLEANUP_BATCH_SIZE:-100}
-    init: true
-    volumes:
-      - ./apps/api:/app
-      - api_venv:/app/.venv
+
+  market-catalog-init:
+    profiles: ["market"]
+    <<: *api-common
+    command: uv run --frozen python -m freecoinalert_api.market_data.catalog_sync
+    restart: "no"
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: *api-environment
+      BINANCE_SPOT_BASE_URL: ${BINANCE_SPOT_BASE_URL:-https://api.binance.com}
+
+  candle-bootstrap-init:
+    profiles: ["market"]
+    <<: *api-common
+    command: uv run --frozen python -m freecoinalert_api.market_data.candles.bootstrap
+    restart: "no"
+    depends_on:
+      market-catalog-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *api-environment
+      BINANCE_SPOT_BASE_URL: ${BINANCE_SPOT_BASE_URL:-https://api.binance.com}
+      CANDLE_BOOTSTRAP_DAYS: ${LOCAL_CANDLE_BOOTSTRAP_DAYS:-35}
 
   market-stream:
     profiles: ["market"]
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile.dev
-    command: uv sync --frozen && uv run python -m freecoinalert_api.market_data.stream
+    <<: *api-common
+    command: uv run --frozen python -m freecoinalert_api.market_data.stream
     depends_on:
-      db:
-        condition: service_healthy
+      candle-bootstrap-init:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      <<: *api-environment
       BINANCE_SPOT_BASE_URL: ${BINANCE_SPOT_BASE_URL:-https://api.binance.com}
       BINANCE_SPOT_WS_BASE_URL: ${BINANCE_SPOT_WS_BASE_URL:-wss://stream.binance.com:9443}
       MARKET_EVENT_MAX_AGE_SECONDS: ${MARKET_EVENT_MAX_AGE_SECONDS:-10}
@@ -154,10 +176,6 @@ services:
       CANDLE_DATA_MAX_LAG_SECONDS: ${CANDLE_DATA_MAX_LAG_SECONDS:-180}
       CANDLE_RECENT_RECONCILIATION_SECONDS: ${CANDLE_RECENT_RECONCILIATION_SECONDS:-900}
       CANDLE_RECENT_RECONCILIATION_HOURS: ${CANDLE_RECENT_RECONCILIATION_HOURS:-6}
-    init: true
-    volumes:
-      - ./apps/api:/app
-      - api_venv:/app/.venv
 
   db:
     image: postgres:18.4-bookworm

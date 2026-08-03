@@ -6,7 +6,7 @@ Telegram is the sole implemented notification provider. It supports one private-
 
 ## Configuration and Optional Startup
 
-`TELEGRAM_BOT_USERNAME` is public optional configuration for browser links. `TELEGRAM_BOT_TOKEN` is secret and required for poller and provider requests, not API startup. The notification worker can run without a token to mark claimed jobs with the safe terminal code `telegram_not_configured`, but normal delivery requires the token. The Compose `telegram` profile starts `telegram-updates`, `signal-telegram-dispatcher`, and `notification-worker`; the dispatcher needs only `DATABASE_URL` and fan-out settings and none is part of the default stack.
+`TELEGRAM_BOT_USERNAME` is public optional configuration for browser links. `TELEGRAM_BOT_TOKEN` is secret and required for poller and provider requests, not API startup. The notification worker can run without a token to mark claimed jobs with the safe terminal code `telegram_not_configured`, but normal delivery requires the token. The Compose `telegram` profile starts `telegram-updates`, `signal-telegram-dispatcher`, and `notification-worker` only after the shared API preparation and database migration services complete; the dispatcher needs only `DATABASE_URL` and fan-out settings and none is part of the default stack. Telegram startup is optional and a Telegram process failure does not block the core API/web stack.
 
 ## Browser Linking Flow
 

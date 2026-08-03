@@ -34,7 +34,7 @@ The root signal surface uses native Fetch, EventSource, React state/effects, and
 
 Telegram-delivery controls use credentialed native Fetch and the existing CSRF token, confirm enabling, apply only successful server responses, and keep browser history and sound separate from provider delivery. The browser does not contact Telegram or store preference, readiness, destination, or token data in local storage.
 
-The historical-analysis section uses credentialed native Fetch and the existing CSRF token for bounded run creation and cancellation. It polls selected queued/running runs only while the document is visible, presents server-provided assumptions and reports, and does not calculate indicators or metrics in the browser. Run IDs, reports, trades, equity points, fingerprints, and idempotency keys remain in memory only.
+The historical-analysis section uses credentialed native Fetch and the existing CSRF token for bounded run creation and cancellation. It polls selected queued/running runs only while the document is visible, presents server-provided assumptions and reports, and does not calculate indicators or metrics in the browser. Run IDs, reports, trades, equity points, fingerprints, and idempotency keys remain in memory only. In Compose, the web service waits for the API health check and carries no API, database, Telegram, or provider credentials.
 
 ## Authoritative Documentation
 
