@@ -31,7 +31,7 @@ export function SignInForm() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.replace("/");
+      router.replace("/dashboard");
     }
   }, [router, status]);
 
@@ -57,7 +57,7 @@ export function SignInForm() {
 
     try {
       setAuthenticatedSession(await signIn(email, password));
-      router.replace("/");
+      router.replace("/dashboard");
     } catch (requestError) {
       setError(getSignInError(requestError));
     } finally {

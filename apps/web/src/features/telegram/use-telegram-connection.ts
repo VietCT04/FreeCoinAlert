@@ -32,7 +32,6 @@ type UseTelegramConnectionOptions = {
   authStatus: AuthStatus;
   csrfToken: string | null;
   refreshSession: () => Promise<void>;
-  onConnectionChanged?: () => void;
 };
 
 export type TelegramConnectionState = {
@@ -112,17 +111,6 @@ function hasExpired(linkExpiresAt: string | null | undefined): boolean {
   return Boolean(linkExpiresAt && Date.parse(linkExpiresAt) <= Date.now());
 }
 
-function connectionReadinessChanged(
-  previous: TelegramConnection | null,
-  next: TelegramConnection,
-): boolean {
-  return (
-    previous === null ||
-    previous.status !== next.status ||
-    previous.statusReason !== next.statusReason
-  );
-}
-
 function clearTelegramState(
   setConnection: Dispatch<SetStateAction<TelegramConnection | null>>,
   setDeepLink: Dispatch<SetStateAction<string | null>>,
@@ -141,7 +129,6 @@ export function useTelegramConnection({
   authStatus,
   csrfToken,
   refreshSession,
-  onConnectionChanged,
 }: UseTelegramConnectionOptions): TelegramConnectionState {
   const [connection, setConnection] = useState<TelegramConnection | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -159,20 +146,8 @@ export function useTelegramConnection({
   const linkingStartedAt = useRef<number | null>(null);
   const notificationPollingStartedAt = useRef<number | null>(null);
   const testIdempotencyKey = useRef<string | null>(null);
-  const connectionRef = useRef<TelegramConnection | null>(null);
-  const onConnectionChangedRef = useRef(onConnectionChanged);
-
-  useEffect(() => {
-    onConnectionChangedRef.current = onConnectionChanged;
-  }, [onConnectionChanged]);
-
   const updateConnection = useCallback((next: TelegramConnection) => {
-    const previous = connectionRef.current;
-    connectionRef.current = next;
     setConnection(next);
-    if (connectionReadinessChanged(previous, next)) {
-      onConnectionChangedRef.current?.();
-    }
   }, []);
 
   const handleRequestError = useCallback(
@@ -314,7 +289,6 @@ export function useTelegramConnection({
     linkingStartedAt.current = null;
     notificationPollingStartedAt.current = null;
     testIdempotencyKey.current = null;
-    connectionRef.current = null;
     clearTelegramState(
       setConnection,
       setDeepLink,

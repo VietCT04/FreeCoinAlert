@@ -18,13 +18,7 @@ import { useSignalSound } from "./use-signal-sound";
 import { useSignalStream } from "./use-signal-stream";
 import { useSignalSubscriptions } from "./use-signal-subscriptions";
 
-type PresetSignalPanelProps = {
-  telegramConnectionRevision?: number;
-};
-
-export function PresetSignalPanel({
-  telegramConnectionRevision = 0,
-}: PresetSignalPanelProps) {
+export function PresetSignalPanel() {
   const { csrfToken, refreshSession, status } = useAuth();
   const markets = useMarkets(status);
   const sound = useSignalSound(status);
@@ -59,11 +53,6 @@ export function PresetSignalPanel({
     onSubscriptionChanged: handleSubscriptionChanged,
     refreshSession,
   });
-  useEffect(() => {
-    if (status === "authenticated" && telegramConnectionRevision > 0) {
-      void subscriptions.refresh();
-    }
-  }, [status, subscriptions.refresh, telegramConnectionRevision]);
   const recoverHistory = useCallback(async (): Promise<boolean> => {
     const [feedRecovered, subscriptionsRecovered] = await Promise.all([
       feed.refreshFirstPage(),

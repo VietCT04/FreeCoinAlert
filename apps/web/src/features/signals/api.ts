@@ -107,10 +107,23 @@ export async function disableSignalSubscription(
   }
 }
 
-export function getSignalFeed(cursor?: string): Promise<SignalFeedEnvelope> {
-  const query = new URLSearchParams({ limit: "50" });
-  if (cursor) {
-    query.set("cursor", cursor);
+export type SignalFeedListOptions = {
+  cursor?: string;
+  limit?: number;
+  status?: "current" | "invalidated" | "all";
+};
+
+export function getSignalFeed(
+  options: SignalFeedListOptions | string = {},
+): Promise<SignalFeedEnvelope> {
+  const normalizedOptions =
+    typeof options === "string" ? { cursor: options } : options;
+  const query = new URLSearchParams({
+    limit: String(normalizedOptions.limit ?? 50),
+    status: normalizedOptions.status ?? "current",
+  });
+  if (normalizedOptions.cursor) {
+    query.set("cursor", normalizedOptions.cursor);
   }
 
   return requestSignals<SignalFeedEnvelope>(`/signal-feed?${query.toString()}`);

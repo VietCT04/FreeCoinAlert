@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`apps/web` is the Next.js browser application for account access, Telegram connection, one-time price-alert management, fixed preset subscriptions, the authenticated signal feed, and the authenticated historical-analysis flow.
+`apps/web` is the Next.js browser application for account access, a responsive authenticated dashboard shell, Telegram connection, one-time price-alert management, fixed preset subscriptions, the authenticated signal feed, and the authenticated historical-analysis flow.
 
 ## Prerequisites and Setup
 
@@ -26,21 +26,26 @@ pnpm --filter @freecoinalert/web start
 
 ## Current Surfaces
 
-- `/` — authenticated account, Telegram connection, price-alert, preset-subscription, signal-history, and historical-analysis surface.
+- `/` — public entry point that redirects authenticated users to the dashboard.
+- `/dashboard` — owner-scoped overview of active monitoring, Telegram readiness, catalogue readiness, and recent activity.
+- `/price-alerts` — one-time price-alert management.
+- `/preset-signals` — fixed preset subscriptions and signal history.
+- `/historical-analysis` — bounded historical-analysis requests and reports.
+- `/telegram` — private Telegram connection and test-notification controls.
 - `/sign-in` — browser sign-in.
 - `/sign-up` — browser registration.
 
-The root signal surface uses native Fetch, EventSource, React state/effects, and the Web Audio API. Preset formulas and parameters remain server-controlled and read-only; browser sound is off by default and is never required for visual updates. Active preset cards also expose the server-owned Telegram-delivery preference and dynamic destination readiness.
+The dashboard shell uses the existing opaque-cookie `AuthProvider` as its only authentication source. Its overview makes independent read-only requests to existing alert, subscription, Telegram, market-catalogue, and signal-feed endpoints; it does not poll, open SSE, or persist dashboard data in browser storage. Each feature route owns its existing hook lifecycle. The signal surface uses native Fetch, EventSource, React state/effects, and the Web Audio API. Preset formulas and parameters remain server-controlled and read-only; browser sound is off by default and is never required for visual updates. Active preset cards also expose the server-owned Telegram-delivery preference and dynamic destination readiness.
 
 Telegram-delivery controls use credentialed native Fetch and the existing CSRF token, confirm enabling, apply only successful server responses, and keep browser history and sound separate from provider delivery. The browser does not contact Telegram or store preference, readiness, destination, or token data in local storage.
 
 The historical-analysis section uses credentialed native Fetch and the existing CSRF token for bounded run creation and cancellation. It polls selected queued/running runs only while the document is visible, presents server-provided assumptions and reports, and does not calculate indicators or metrics in the browser. Run IDs, reports, trades, equity points, fingerprints, and idempotency keys remain in memory only. In Compose, the web service waits for the API health check and carries no API, database, Telegram, or provider credentials.
 
-The browser also owns a shadcn/ui foundation under `src/components/ui` and shared presentational patterns under `src/components`. It uses the approved New York-style neutral/zinc tokens, Lucide icons, Radix primitives, Recharts chart composition, and Sonner for non-sensitive success confirmations. This foundation establishes reusable boundaries without moving routes, migrating feature panels, or changing application behavior.
+The browser owns a shadcn/ui foundation under `src/components/ui`, shared presentational patterns under `src/components`, and dashboard-shell components under `src/components/dashboard`. It uses the approved New York-style neutral/zinc tokens, Lucide icons, Radix primitives, Recharts chart composition, and Sonner for non-sensitive success confirmations. The shell provides a collapsible desktop sidebar, mobile drawer navigation, breadcrumbs, a user menu, a theme toggle, skip navigation, and route-level safe loading/error boundaries without changing feature workflows.
 
 ## Accessibility Foundation
 
-The repository-owned foundation provides keyboard-visible focus, semantic buttons, labels, alerts, dialogs, tabs, tables, responsive overflow handling, status text alongside visual treatments, reduced-motion handling, and accessible chart alternatives through the existing table pattern. Theme selection supports light, dark, and system modes through one shared provider boundary. The foundation is implemented and remains unverified until a maintainer requests a browser or accessibility pass.
+The repository-owned foundation and dashboard shell provide keyboard-visible focus, semantic buttons, labels, alerts, dialogs, tabs, tables, responsive overflow handling, active-route indication, skip navigation, `nav`/`header`/`main` landmarks, one page-level heading per route, status text alongside visual treatments, reduced-motion handling, and accessible chart alternatives through the existing table pattern. Theme selection supports light, dark, and system modes through one shared provider boundary. The dashboard and foundation are implemented and remain unverified until a maintainer requests a browser or accessibility pass.
 
 ## Authoritative Documentation
 
