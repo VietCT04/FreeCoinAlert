@@ -12,7 +12,7 @@ Use CPython `3.14` and [uv](https://docs.astral.sh/uv/). From this directory, co
 uv sync
 ```
 
-Repository-wide Compose setup and shared environment values are in [`../../.env.example`](../../.env.example) and [Operations](../../docs/OPERATIONS.md). Compose prepares the shared `api_venv` volume once through `api-prepare`, then applies migrations through `db-migrate` before API or worker processes start; direct-host development keeps its own explicit `uv sync` setup.
+Repository-wide Compose setup and shared environment values are in [`../../.env.example`](../../.env.example) and [Operations](../../docs/OPERATIONS.md). From the repository root, `pnpm dev:setup` creates the ignored root `.env` only when it is absent and performs the dependency-free local preflight; `pnpm dev:preflight` repeats validation without starting a process or contacting a provider. Compose prepares the shared `api_venv` volume once through `api-prepare`, then applies migrations through `db-migrate` before API or worker processes start; direct-host development keeps its own explicit `uv sync` setup.
 
 ## Entry Points
 

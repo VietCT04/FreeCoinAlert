@@ -26,10 +26,11 @@ See the authoritative [product overview](docs/PRODUCT.md) for capabilities, limi
 
 ## Local Development
 
-Use Node.js `24.18.0`, pnpm `11.4.0`, Docker Compose, CPython `3.14`, and uv. Copy [`.env.example`](.env.example) to `.env`, then install dependencies and start the local core stack:
+Use Node.js `24.18.0`, pnpm `11.4.0`, Docker Compose, CPython `3.14`, and uv. Install dependencies, create or validate the ignored local `.env`, and start the local core stack from the repository root:
 
 ```bash
 pnpm install
+pnpm dev:setup
 pnpm dev
 ```
 
@@ -38,6 +39,8 @@ Detailed configuration, process commands, and recovery guidance are in [OPERATIO
 ## Common Commands
 
 ```bash
+pnpm dev:setup
+pnpm dev:preflight
 pnpm dev
 pnpm dev:down
 pnpm dev:market
@@ -45,6 +48,8 @@ pnpm dev:telegram
 pnpm dev:signal-telegram-dispatcher
 pnpm db:migrate
 ```
+
+`pnpm dev:setup` copies [`.env.example`](.env.example) only when `.env` is absent, never overwrites an existing file, and runs the local preflight. `pnpm dev:preflight` validates an existing configuration, Docker/Compose prerequisites, and local port availability without starting or stopping containers or contacting Binance or Telegram. Telegram is disabled by default; enabling it requires the local username and token settings. The preflight always selects `market`, conditionally selects `telegram`, and reports `historical-analysis` as a future conditional profile.
 
 `pnpm dev:reset` removes local Compose volumes, including PostgreSQL data. See [OPERATIONS.md](docs/OPERATIONS.md) before using operational commands.
 

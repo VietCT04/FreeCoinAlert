@@ -56,6 +56,8 @@ Binance Spot REST/WebSocket access is public and centralized. The product neithe
 
 `DATABASE_URL`, Telegram bot token, and local passwords are environment configuration. Tokens are hashed where replay is not needed; passwords are Argon2id hashes. Exact decimal values use `NUMERIC`, avoiding float-based financial persistence. Database deletion/backup policy remains an operational concern documented in [DATABASE.md](DATABASE.md).
 
+The tracked root `.env.example` contains only safe local placeholders, and `.env` is ignored. `pnpm dev:setup` copies the example only when `.env` is absent and never overwrites an existing file. The setup/preflight parser reads names and values only to validate them, does not expand or execute file content, allows process-environment overrides, uses argument arrays with `shell: false` for Docker checks, and emits only variable names and corrective actions. It never prints secret values, passes secrets as command-line arguments, writes Telegram settings to `NEXT_PUBLIC_*`, or contacts a provider. Telegram is disabled by default; enabling it requires the accepted username format and a non-empty bot token.
+
 ## Logging and Error Redaction
 
 Structured logs may contain lifecycle identifiers and safe failure codes. They must not include passwords, session or CSRF tokens, Telegram bot/link tokens, database URLs, raw provider payloads, or unnecessary personal data. API errors return stable safe codes/messages rather than internal exceptions.
