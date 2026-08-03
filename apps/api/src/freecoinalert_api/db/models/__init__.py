@@ -15,6 +15,10 @@ from freecoinalert_api.db.models.market_candle import MarketCandle
 from freecoinalert_api.db.models.candle_symbol_state import CandleSymbolState
 from freecoinalert_api.db.models.candle_sync_run import CandleSyncRun
 from freecoinalert_api.db.models.historical_analysis_run import HistoricalAnalysisRun
+from freecoinalert_api.db.models.historical_analysis_dataset import HistoricalAnalysisDataset
+from freecoinalert_api.db.models.historical_analysis_dataset_candle import (
+    HistoricalAnalysisDatasetCandle,
+)
 from freecoinalert_api.db.models.supported_market import SupportedMarket
 from freecoinalert_api.db.models.telegram_connection import TelegramConnection
 from freecoinalert_api.db.models.telegram_link_token import TelegramLinkToken
@@ -28,6 +32,8 @@ __all__ = [
     "CandleSymbolState",
     "CandleSyncRun",
     "HistoricalAnalysisRun",
+    "HistoricalAnalysisDataset",
+    "HistoricalAnalysisDatasetCandle",
     "AuthSession",
     "NotificationOutbox",
     "PriceAlert",

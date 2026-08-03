@@ -1,2 +1,1 @@
-"""Owner-scoped historical-analysis run contracts and persistence."""
-
+"""Historical-analysis run contracts, canonical datasets, and persistence."""

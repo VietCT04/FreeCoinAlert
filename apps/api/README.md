@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`apps/api` is the FastAPI application. It owns HTTP routes, owner-scoped historical-analysis run persistence, and the runnable market-data, Telegram-update, signal-dispatch, and notification-worker modules.
+`apps/api` is the FastAPI application. It owns HTTP routes, owner-scoped historical-analysis run persistence, an internal canonical historical-analysis dataset service, and the runnable market-data, Telegram-update, signal-dispatch, and notification-worker modules.
 
 ## Prerequisites and Setup
 
@@ -50,4 +50,4 @@ pnpm dev:signal-telegram-dispatcher
 - [Signal subscription delivery preference](../../docs/API.md#signal-presets-and-subscriptions)
 - [Historical-analysis run API](../../docs/API.md#historical-analysis-runs)
 
-The historical-analysis API currently stores bounded authenticated run requests and safe lifecycle metadata only. It has no dataset, simulation, worker, report, or provider entry point.
+The historical-analysis API stores bounded authenticated run requests and safe lifecycle metadata. The internal dataset service validates stored canonical coverage and persists immutable snapshots when called by future worker code; it has no command or process entry point and does not calculate, simulate, report, or contact a provider.

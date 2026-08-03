@@ -68,6 +68,20 @@ async def get_historical_analysis_run_for_user(
     return await session.scalar(statement)
 
 
+async def get_historical_analysis_run_by_id(
+    session: AsyncSession,
+    *,
+    run_id: uuid.UUID,
+    for_update: bool = False,
+) -> HistoricalAnalysisRun | None:
+    statement = select(HistoricalAnalysisRun).where(
+        HistoricalAnalysisRun.id == run_id,
+    )
+    if for_update:
+        statement = statement.with_for_update()
+    return await session.scalar(statement)
+
+
 async def list_historical_analysis_runs_page_for_user(
     session: AsyncSession,
     *,

@@ -15,7 +15,7 @@ PostgreSQL is the durable source of truth. Tables generally use UUID primary key
 | Candles | `market_candles`, `candle_symbol_states`, `candle_sync_runs` | immutable/revisioned candles + operations |
 | Alerts | `price_alerts`, `alert_events` | mutable alert + immutable trigger |
 | Signals | `signal_presets`, `signal_subscriptions`, `signal_subscription_state_events`, `signal_evaluation_states`, `signal_events`, `signal_event_invalidations`, `signal_feed_stream_events` | versioned definitions, user intent, occurrence-time subscription state, evaluation state, immutable history, durable feed cursor |
-| Historical analysis | `historical_analysis_runs` | owner-scoped bounded request and lifecycle state |
+| Historical analysis | `historical_analysis_runs`, `historical_analysis_datasets`, `historical_analysis_dataset_candles` | owner-scoped request/lifecycle state plus immutable canonical candle snapshots |
 
 ## Authentication Domain
 
@@ -114,19 +114,81 @@ The status is one of `queued`, `running`, `succeeded`, `failed`, or `cancelled`.
 
 The user foreign key cascades on account deletion. Supported-market and signal-preset foreign keys use `ON DELETE RESTRICT` so a run retains the references required by its immutable request snapshot. Run creation validates configuration, range, ownership, and limits and then inserts the queued row in one transaction; it does not read candle rows or call a provider. Cancellation locks the owner row, immediately transitions queued work to cancelled or records `cancellation_requested_at` for running work, and commits the lifecycle change. There is no cleanup process in this change; terminal-run retention remains unresolved until the future worker/report boundary, and active runs must never be deleted automatically.
 
+## Historical Analysis Dataset Domain
+
+`historical_analysis_datasets` stores one canonical coverage manifest per run. Its `status` is `ready`, `failed`, or `stale`; a failed row contains one safe preparation failure category and no snapshot candle rows. A ready row records the fixed timeframe, user-visible analysis range, exact warm-up boundary/count, analysis/total counts, first/last stored boundaries, lowercase SHA-256 `manifest_fingerprint`, and preparation/staleness timestamps. The run FK cascades, while market and preset FKs restrict deletion. Counts are nonnegative, `total_candle_count = warmup_candle_count + analysis_candle_count`, and the maximum stored dataset size is 2,500 candles. Ready rows have no failure or stale timestamp; stale rows require `historical_dataset_stale` and `stale_at`.
+
+`historical_analysis_dataset_candles` is an immutable full-value snapshot of each selected current canonical candle. It stores the zero-based contiguous position, source candle UUID/revision, warm-up flag, timeframe and UTC boundaries, complete OHLCV/trade values, source kind/counts/fingerprint, and creation time. It has CASCADE deletion from the dataset and `ON DELETE RESTRICT` to `market_candles`, unique `(dataset_id, position)` and `(dataset_id, candle_id)`, and `(dataset_id, open_time)` plus `(candle_id, dataset_id)` indexes. The preparation service validates exact UTC continuity and counts before insertion; the future engine reads these rows rather than mutable current candle rows.
+
+The dataset columns are:
+
+```text
+id UUID PRIMARY KEY
+run_id UUID NOT NULL UNIQUE
+supported_market_id UUID NOT NULL
+signal_preset_id UUID NOT NULL
+status VARCHAR(32) NOT NULL
+failure_code VARCHAR(64) NULL
+timeframe VARCHAR(8) NOT NULL
+analysis_start TIMESTAMP WITH TIME ZONE NOT NULL
+analysis_end TIMESTAMP WITH TIME ZONE NOT NULL
+warmup_start TIMESTAMP WITH TIME ZONE NOT NULL
+required_warmup_candles INTEGER NOT NULL
+warmup_candle_count INTEGER NOT NULL
+analysis_candle_count INTEGER NOT NULL
+total_candle_count INTEGER NOT NULL
+first_open_time TIMESTAMP WITH TIME ZONE NOT NULL
+last_close_time TIMESTAMP WITH TIME ZONE NOT NULL
+manifest_fingerprint VARCHAR(64) NOT NULL
+prepared_at TIMESTAMP WITH TIME ZONE NOT NULL
+stale_at TIMESTAMP WITH TIME ZONE NULL
+created_at TIMESTAMP WITH TIME ZONE NOT NULL
+updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+```
+
+The snapshot columns are:
+
+```text
+id UUID PRIMARY KEY
+dataset_id UUID NOT NULL
+position INTEGER NOT NULL
+candle_id UUID NOT NULL
+candle_revision INTEGER NOT NULL
+is_warmup BOOLEAN NOT NULL
+timeframe VARCHAR(8) NOT NULL
+open_time TIMESTAMP WITH TIME ZONE NOT NULL
+close_time TIMESTAMP WITH TIME ZONE NOT NULL
+open_price NUMERIC(38,18) NOT NULL
+high_price NUMERIC(38,18) NOT NULL
+low_price NUMERIC(38,18) NOT NULL
+close_price NUMERIC(38,18) NOT NULL
+base_volume NUMERIC(38,18) NOT NULL
+quote_volume NUMERIC(38,18) NOT NULL
+trade_count BIGINT NOT NULL
+source_kind VARCHAR(32) NOT NULL
+source_candle_count INTEGER NOT NULL
+expected_source_candle_count INTEGER NOT NULL
+source_fingerprint VARCHAR(64) NULL
+created_at TIMESTAMP WITH TIME ZONE NOT NULL
+```
+
+The fingerprint schema version is `historical_dataset_fingerprint_v1`. It serializes the pinned market/preset/calculation identity, timeframe/range/warm-up metadata, and each snapshot's UUID, revision, UTC boundary, normalized decimal values, trade count, and source metadata in ascending position order. A ready dataset is reproducible from its immutable snapshot, while current-source validation can mark it stale after a correction.
+
 ## Cross-Domain Transaction Boundaries
 
 Historical-analysis creation locks the user-scoped create boundary, validates server-controlled market/preset/range identity, and inserts the queued run atomically; idempotent replays do not create another row. Cancellation locks the owner row and commits its lifecycle/requested-cancellation transition atomically.
+
+Dataset preparation locks the run, takes a short `FOR SHARE` snapshot lock over the selected current canonical candles, validates coverage, and inserts the dataset metadata and immutable candle rows in one transaction. Typed coverage failures persist only failed dataset metadata. Current-source validation locks the dataset and referenced market-candle rows for the check and atomically marks a changed dataset stale; it never rebuilds the same run.
 
 Registration/login commit user/session together. Price-alert evaluation inserts event/outbox and transitions the alert atomically. Signal evaluation locks/updates its market-preset state and inserts a deduplicated signal event, its feed stream row, and its one dispatch row atomically. Signal invalidation inserts its immutable invalidation and feed stream row atomically. Subscription lifecycle and Telegram-preference transitions update the mutable subscription row and insert one state-history row atomically; equivalent preference requests insert neither a new state row nor notification work. Dispatcher pages select occurrence-time state, create idempotent per-user outbox rows, advance the subscription cursor, and update counts in one transaction. The PostgreSQL notification is emitted before the occurrence transaction commits and carries only the stream sequence. Telegram sending changes only outbox delivery state after the occurrence and fan-out transactions.
 
 ## Retention and Cleanup
 
-Canonical candle retention defaults to 180 days; processed Telegram updates default to 30 days; signal-event retention configuration defaults to 365 days but no automatic signal-event deletion process is implemented. Feed stream cursor rows are retained for 7 days and the API listener deletes at most 10,000 expired rows in one maintenance transaction, without deleting referenced signal events. Signal dispatch and preset-signal outbox rows have no automatic cleanup in this change; terminal state remains available for recovery diagnosis and is governed by account-deletion FKs and future operational policy. Historical-analysis runs have no cleanup process in this change; active runs must not be deleted automatically and terminal-run retention remains unresolved until the worker/report issue defines it. Price events, alert records, and account-deletion retention remain governed by their FKs and operational policy.
+Canonical candle retention defaults to 180 days; processed Telegram updates default to 30 days; signal-event retention configuration defaults to 365 days but no automatic signal-event deletion process is implemented. Feed stream cursor rows are retained for 7 days and the API listener deletes at most 10,000 expired rows in one maintenance transaction, without deleting referenced signal events. Signal dispatch and preset-signal outbox rows have no automatic cleanup in this change; terminal state remains available for recovery diagnosis and is governed by account-deletion FKs and future operational policy. Historical-analysis runs and datasets have no cleanup process in this change; active runs and referenced datasets must not be deleted automatically. The dataset candle FK restricts canonical candle retention, so terminal-run/dataset cleanup remains unresolved until the worker/report boundary defines it. Price events, alert records, and account-deletion retention remain governed by their FKs and operational policy.
 
 ## Migration Inventory
 
-`20260728_0001` users/auth sessions; `20260730_0002` Telegram persistence; `0003` notification outbox; `0004` supported market catalogue; `0005` price alerts/events; `0006` live market state; `0007` price-alert notification kind; `0008` canonical candles; `0009` candle operational state; `0010` signal presets/subscriptions; `20260731_0011` signal evaluation/events/invalidations; `20260802_0012` durable signal-feed stream events and existing-event replay rows; `20260802_0013` explicit signal Telegram-delivery preference and immutable subscription state history with baseline rows; `20260802_0014` signal Telegram dispatch rows and preset-signal outbox references/indexes; `20260803_0015` owner-scoped historical-analysis runs. The chain head is `20260803_0015`.
+`20260728_0001` users/auth sessions; `20260730_0002` Telegram persistence; `0003` notification outbox; `0004` supported market catalogue; `0005` price alerts/events; `0006` live market state; `0007` price-alert notification kind; `0008` canonical candles; `0009` candle operational state; `0010` signal presets/subscriptions; `20260731_0011` signal evaluation/events/invalidations; `20260802_0012` durable signal-feed stream events and existing-event replay rows; `20260802_0013` explicit signal Telegram-delivery preference and immutable subscription state history with baseline rows; `20260802_0014` signal Telegram dispatch rows and preset-signal outbox references/indexes; `20260803_0015` owner-scoped historical-analysis runs; `20260803_0016` canonical historical-analysis dataset manifests and immutable candle snapshots. The chain head is `20260803_0016`.
 
 ## Backup, Deletion, and Unresolved Storage Concerns
 
