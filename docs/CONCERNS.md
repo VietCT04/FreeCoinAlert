@@ -84,15 +84,15 @@ This document records unresolved current risks and decisions, not feature histor
 
 ## Active Operational Concerns
 
-### Historical-analysis execution and retention are deferred
+### Historical-analysis worker execution and retention are deferred
 
-**Current fact:** The authenticated historical-analysis API persists bounded owner-scoped request snapshots and lifecycle metadata, and its internal dataset service can persist one canonical immutable snapshot or typed failed metadata row. No worker invokes dataset preparation, and no simulator, report, or cleanup process exists.
+**Current fact:** The authenticated historical-analysis API persists bounded owner-scoped request snapshots and lifecycle metadata, the internal dataset service can persist one canonical immutable snapshot or typed failed metadata row, and a pure deterministic fixed-preset engine can calculate an in-memory result from validated immutable snapshots. No worker invokes dataset preparation or the engine, and no report persistence or cleanup process exists.
 
 **Risk/impact:** Queued and running rows cannot advance to a historical result in the current runtime. Dataset snapshot foreign keys can prevent canonical candle retention, and terminal runs/datasets remain retained until a future worker/report boundary defines safe cleanup. Users must not confuse a stored request or ready dataset with a completed analysis or performance claim.
 
-**Current mitigation:** Creation is limited to controlled markets, fixed preset versions, bounded UTC ranges, two active runs per user, idempotent keys, safe lifecycle transitions, and no provider work. Dataset preparation is limited to 2,500 canonical rows, requires complete contiguous coverage, snapshots full values atomically, records safe typed failures, validates revisions/source fingerprints, marks corrections stale, and never rebuilds a stale run. Active runs and referenced datasets are not automatically deleted.
+**Current mitigation:** Creation is limited to controlled markets, fixed preset versions, bounded UTC ranges, two active runs per user, idempotent keys, safe lifecycle transitions, and no provider work. Dataset preparation is limited to 2,500 canonical rows, requires complete contiguous coverage, snapshots full values atomically, records safe typed failures, validates revisions/source fingerprints, marks corrections stale, and never rebuilds a stale run. The pure engine is limited to 2,500 total/2,200 visible candles, eight fixed preset definitions, one position, six complete holding candles, Decimal arithmetic, explicit safety disclosures, and deterministic result fingerprints. Active runs and referenced datasets are not automatically deleted.
 
-**Follow-up:** Add the worker, deterministic simulation, report persistence, and bounded terminal-run/dataset cleanup in separately approved changes.
+**Follow-up:** Add the worker, report persistence, and bounded terminal-run/dataset cleanup in separately approved changes.
 
 **Owning document:** [BACKTESTING.md](BACKTESTING.md), [DATABASE.md](DATABASE.md), and [OPERATIONS.md](OPERATIONS.md).
 

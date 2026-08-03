@@ -6,7 +6,7 @@ This document describes implemented local runtime entry points, settings, manual
 
 ## Runtime Components
 
-The authenticated API owns historical-analysis run creation, listing, detail, and cancellation. Its internal dataset service can prepare a bounded canonical snapshot when called by future worker code, but it has no command or process entry point. No historical-analysis worker, simulator, or report process exists in the current runtime.
+The authenticated API owns historical-analysis run creation, listing, detail, and cancellation. Its internal dataset service can prepare a bounded canonical snapshot when called by future worker code, and the API package contains a pure fixed-preset simulation engine for immutable snapshot inputs. Neither boundary has a command or process entry point; no historical-analysis worker or report process exists in the current runtime.
 
 The web app, FastAPI API, and PostgreSQL run in the default Compose stack. The API process also starts the signal-feed PostgreSQL listener and local SSE connection manager through its FastAPI lifespan. Optional components are the singleton Binance market stream, Telegram update poller, signal Telegram dispatcher, and notification worker. Each uses the same database and configuration but is separately started.
 
@@ -41,7 +41,7 @@ The commands invoke `freecoinalert_api.market_data.catalog_sync`, `.market_data.
 
 ## Environment Configuration
 
-Historical-analysis range, version, active-run, and request limits are fixed server policy in the API. `CANDLE_RETENTION_DAYS` bounds the warm-up validation; there are no separate worker, dataset, simulation, report, or historical-analysis cleanup settings in this change.
+Historical-analysis range, version, active-run, request, and pure-engine resource limits are fixed server policy/constants in the API package. `CANDLE_RETENTION_DAYS` bounds the warm-up validation; there are no separate worker, dataset, simulation, report, or historical-analysis cleanup settings.
 
 `DATABASE_URL` is required and secret. `WEB_ORIGIN` defaults to `http://localhost:3000`; `SESSION_COOKIE_SECURE` defaults false; `SESSION_TTL_SECONDS` defaults 604800. Telegram username/token and TTL/retention are described in [TELEGRAM.md](TELEGRAM.md). Binance URLs are public provider settings. Market settings and defaults are in [MARKET_DATA.md](MARKET_DATA.md). `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration with no automatic catch-up implementation; `SIGNAL_HISTORY_DAYS=90` only bounds the placeholder backfill coverage check; `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Signal SSE defaults are 2 connections per user, 500 per process, queue size 100, 15-second heartbeats, 60-second session revalidation, and 7-day stream-cursor retention; these limits are configured by `SIGNAL_SSE_*` and `SIGNAL_STREAM_RETENTION_DAYS`. Signal Telegram fan-out defaults are batch size 100, claim limit 10, 2-second polling, and a 900-second maximum delivery age; these limits are configured by `SIGNAL_TELEGRAM_FANOUT_*`. Signal Telegram-delivery preference mutations use a process-local limit of 30 per user per 15 minutes. Environment examples contain names and safe defaults only; never commit secrets.
 
@@ -97,7 +97,7 @@ Start PostgreSQL before direct API commands. API startup itself does not contact
 - Stuck notification claims: inspect the persisted job state. The worker detects stale claims and terminally records `telegram_delivery_outcome_unknown`; it does not resume or requeue an uncertain provider send.
 - Stuck signal fan-out: inspect `signal_telegram_dispatches` for `processing`, `retry_wait`, `failed`, `skipped`, counts, cursor, and safe failure code. The dispatcher requeues stale database-only claims, retries bounded database failures, and never retries beyond `max_attempts` or creates jobs older than the configured maximum age.
 - Historical-analysis cancellation: a queued run is cancelled immediately; a running run records a cancellation request for a future worker, but no worker currently acknowledges or advances historical-analysis runs. Do not treat queued lifecycle metadata as a completed report.
-- Historical-analysis dataset preparation: no current command invokes it. A future worker must use the internal service, honor typed coverage failures, validate current snapshots immediately before simulation and report publication, and create a new run rather than rebuilding a stale dataset.
+- Historical-analysis dataset preparation and simulation: no current command invokes either boundary. A future worker must use the internal service, honor typed coverage failures, validate current snapshots immediately before simulation and report publication, pass only immutable snapshots to the pure engine, and create a new run rather than rebuilding a stale dataset.
 - Provider rate limit: stop repeated commands, honor Retry-After, and wait for the bounded retry path; treat 418 as an incident.
 
 ## Production Gaps

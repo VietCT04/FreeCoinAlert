@@ -2,7 +2,7 @@
 
 ## What It Does Now
 
-FreeCoinAlert is an informational cryptocurrency-alert application. Signed-in users can link a private Telegram destination, create one-time price-crossing alerts for a controlled Binance Spot catalogue, manage fixed preset-signal subscriptions, review the authenticated historical/live signal feed in the browser, and create owner-scoped historical-analysis run requests through the API. Historical-analysis runs expose bounded request snapshots and lifecycle metadata; an internal service can prepare canonical immutable datasets for future execution, but no simulation, report, or provider work is performed. Signal subscriptions expose an explicit Telegram-delivery preference and dynamic readiness through the API and browser controls. Eligible live signal occurrences are fanned out into durable per-user Telegram outbox jobs with bounded recovery, and the notification worker can deliver those jobs through Telegram. Browser and provider/runtime paths are unverified. The feed has optional, user-activated in-page sound; it does not replace Telegram delivery.
+FreeCoinAlert is an informational cryptocurrency-alert application. Signed-in users can link a private Telegram destination, create one-time price-crossing alerts for a controlled Binance Spot catalogue, manage fixed preset-signal subscriptions, review the authenticated historical/live signal feed in the browser, and create owner-scoped historical-analysis run requests through the API. Historical-analysis runs expose bounded request snapshots and lifecycle metadata; an internal service can prepare canonical immutable datasets, and a pure engine can calculate an in-memory fixed-preset simulation from those snapshots, but no worker, report, or provider work is performed. Signal subscriptions expose an explicit Telegram-delivery preference and dynamic readiness through the API and browser controls. Eligible live signal occurrences are fanned out into durable per-user Telegram outbox jobs with bounded recovery, and the notification worker can deliver those jobs through Telegram. Browser and provider/runtime paths are unverified. The feed has optional, user-activated in-page sound; it does not replace Telegram delivery.
 
 ## Current Scope
 
@@ -12,7 +12,7 @@ FreeCoinAlert is an informational cryptocurrency-alert application. Signed-in us
 - Canonical closed-candle storage, `1h`/`4h` aggregation, and fixed SMA 200 / RSI 14 preset evaluation.
 - Read-only preset cards, authenticated subscription and Telegram-delivery controls, paginated signal history, credentialed live updates, visibility recovery, and optional built-in sound.
 - Owner-scoped signal Telegram-delivery preference storage and readiness API.
-- Owner-scoped historical-analysis run request and lifecycle API; internal canonical dataset preparation is implemented, while result execution remains a future boundary.
+- Owner-scoped historical-analysis run request and lifecycle API; internal canonical dataset preparation and pure deterministic simulation are implemented, while worker/report execution remains a future boundary.
 - Occurrence-time signal fan-out into at-most-once-per-user durable Telegram outbox jobs and provider-worker delivery using immutable snapshots, bounded retries, and send-time safety checks.
 
 See the authoritative [product overview](docs/PRODUCT.md) for capabilities, limits, planned work, and non-goals.

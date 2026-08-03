@@ -63,11 +63,11 @@ The browser preset catalog renders these definitions read-only. It does not subm
 
 ## Unsupported Strategy Features
 
-MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, and backtesting are not implemented.
+MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, user-facing historical analysis, and report presentation are not implemented.
 
-## Future Historical Compatibility
+## Historical Simulation Compatibility
 
-Historical-analysis dataset preparation supplies the future engine with immutable snapshots of canonical complete `1h`/`4h` candles. SMA 200 uses exactly 200 warm-up candles and RSI 14 uses 15; the first visible analysis candle is outside the warm-up range. The later engine must use these rows and the same versioned calculations, preserve UTC ordering and completeness, and disclose assumptions. It must not call Binance per user request or read mutable current candle rows after preparation.
+Historical-analysis dataset preparation supplies the pure engine with immutable snapshots of canonical complete `1h`/`4h` candles. SMA 200 uses exactly 200 warm-up candles and RSI 14 uses 15; the first visible analysis candle is outside the warm-up range. The engine recalculates from these rows with the same versioned calculations and equality-aware crossing helper used by live evaluation, preserves UTC ordering and completeness, and discloses the fixed simulation assumptions. It does not call Binance per user request, reuse stored `signal_events`, or read mutable current candle rows after preparation. The engine is an internal library boundary; no worker, API result route, report, or frontend analysis flow invokes it yet.
 
 ## Verification Status
 

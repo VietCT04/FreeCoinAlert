@@ -54,6 +54,10 @@ The notification worker treats each preset-signal outbox row as one logical prov
 
 When a candle changes revision, the affected evaluation state is marked stale with `candle_correction_rebuild_required`. Immutable occurrences remain intact; a historical rebuild may add invalidation records and replacement revisions.
 
+### Historical Simulation Boundary
+
+The pure historical-analysis engine recalculates fixed-preset values from an immutable dataset snapshot and applies the same equality-aware crossing semantics as live evaluation. It does not read or create `signal_events`, change live evaluation state, create subscriptions or alerts, or create Telegram work. Historical simulation is hypothetical analysis; it is separate from a global signal occurrence, in-app visibility, and provider delivery. No worker, report, or browser flow invokes the engine yet.
+
 ## Deduplication and Restart Safety
 
 Price alerts deduplicate by alert and provider-event identity; global signals deduplicate their immutable trigger identity. Signal dispatches deduplicate by signal event, while per-user outbox jobs use both the existing user/idempotency key and a partial user/event uniqueness rule. Stored relation, last provider/candle identity, durable cursors, and database constraints make repeated inputs safe. Automatic evaluator restart catch-up is not implemented: the evaluator handles only newly supplied confirmed-candle events, and `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration.
@@ -81,7 +85,7 @@ The browser merges feed entries by immutable signal-event ID, updates invalidati
 
 ## Not Supported
 
-Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, system/mobile push notifications, custom sounds, and charts are not supported. Browser signal-feed controls, optional in-page sound, and Telegram-delivery controls are implemented separately. Durable preset fan-out and preset Telegram provider delivery remain separate from browser presentation.
+Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, user-facing historical simulation/reports, system/mobile push notifications, custom sounds, and charts are not supported. Browser signal-feed controls, optional in-page sound, Telegram-delivery controls, and the internal pure historical engine are separate from browser presentation. Durable preset fan-out and preset Telegram provider delivery remain separate from browser presentation.
 
 ## Verification Status
 

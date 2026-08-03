@@ -10,7 +10,7 @@
 - Fixed SMA 200 and RSI 14 preset subscriptions and global occurrences are implemented; see [STRATEGIES.md](STRATEGIES.md) and [ALERTS.md](ALERTS.md).
 - Per-subscription Telegram-delivery preference storage, immutable occurrence-time subscription state history, owner-scoped readiness responses, and the CSRF-protected preference API are implemented; the preference is disabled by default. Active preset cards provide server-confirmed enable/disable controls with inline enable confirmation, and Telegram connection changes refresh readiness without changing subscription state. New live occurrences also have durable dispatch rows, occurrence-time eligibility, bounded cursor fan-out, idempotent immutable-snapshot outbox jobs, database-only recovery, and notification-worker delivery with strict payload and send-time safety checks. See [API.md](API.md), [DATABASE.md](DATABASE.md), [ALERTS.md](ALERTS.md), and [TELEGRAM.md](TELEGRAM.md).
 - The authenticated historical/live signal-feed API and SSE transport are implemented and Unverified; the authenticated browser preset catalog, subscription controls, Telegram-delivery controls, history feed, visibility recovery, and optional browser sound are implemented by the current frontend surface.
-- Canonical historical-analysis dataset preparation and immutable candle snapshots are Implemented and Unverified; no worker invokes the service, and deterministic simulation, reports, cleanup, and browser analysis remain Planned or Not supported. See [BACKTESTING.md](BACKTESTING.md), [DATABASE.md](DATABASE.md), and [MARKET_DATA.md](MARKET_DATA.md).
+- Canonical historical-analysis dataset preparation, immutable candle snapshots, and the pure deterministic fixed-preset simulation engine are Implemented and Unverified; no worker invokes either boundary, and report persistence, cleanup, and browser analysis remain Planned or Not supported. See [BACKTESTING.md](BACKTESTING.md), [DATABASE.md](DATABASE.md), and [MARKET_DATA.md](MARKET_DATA.md).
 
 ## Active Work
 
@@ -35,7 +35,7 @@ See [CONCERNS.md](CONCERNS.md) for risks that do not block current work or safe 
 | Signal Telegram preference and readiness API | Implemented | Unverified | Preference storage, state history, ownership, and readiness behavior were not exercised by a maintainer-requested pass. |
 | Preset signal Telegram fan-out | Implemented | Unverified | Live occurrence dispatch, occurrence-time eligibility, bounded cursor recovery, and durable outbox-job creation are available; no runtime pass was requested. |
 | Preset signal Telegram provider delivery | Implemented | Unverified | The notification worker validates, safety-checks, formats, and sends `telegram_preset_signal` jobs; per-occurrence delivery history is not exposed. |
-| Historical-analysis run and dataset API boundary | Implemented | Unverified | Owner-scoped request/lifecycle API plus internal canonical coverage validation, immutable snapshots, fingerprinting, and stale detection; no worker, simulation, report, or browser analysis runtime exists. |
+| Historical-analysis run, dataset, and simulation boundaries | Implemented | Unverified | Owner-scoped request/lifecycle API, canonical coverage validation, immutable snapshots, fingerprinting, stale detection, and pure fixed-preset simulation; no worker, report, or browser analysis runtime exists. |
 
 ## Next Actions
 
