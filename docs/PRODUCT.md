@@ -6,7 +6,7 @@ FreeCoinAlert helps a signed-in user watch a controlled set of Binance Spot mark
 
 ## Current Product Summary
 
-The current product has account sessions, private Telegram linking, a test-notification queue, a public supported-market catalogue, browser management for one-time price alerts, fixed preset subscription controls, and an authenticated historical/live signal feed. Each signal subscription also stores an explicit owner-scoped Telegram-delivery preference and exposes dynamic Telegram readiness through the authenticated API. New live signal occurrences create one durable dispatch record; occurrence-time eligible subscriptions can produce at most one immutable-snapshot Telegram outbox job per user. The dispatcher does not call Telegram, while the notification worker performs the provider delivery with send-time safety checks. Browser controls for the preference remain planned; runtime/provider paths are implemented but unverified.
+The current product has account sessions, private Telegram linking, a test-notification queue, a public supported-market catalogue, browser management for one-time price alerts, fixed preset subscription controls, inline Telegram-delivery controls, and an authenticated historical/live signal feed. Each signal subscription also stores an explicit owner-scoped Telegram-delivery preference and exposes dynamic Telegram readiness through the authenticated API. New live signal occurrences create one durable dispatch record; occurrence-time eligible subscriptions can produce at most one immutable-snapshot Telegram outbox job per user. The dispatcher does not call Telegram, while the notification worker performs the provider delivery with send-time safety checks. Browser and runtime/provider paths are implemented but unverified.
 
 ## Current User Journeys
 
@@ -14,10 +14,10 @@ The current product has account sessions, private Telegram linking, a test-notif
 - Create a Telegram link, open its bot deep link, inspect connection state, disconnect it, and queue a Telegram test notification.
 - View the controlled market catalogue and create, list, inspect, and delete a one-time price-crossing alert.
 - Browse fixed signal presets, create/list/disable a subscription for an available market and preset version, and view the matching historical signal feed.
-- Read and change the per-subscription Telegram-delivery preference through the authenticated API; enabling requires an active subscription and a connected, non-degraded Telegram destination, and the preference is disabled by default.
+- Read and change the per-subscription Telegram-delivery preference through the authenticated API and inline preset-card controls; enabling requires an active subscription and a connected, non-degraded Telegram destination, and the preference is disabled by default.
 - Filter loaded signal history, receive matching live events while the page is visible, recover missed entries after reconnect or visibility changes, and optionally activate a short in-page sound.
 
-The authenticated root order is account summary, Telegram connection, price alerts, then `Preset signals`. The section describes fixed technical signals as informational and not trading advice. Cards show the server-provided name, description, timeframe, confirmed candle-close input, fixed parameters, and subscription state; formulas and parameters are not editable. `Signal history` uses the wording that recent occurrences may predate the user's subscription, supports load-more pagination and lightweight market/preset filters, and keeps history visibility separate from Telegram delivery.
+The authenticated root order is account summary, Telegram connection, price alerts, then `Preset signals`. The section describes fixed technical signals as informational and not trading advice. Cards show the server-provided name, description, timeframe, confirmed candle-close input, fixed parameters, subscription state, Telegram preference, and destination readiness; formulas and parameters are not editable. Enabling Telegram delivery uses inline confirmation and a successful server response; disabling is direct, and unavailable readiness does not automatically clear an enabled preference. `Signal history` uses the wording that recent occurrences may predate the user's subscription, supports load-more pagination and lightweight market/preset filters, and keeps history visibility separate from Telegram delivery.
 
 Live events are highlighted with visible `New live signal` text for five seconds only when a genuinely new event arrives while the page is visible. Replay, pagination, refresh, invalidation, and visibility-recovery entries do not receive the live highlight or sound. Sound is off by default, requires a user gesture to activate the session, and is generated locally as a short 880 Hz sine pip at a maximum gain of 0.08 for 120 ms. Mute persists only the safe boolean preference, suspends the audio context where possible, and never disables visual updates.
 
@@ -44,11 +44,11 @@ Enforced limits include: 15–128 character passwords; a 7-day default session l
 
 ## Not Supported
 
-FreeCoinAlert does not execute trades, hold funds, request exchange API keys, accept user-authored strategies, expose arbitrary timeframes, provide backtesting or performance claims, provide mobile/system push notifications, or allow custom sounds. Browser controls for the preset-signal Telegram preference are not implemented; the API, durable fan-out, and provider-worker delivery are implemented separately and do not guarantee delivery. Browser sound is optional, off by default, and does not guarantee delivery. The product makes no profit or delivery guarantee.
+FreeCoinAlert does not execute trades, hold funds, request exchange API keys, accept user-authored strategies, expose arbitrary timeframes, provide backtesting or performance claims, provide mobile/system push notifications, or allow custom sounds. The API, browser controls, durable fan-out, and provider-worker delivery remain separate and do not guarantee delivery. Browser sound is optional, off by default, and does not guarantee delivery. The product makes no profit or delivery guarantee.
 
 ## Future and Not Supported Capabilities
 
-Historical analysis, charts, public/social feeds, browser controls for per-subscription delivery, and mobile/system push notifications are not supported. Any future capability requires an approved issue and must preserve the separation between signal occurrence, in-app visibility, sound, delivery preference, fan-out job, and Telegram provider delivery.
+Historical analysis, charts, public/social feeds, and mobile/system push notifications are not supported. Any future capability requires an approved issue and must preserve the separation between signal occurrence, in-app visibility, sound, delivery preference, fan-out job, and Telegram provider delivery.
 
 ## Product Safety and Financial-Information Boundary
 

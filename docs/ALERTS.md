@@ -66,7 +66,7 @@ Price alerts and their events are visible only to their owner. Signal subscripti
 
 `GET /signal-feed/stream` is a credentialed one-way SSE connection. It delivers only events matching currently active subscriptions, uses the durable stream sequence for `Last-Event-ID` recovery, and sends replay records separately from newly live records. A stream reset or retained-cursor gap sends the user back to the historical endpoint. Signal invalidations update the prior feed state and are never presented as a new positive occurrence. In-app feed delivery remains separate from signal occurrence state and Telegram delivery.
 
-The authenticated browser section shows fixed preset cards, inline subscribe/disable confirmation, chronological history with client-side market/preset filters, and explicit connecting/live/reconnecting/disconnected/recovery states. A genuinely new visible SSE signal is highlighted for five seconds; replay, pagination, refresh, visibility recovery, and invalidation updates do not receive the live highlight or sound.
+The authenticated browser section shows fixed preset cards, inline subscribe/disable confirmation, server-confirmed Telegram-delivery preference controls for active subscriptions, chronological history with client-side market/preset filters, and explicit connecting/live/reconnecting/disconnected/recovery states. Enabling Telegram delivery uses inline confirmation, disabling is direct, and readiness changes from the Telegram connection panel refresh the subscription response. A genuinely new visible SSE signal is highlighted for five seconds; replay, pagination, refresh, visibility recovery, and invalidation updates do not receive the live highlight or sound. Browser history and sound remain independent from Telegram delivery.
 
 The browser merges feed entries by immutable signal-event ID, updates invalidations on the existing entry, orders by occurrence time then event ID, and bounds recent SSE sequence deduplication to 2,000 entries in memory. Feed events and sequences are never stored in browser persistence.
 
@@ -81,7 +81,7 @@ The browser merges feed entries by immutable signal-event ID, updates invalidati
 
 ## Not Supported
 
-Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, system/mobile push notifications, custom sounds, and charts are not supported. Browser signal-feed controls and optional in-page sound are implemented separately from the Telegram-delivery preference. Durable preset fan-out and preset Telegram provider delivery are implemented, but browser controls for that preference are not implemented.
+Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition rules, cooldowns, edits, trading, system/mobile push notifications, custom sounds, and charts are not supported. Browser signal-feed controls, optional in-page sound, and Telegram-delivery controls are implemented separately. Durable preset fan-out and preset Telegram provider delivery remain separate from browser presentation.
 
 ## Verification Status
 

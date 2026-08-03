@@ -7,8 +7,10 @@ import {
   disableSignalSubscription,
   enableSignalSubscription,
   getSignalSubscriptions,
+  setSignalTelegramDelivery,
 } from "./api";
 import {
+  SignalApiError,
   isSignalAuthenticationError,
   signalErrorMessage,
 } from "./errors";
@@ -31,12 +33,20 @@ export type SignalSubscriptionsState = {
   announcement: string | null;
   isLoading: boolean;
   pendingKeys: Set<string>;
+  pendingTelegramDeliveryIds: Set<string>;
   confirmingDisableId: string | null;
+  confirmingTelegramDeliveryId: string | null;
   refresh: () => Promise<boolean>;
   subscribe: (symbol: string, preset: SignalPreset) => Promise<boolean>;
   askToDisable: (subscriptionId: string) => void;
   cancelDisable: () => void;
   disable: (subscription: SignalSubscription) => Promise<boolean>;
+  askToEnableTelegramDelivery: (subscriptionId: string) => void;
+  cancelTelegramDeliveryConfirmation: () => void;
+  setTelegramDelivery: (
+    subscription: SignalSubscription,
+    enabled: boolean,
+  ) => Promise<boolean>;
 };
 
 function subscriptionKey(symbol: string, preset: SignalPreset): string {
@@ -66,6 +76,10 @@ function updateDisabledSubscription(
   );
 }
 
+function shouldRefreshAfterMutationError(requestError: unknown): boolean {
+  return !(requestError instanceof SignalApiError) || requestError.status >= 500;
+}
+
 export function useSignalSubscriptions({
   authStatus,
   csrfToken,
@@ -77,9 +91,14 @@ export function useSignalSubscriptions({
   const [announcement, setAnnouncement] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingKeys, setPendingKeys] = useState<Set<string>>(new Set());
+  const [pendingTelegramDeliveryIds, setPendingTelegramDeliveryIds] = useState<
+    Set<string>
+  >(new Set());
   const [confirmingDisableId, setConfirmingDisableId] = useState<string | null>(
     null,
   );
+  const [confirmingTelegramDeliveryId, setConfirmingTelegramDeliveryId] =
+    useState<string | null>(null);
   const requestInFlightRef = useRef(false);
   const onSubscriptionChangedRef = useRef(onSubscriptionChanged);
 
@@ -121,6 +140,20 @@ export function useSignalSubscriptions({
     }
   }, [authStatus, handleError]);
 
+  const handleMutationError = useCallback(
+    async (requestError: unknown) => {
+      await handleError(requestError);
+      if (
+        !isSignalAuthenticationError(requestError) &&
+        shouldRefreshAfterMutationError(requestError)
+      ) {
+        await refresh();
+        setError(signalErrorMessage(requestError));
+      }
+    },
+    [handleError, refresh],
+  );
+
   const subscribe = useCallback(
     async (symbol: string, preset: SignalPreset): Promise<boolean> => {
       if (!csrfToken) {
@@ -153,7 +186,7 @@ export function useSignalSubscriptions({
         await onSubscriptionChangedRef.current();
         return true;
       } catch (requestError) {
-        await handleError(requestError);
+        await handleMutationError(requestError);
         return false;
       } finally {
         setPendingKeys((current) => {
@@ -163,7 +196,7 @@ export function useSignalSubscriptions({
         });
       }
     },
-    [csrfToken, handleError, pendingKeys],
+    [csrfToken, handleMutationError, pendingKeys],
   );
 
   const askToDisable = useCallback((subscriptionId: string) => {
@@ -195,11 +228,12 @@ export function useSignalSubscriptions({
           updateDisabledSubscription(current, subscription.id),
         );
         setConfirmingDisableId(null);
+        setConfirmingTelegramDeliveryId(null);
         setAnnouncement("Signal disabled.");
         await onSubscriptionChangedRef.current();
         return true;
       } catch (requestError) {
-        await handleError(requestError);
+        await handleMutationError(requestError);
         return false;
       } finally {
         setPendingKeys((current) => {
@@ -209,7 +243,66 @@ export function useSignalSubscriptions({
         });
       }
     },
-    [csrfToken, handleError, pendingKeys],
+    [csrfToken, handleMutationError, pendingKeys],
+  );
+
+  const askToEnableTelegramDelivery = useCallback((subscriptionId: string) => {
+    setConfirmingTelegramDeliveryId(subscriptionId);
+  }, []);
+
+  const cancelTelegramDeliveryConfirmation = useCallback(() => {
+    setConfirmingTelegramDeliveryId(null);
+  }, []);
+
+  const setTelegramDelivery = useCallback(
+    async (
+      subscription: SignalSubscription,
+      enabled: boolean,
+    ): Promise<boolean> => {
+      if (!csrfToken || pendingTelegramDeliveryIds.has(subscription.id)) {
+        return false;
+      }
+
+      setPendingTelegramDeliveryIds((current) =>
+        new Set(current).add(subscription.id),
+      );
+      setError(null);
+      setAnnouncement(null);
+
+      try {
+        const response = await setSignalTelegramDelivery(
+          csrfToken,
+          subscription.id,
+          enabled,
+        );
+        setSubscriptions((current) =>
+          current.map((item) =>
+            item.id === response.subscription.id ? response.subscription : item,
+          ),
+        );
+        setConfirmingTelegramDeliveryId(null);
+        setAnnouncement(
+          enabled
+            ? "Telegram delivery enabled."
+            : "Telegram delivery disabled.",
+        );
+        return true;
+      } catch (requestError) {
+        await handleMutationError(requestError);
+        return false;
+      } finally {
+        setPendingTelegramDeliveryIds((current) => {
+          const next = new Set(current);
+          next.delete(subscription.id);
+          return next;
+        });
+      }
+    },
+    [
+      csrfToken,
+      handleMutationError,
+      pendingTelegramDeliveryIds,
+    ],
   );
 
   useEffect(() => {
@@ -223,7 +316,9 @@ export function useSignalSubscriptions({
     setAnnouncement(null);
     setIsLoading(false);
     setPendingKeys(new Set());
+    setPendingTelegramDeliveryIds(new Set());
     setConfirmingDisableId(null);
+    setConfirmingTelegramDeliveryId(null);
   }, [authStatus, refresh]);
 
   return {
@@ -232,11 +327,16 @@ export function useSignalSubscriptions({
     announcement,
     isLoading,
     pendingKeys,
+    pendingTelegramDeliveryIds,
     confirmingDisableId,
+    confirmingTelegramDeliveryId,
     refresh,
     subscribe,
     askToDisable,
     cancelDisable,
     disable,
+    askToEnableTelegramDelivery,
+    cancelTelegramDeliveryConfirmation,
+    setTelegramDelivery,
   };
 }

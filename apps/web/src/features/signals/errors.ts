@@ -36,10 +36,20 @@ export function signalErrorMessage(error: unknown): string {
         return "You already have the maximum of 20 active signal subscriptions.";
       case "SIGNAL_SUBSCRIPTION_NOT_FOUND":
         return "This signal subscription is no longer available. Refresh and try again.";
+      case "SIGNAL_SUBSCRIPTION_INACTIVE":
+        return "Enable this signal subscription before changing Telegram delivery.";
       case "SIGNAL_SUBSCRIPTION_RATE_LIMITED":
         return `Too many subscription requests.${retryAfter}`;
       case "SIGNAL_SUBSCRIPTION_UNAVAILABLE":
         return "Signal subscriptions are temporarily unavailable. Please try again.";
+      case "SIGNAL_TELEGRAM_DELIVERY_REQUEST_INVALID":
+        return "That Telegram delivery request is invalid. Refresh and try again.";
+      case "SIGNAL_TELEGRAM_NOT_CONNECTED":
+        return "Connect Telegram before enabling delivery.";
+      case "SIGNAL_TELEGRAM_DEGRADED":
+        return "Telegram delivery is unavailable because your connection needs attention.";
+      case "SIGNAL_TELEGRAM_DELIVERY_RATE_LIMITED":
+        return `Too many Telegram delivery changes.${retryAfter}`;
       case "SIGNAL_FEED_CURSOR_INVALID":
         return "Signal history could not be loaded from that position. Refresh and try again.";
       case "SIGNAL_FEED_STREAM_CURSOR_INVALID":

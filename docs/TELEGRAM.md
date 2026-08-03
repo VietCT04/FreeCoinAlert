@@ -2,7 +2,7 @@
 
 ## Purpose and Current Scope
 
-Telegram is the sole implemented notification provider. It supports one private-chat destination per user, browser-issued deep links, long polling, test messages, durable price-alert delivery, and preset-signal delivery from immutable outbox snapshots. Signal occurrences have a separate database fan-out boundary that creates jobs only for occurrence-time eligible users; browser controls for the preference remain planned. Exact HTTP contracts are in [API.md](API.md); persisted fields are in [DATABASE.md](DATABASE.md).
+Telegram is the sole implemented notification provider. It supports one private-chat destination per user, browser-issued deep links, long polling, test messages, durable price-alert delivery, preset-signal delivery from immutable outbox snapshots, and browser controls for the per-subscription delivery preference. Signal occurrences have a separate database fan-out boundary that creates jobs only for occurrence-time eligible users. Exact HTTP contracts are in [API.md](API.md); persisted fields are in [DATABASE.md](DATABASE.md).
 
 ## Configuration and Optional Startup
 
@@ -27,6 +27,8 @@ Persisted states are `connected`, `degraded`, and `disconnected`; `linking` and 
 ## Preset Signal Delivery Preference and Fan-out
 
 Each owned signal subscription stores `telegramDelivery.enabled`, disabled by default, plus its last preference-change timestamp. The authenticated subscription response derives `telegramDelivery.readiness` once per request as `ready`, `linking`, `not_connected`, or `degraded` without storing or exposing provider identifiers. `PUT /signal-subscriptions/{id}/telegram-delivery` is authenticated and CSRF-protected, owner scoped, and limited to 30 mutations per user per 15 minutes. Enabling requires an active subscription and a connected, non-degraded destination; disabling is always allowed and idempotent. Disconnecting Telegram changes readiness only and does not change the stored preference.
+
+The active preset card presents this server-owned preference separately from subscription status, browser history, and browser sound. It maps readiness to safe connection guidance, confirms enabling before sending the CSRF-protected request, applies only the successful response, and allows direct disabling. Connection refresh, linking, recovery, and disconnect changes refresh the subscription list so readiness does not remain stale. The browser stores no Telegram preference, readiness, destination identifier, token, or provider payload.
 
 Subscription creation, reactivation, disable, and preference changes record immutable occurrence-time state rows in the same transaction. A new non-backfilled signal occurrence creates one dispatch row atomically with the immutable occurrence and feed stream row. The separate dispatcher selects the latest state at `occurred_at`, requires active state with delivery enabled, checks the current owned connection is connected with `connected_at <= occurred_at`, and creates at most one immutable-snapshot `telegram_preset_signal` outbox job per user and occurrence. Missing, linking, degraded, disconnected, or later-connected destinations increment `skipped_count` without creating a job. Backfilled, invalidated, and expired occurrences are skipped; the dispatcher does not wait for reconnection or contact Telegram. Existing subscriptions are migrated with delivery disabled and a false baseline state; old signal history receives no dispatch rows.
 
@@ -90,7 +92,7 @@ Stored identity is limited to Telegram user ID, private chat ID, optional userna
 
 ## Not Supported
 
-Groups, channels, multiple destinations, user-supplied chat IDs, webhooks, scheduled polling infrastructure, browser controls for the preference, per-occurrence website delivery history, and additional notification channels are not implemented. Durable preset-signal fan-out and provider delivery are implemented separately.
+Groups, channels, multiple destinations, user-supplied chat IDs, webhooks, scheduled polling infrastructure, per-occurrence website delivery history, and additional notification channels are not implemented. Durable preset-signal fan-out, provider delivery, and browser preference controls remain separate layers.
 
 ## Verification Status
 

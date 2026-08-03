@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { useAuth } from "../features/auth/auth-provider";
 import { PriceAlertPanel } from "../features/alerts/price-alert-panel";
@@ -11,6 +11,12 @@ import { TelegramConnectionPanel } from "../features/telegram/connection-panel";
 export default function Home() {
   const { error, refreshSession, signOut, status, user } = useAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [telegramConnectionRevision, setTelegramConnectionRevision] =
+    useState(0);
+
+  const handleTelegramConnectionChanged = useCallback(() => {
+    setTelegramConnectionRevision((current) => current + 1);
+  }, []);
 
   async function handleSignOut() {
     if (isSigningOut) {
@@ -76,9 +82,13 @@ export default function Home() {
             <p aria-live="polite" className="text-sm text-red-700 dark:text-red-300">
               {error}
             </p>
-            <TelegramConnectionPanel />
+            <TelegramConnectionPanel
+              onConnectionChanged={handleTelegramConnectionChanged}
+            />
             <PriceAlertPanel />
-            <PresetSignalPanel />
+            <PresetSignalPanel
+              telegramConnectionRevision={telegramConnectionRevision}
+            />
             <button
               className="rounded-lg border border-zinc-300 px-4 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700"
               disabled={isSigningOut}
