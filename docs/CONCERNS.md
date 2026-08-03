@@ -46,15 +46,15 @@ This document records unresolved current risks and decisions, not feature histor
 
 ## Active Reliability and Data-Quality Concerns
 
-### Provider paths are unverified
+### Provider paths have limited verification
 
-**Current fact:** Binance and Telegram runtime paths are implemented but have not received an explicit verification pass.
+**Current fact:** Binance catalogue synchronization, REST candle bootstrap, and market-stream startup received a local verification pass; Binance repair/correction/reconnect behavior and all Telegram runtime paths remain unverified.
 
 **Risk/impact:** Provider protocol, limits, reconnect, repair, and delivery behavior can differ from static expectations.
 
 **Current mitigation:** Input validation, bounded retries, durable state, idempotency, and safe failure categories are implemented.
 
-**Follow-up:** Run a maintainer-approved verification pass with controlled provider fixtures or environments.
+**Follow-up:** Run a maintainer-approved provider maintenance and Telegram delivery verification pass with controlled fixtures or environments.
 
 **Owning document:** [MARKET_DATA.md](MARKET_DATA.md) and [TELEGRAM.md](TELEGRAM.md).
 
@@ -100,11 +100,11 @@ This document records unresolved current risks and decisions, not feature histor
 
 ### No end-to-end runtime verification
 
-**Current fact:** No local setup/preflight script, full-stack startup/readiness flow, status/logs/shutdown/reset command, provider, worker, migration, Compose initialization, browser, signal-stream, audio, or maintenance command has been run for the approved implementation work.
+**Current fact:** A local full-stack startup/readiness and status pass has run. Browser, signal-stream, audio, Telegram delivery, maintenance, reset, and broad end-to-end behavior remain unverified.
 
 **Risk/impact:** Current-state documentation records implemented contracts, not evidence of exercised runtime behavior.
 
-**Current mitigation:** Documentation labels these paths unverified and avoids delivery guarantees; the local setup/preflight flow validates configuration and port boundaries without startup or provider contact; the full wrapper checks Compose one-shot exit and health state before its readiness banner, keeps status/logs/shutdown/reset controls explicit, and protects reset with confirmation; Compose dependency conditions make initialization ordering explicit; browser signal and historical-analysis surfaces keep client presentation separate from provider work, live occurrences, and optional sound.
+**Current mitigation:** Documentation labels the unexercised paths unverified and avoids delivery guarantees; the full wrapper checks Compose one-shot exit and health state before its readiness banner, keeps status/logs/shutdown/reset controls explicit, and protects reset with confirmation; Compose dependency conditions make initialization ordering explicit; browser signal and historical-analysis surfaces keep client presentation separate from provider work, live occurrences, and optional sound.
 
 **Follow-up:** Maintain an explicit verification plan when the maintainer requests one.
 

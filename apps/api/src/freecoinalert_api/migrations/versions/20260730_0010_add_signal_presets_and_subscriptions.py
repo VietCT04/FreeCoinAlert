@@ -5,6 +5,7 @@ Revises: 20260730_0009
 Create Date: 2026-07-30 00:00:00
 """
 
+import hashlib
 from collections.abc import Sequence
 
 from alembic import op
@@ -95,7 +96,7 @@ def _seed_initial_presets() -> None:
             f"{strategy_type}|{timeframe}|{direction}|{period}|{threshold_value}|"
             f"close|{calculation_version}"
         )
-        op.execute(signal_presets.insert().values(code=code, version=1, name=name, description=description, strategy_type=strategy_type, timeframe=timeframe, direction=direction, period=period, threshold=threshold, price_input="close", status="active", configuration_hash=sa.text(f"encode(digest('{canonical}', 'sha256'), 'hex')")))
+        op.execute(signal_presets.insert().values(code=code, version=1, name=name, description=description, strategy_type=strategy_type, timeframe=timeframe, direction=direction, period=period, threshold=threshold, price_input="close", status="active", configuration_hash=hashlib.sha256(canonical.encode("utf-8")).hexdigest()))
 
 
 def downgrade() -> None:

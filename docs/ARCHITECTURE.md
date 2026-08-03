@@ -93,4 +93,4 @@ There is no message broker, cache cluster, independent market-data service, noti
 
 ## Verification Status
 
-Runtime topology, local orchestration, and recovery paths, including signal-feed listener/SSE recovery, are implemented but unverified by a maintainer-requested runtime pass.
+The local Compose topology and readiness orchestration were verified by a maintainer-requested full-stack startup pass, including API preparation, migrations, market catalogue/bootstrap, API and web health, market-stream startup, and the historical-analysis worker. Signal-feed listener/SSE recovery, browser behavior, and production recovery paths remain unverified.

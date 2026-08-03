@@ -26,8 +26,8 @@ class BinanceKline:
     base_volume: Decimal
     quote_volume: Decimal
     trade_count: int
-    first_trade_id: int
-    last_trade_id: int
+    first_trade_id: int | None
+    last_trade_id: int | None
 
 
 class BinancePublicMarketDataClient:
@@ -165,7 +165,7 @@ def parse_klines(
             open_price=kline_decimal(row[1]), high_price=kline_decimal(row[2]),
             low_price=kline_decimal(row[3]), close_price=kline_decimal(row[4]),
             base_volume=kline_decimal(row[5]), quote_volume=kline_decimal(row[7]),
-            trade_count=kline_int(row[8]), first_trade_id=kline_int(row[9]), last_trade_id=kline_int(row[10]),
+            trade_count=kline_int(row[8]), first_trade_id=None, last_trade_id=None,
         )
         if kline.high_price < max(kline.open_price, kline.close_price) or kline.low_price > min(kline.open_price, kline.close_price):
             raise BinanceMetadataError("impossible_kline_ohlc")

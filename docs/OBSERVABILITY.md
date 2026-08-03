@@ -67,4 +67,4 @@ Cross-process metrics, dashboards, tracing, production readiness/dependency heal
 
 ## Verification Status
 
-This inventory is based on static code inspection. No local startup, status, logs, shutdown, reset, health endpoint, processes, or operational tables were exercised.
+This inventory is based on static code inspection plus a maintainer-requested local startup/status pass. Database, API/web health, migration, market initialization, market-stream startup, and historical-worker states were exercised; signal-feed, Telegram, browser, maintenance, reset, and production observability remain unverified.

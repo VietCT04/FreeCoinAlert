@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -45,6 +46,45 @@ class CandleIngestionService:
                 if aggregate.status == "complete":
                     confirmed.append(self._confirmed(event, aggregate, corrected=aggregate.revision > 1))
         return confirmed
+
+    async def persist_closed_candles(
+        self,
+        events: Sequence[ClosedOneMinuteCandleEvent],
+    ) -> int:
+        if not events:
+            return 0
+
+        changed_count = 0
+        affected_windows: set[tuple[str, datetime]] = set()
+        async with get_async_session_factory()() as session:
+            async with session.begin():
+                for event in events:
+                    source_before = await self._current_revision(
+                        session, event.supported_market_id, "1m", event.open_time
+                    )
+                    source = await upsert_closed_source_candle(
+                        session,
+                        supported_market_id=event.supported_market_id,
+                        open_time=event.open_time,
+                        values=self._source_values(event),
+                    )
+                    if source_before == source.revision:
+                        continue
+                    changed_count += 1
+                    for timeframe in ("1h", "4h"):
+                        affected_windows.add((timeframe, window_open_time(event.open_time, timeframe)))
+
+                received_at = events[-1].received_at
+                for timeframe, open_time in sorted(affected_windows):
+                    await rebuild_window(
+                        session,
+                        supported_market_id=events[0].supported_market_id,
+                        timeframe=timeframe,
+                        open_time=open_time,
+                        received_at=received_at,
+                    )
+
+        return changed_count
 
     async def _current_revision(
         self,

@@ -164,4 +164,4 @@ No implemented production topology, deployment automation, backup automation, di
 
 ## Verification Status
 
-No setup/preflight script, full-stack startup, status/logs/shutdown/reset command, processes, migrations, maintenance commands, providers, or Compose services were run for this documentation audit.
+The maintainer-requested `pnpm dev:all:detached` pass verified local database health, migrations, catalogue synchronization, bounded candle bootstrap, API/web health, market-stream startup, and the historical-analysis worker; `pnpm dev:status` also reported the expected normalized states. Browser behavior, Telegram processes, maintenance commands, reset, and production operations remain unverified.

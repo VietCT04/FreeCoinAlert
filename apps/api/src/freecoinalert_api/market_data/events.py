@@ -40,8 +40,8 @@ class ClosedOneMinuteCandleEvent:
     base_volume: Decimal
     quote_volume: Decimal
     trade_count: int
-    first_trade_id: int
-    last_trade_id: int
+    first_trade_id: int | None
+    last_trade_id: int | None
     provider_event_time: datetime
     received_at: datetime
     connection_generation: UUID
