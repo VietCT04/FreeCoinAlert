@@ -49,7 +49,7 @@ export function SignUpForm() {
 
   useEffect(() => {
     if (status === "authenticated") {
-      router.replace("/");
+      router.replace("/dashboard");
     }
   }, [router, status]);
 
@@ -80,7 +80,7 @@ export function SignUpForm() {
 
     try {
       setAuthenticatedSession(await registerAccount(email, password));
-      router.replace("/");
+      router.replace("/dashboard");
     } catch (requestError) {
       setError(getSignUpError(requestError));
     } finally {

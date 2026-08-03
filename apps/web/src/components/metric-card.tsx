@@ -33,7 +33,7 @@ export function MetricCard({
         ) : null}
       </CardHeader>
       <CardContent>
-        <p className="text-2xl font-semibold tracking-tight">{value}</p>
+        <div className="text-2xl font-semibold tracking-tight">{value}</div>
         {supportingText ? (
           <p className="mt-1 text-xs text-muted-foreground">{supportingText}</p>
         ) : null}

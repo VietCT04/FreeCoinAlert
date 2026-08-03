@@ -2,6 +2,7 @@ import type {
   CreatePriceAlertRequest,
   PriceAlertEnvelope,
   PriceAlertListEnvelope,
+  PriceAlertStatus,
 } from "./types";
 
 type ApiErrorPayload = { code?: string };
@@ -44,10 +45,25 @@ async function requestAlerts<T>(path: string, options: RequestInit = {}): Promis
   return (await response.json()) as T;
 }
 
-export function listPriceAlerts(cursor?: string): Promise<PriceAlertListEnvelope> {
-  const query = new URLSearchParams({ limit: "20" });
-  if (cursor) {
-    query.set("cursor", cursor);
+export type PriceAlertListOptions = {
+  cursor?: string;
+  limit?: number;
+  status?: PriceAlertStatus;
+};
+
+export function listPriceAlerts(
+  options: PriceAlertListOptions | string = {},
+): Promise<PriceAlertListEnvelope> {
+  const normalizedOptions =
+    typeof options === "string" ? { cursor: options } : options;
+  const query = new URLSearchParams({
+    limit: String(normalizedOptions.limit ?? 20),
+  });
+  if (normalizedOptions.cursor) {
+    query.set("cursor", normalizedOptions.cursor);
+  }
+  if (normalizedOptions.status) {
+    query.set("status", normalizedOptions.status);
   }
   return requestAlerts<PriceAlertListEnvelope>(`/alerts?${query.toString()}`);
 }

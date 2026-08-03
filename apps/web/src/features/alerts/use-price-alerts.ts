@@ -115,7 +115,7 @@ export function usePriceAlerts({ authStatus, csrfToken, refreshSession }: UsePri
     setIsLoadingMore(true);
     setError(null);
     try {
-      const response = await listPriceAlerts(nextCursor);
+      const response = await listPriceAlerts({ cursor: nextCursor });
       setAlerts((current) => mergeAlerts(current, response.alerts));
       setNextCursor(response.nextCursor);
     } catch (requestError) {

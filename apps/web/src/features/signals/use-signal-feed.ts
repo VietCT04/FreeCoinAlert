@@ -143,7 +143,7 @@ export function useSignalFeed({
     setError(null);
 
     try {
-      const response = await getSignalFeed(nextCursor);
+      const response = await getSignalFeed({ cursor: nextCursor });
       replaceEvents(response.events);
       setNextCursor(response.nextCursor);
       setIsStale(false);

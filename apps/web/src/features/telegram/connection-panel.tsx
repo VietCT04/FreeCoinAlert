@@ -9,10 +9,6 @@ import type {
 } from "./types";
 import { useTelegramConnection } from "./use-telegram-connection";
 
-type TelegramConnectionPanelProps = {
-  onConnectionChanged?: () => void;
-};
-
 function formatDate(value: string | null | undefined): string | null {
   if (!value) {
     return null;
@@ -68,9 +64,7 @@ function getNotificationMessage(notification: TelegramTestNotification): string 
   }
 }
 
-export function TelegramConnectionPanel({
-  onConnectionChanged,
-}: TelegramConnectionPanelProps) {
+export function TelegramConnectionPanel() {
   const { csrfToken, refreshSession, status } = useAuth();
   const [isConfirmingDisconnect, setIsConfirmingDisconnect] = useState(false);
   const {
@@ -93,7 +87,6 @@ export function TelegramConnectionPanel({
   } = useTelegramConnection({
     authStatus: status,
     csrfToken,
-    onConnectionChanged,
     refreshSession,
   });
 

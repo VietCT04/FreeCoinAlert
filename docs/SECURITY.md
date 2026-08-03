@@ -70,6 +70,8 @@ The frontend receives only response DTOs for its authenticated principal and pub
 
 Historical-analysis presentation receives only the approved owner-scoped run/report/trade/equity contract, keeps run IDs, fingerprints, reports, series, and idempotency keys in memory, and never stores them in browser persistence. It does not calculate indicators or metrics and does not contact Binance or Telegram.
 
+The authenticated dashboard overview keeps only its read-only response state in component memory while the route is mounted. It requests existing owner-scoped or public-safe DTOs independently, does not add a dashboard cache, does not persist activity or summary values, and does not expose delivery-worker state, provider payloads, current prices, or internal identifiers.
+
 Repository-owned UI primitives, theme controls, and toast composition do not log component props, API responses, authentication values, or Telegram data, and no analytics or telemetry dependency is added.
 
 ## Current Limitations and Unresolved Risks
