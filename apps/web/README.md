@@ -12,7 +12,7 @@ Use Node.js `24.18.0` and pnpm `11.4.0`. Install workspace dependencies from the
 pnpm install
 ```
 
-For Compose, run `pnpm dev:setup` from the repository root. It copies the root [`.env.example`](../../.env.example) to the ignored root `.env` only when needed and validates `NEXT_PUBLIC_API_BASE_URL` with the other local settings. `pnpm dev:preflight` repeats that validation without starting a process or contacting a provider. For direct-host development, copy this component's [`.env.example`](.env.example) to the ignored `apps/web/.env.local` and set it there. The browser-visible value must point to the API origin and must not contain a secret.
+For Compose, run `pnpm dev:setup` and then `pnpm dev:all` from the repository root. Setup copies the root [`.env.example`](../../.env.example) to the ignored root `.env` only when needed; the full-stack wrapper validates `NEXT_PUBLIC_API_BASE_URL`, waits for API health, and prints the usable web/API URLs. `pnpm dev:preflight` repeats validation without starting a process or contacting a provider. For direct-host development, copy this component's [`.env.example`](.env.example) to the ignored `apps/web/.env.local` and set it there. The browser-visible value must point to the API origin and must not contain a secret.
 
 ## Entry Points
 

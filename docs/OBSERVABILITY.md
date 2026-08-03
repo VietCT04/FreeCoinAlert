@@ -8,6 +8,12 @@ FreeCoinAlert currently provides structured application logs and persisted opera
 
 `GET /health` returns API process liveness (`status: ok`, service name) only. It does not check PostgreSQL, market freshness, candle continuity, alert evaluation, Telegram configuration, or notification delivery.
 
+## Local Startup and Status Signals
+
+The local wrapper does not add metrics, tracing, or a readiness endpoint. `pnpm dev:all` combines Compose `--wait` with JSON `ps --all` inspection: one-shot initialization services require exit code 0, database/API/web require Compose health, and the market stream plus enabled optional workers require a running state. `pnpm dev:status` exposes the same normalized `healthy`, `running`, `completed`, `starting`, `disabled`, `unavailable`, `failed`, and `stopped` states without requiring ports to be free. The readiness banner is printed only after required enabled services satisfy their state rules; startup failures remain concise and point to status and log commands.
+
+The wrapper's profile selection is derived from validated local configuration and `docker compose config --profiles`. It reports Telegram as `disabled` when `LOCAL_ENABLE_TELEGRAM=false` and reports historical analysis as `unavailable` when that Compose profile is absent. It does not persist status, emit application log events, contact providers during preflight, or reinterpret the API's liveness response as dependency readiness.
+
 ## Persistent Operational State
 
 `market_symbol_states` holds the latest accepted market-stream state; `candle_symbol_states` holds candle freshness/quality state; `candle_sync_runs` records bounded maintenance progress; `historical_analysis_runs` records owner-scoped historical-analysis request snapshots, lifecycle, progress, cancellation, attempts, and safe failure categories; `historical_analysis_datasets` records bounded canonical coverage, fingerprint, preparation, and stale state; `historical_analysis_dataset_candles` records immutable full-value candle snapshots; `historical_analysis_reports` records immutable owner-scoped result snapshots and summary metrics; `historical_analysis_trades` and `historical_analysis_equity_points` record immutable engine series; signal evaluation state records warming, ready, stale, or disabled calculation state; `signal_subscription_state_events` records immutable occurrence-time subscription and Telegram-preference state; `signal_feed_stream_events` records the bounded durable SSE cursor log; `signal_telegram_dispatches` records occurrence fan-out claims, cursors, counts, retries, skips, expiry, and failure; notification outbox rows record delivery processing. See [DATABASE.md](DATABASE.md) for schema and constraints.
@@ -49,7 +55,7 @@ Do not log session tokens, password values/hashes, raw Telegram link tokens, bot
 
 ## Incident Indicators
 
-Investigate a missing/old market event, disconnected stream, stale/gapped/error candle state, skipped or failed reconciliation, warming/stale evaluator state, failed or stale historical-analysis datasets, queued/running/failed/requeued historical-analysis work, report publication failures, cleanup failures, signal-feed listener failure/reconnects, reset/backpressure growth, session-expiry closures, pending/retry-wait/failed signal dispatch growth, queued/retrying/failed outbox growth, degraded/disconnected Telegram connection, or 429/418/provider categories in logs. These are operator indicators, not automated incident alerts.
+Investigate a failed `pnpm dev:all` readiness attempt, failed initialization or health state in `pnpm dev:status`, a missing enabled worker, missing/old market event, disconnected stream, stale/gapped/error candle state, skipped or failed reconciliation, warming/stale evaluator state, failed or stale historical-analysis datasets, queued/running/failed/requeued historical-analysis work, report publication failures, cleanup failures, signal-feed listener failure/reconnects, reset/backpressure growth, session-expiry closures, pending/retry-wait/failed signal dispatch growth, queued/retrying/failed outbox growth, degraded/disconnected Telegram connection, or 429/418/provider categories in logs. These are operator indicators, not automated incident alerts.
 
 ## Troubleshooting Links
 
@@ -61,4 +67,4 @@ Cross-process metrics, dashboards, tracing, production readiness/dependency heal
 
 ## Verification Status
 
-This inventory is based on static code inspection. No logs, health endpoint, processes, or operational tables were exercised.
+This inventory is based on static code inspection. No local startup, status, logs, shutdown, reset, health endpoint, processes, or operational tables were exercised.

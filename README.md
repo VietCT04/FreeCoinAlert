@@ -26,12 +26,12 @@ See the authoritative [product overview](docs/PRODUCT.md) for capabilities, limi
 
 ## Local Development
 
-Use Node.js `24.18.0`, pnpm `11.4.0`, Docker Compose, CPython `3.14`, and uv. Install dependencies, create or validate the ignored local `.env`, and start the local core stack from the repository root:
+Use Node.js `24.18.0`, pnpm `11.4.0`, Docker Compose, CPython `3.14`, and uv. Install dependencies, create or validate the ignored local `.env`, and start the complete local MVP from the repository root:
 
 ```bash
 pnpm install
 pnpm dev:setup
-pnpm dev
+pnpm dev:all
 ```
 
 Detailed configuration, process commands, and recovery guidance are in [OPERATIONS.md](docs/OPERATIONS.md).
@@ -41,21 +41,27 @@ Detailed configuration, process commands, and recovery guidance are in [OPERATIO
 ```bash
 pnpm dev:setup
 pnpm dev:preflight
-pnpm dev
+pnpm dev:all
+pnpm dev:all:detached
+pnpm dev:all:logs
+pnpm dev:status
 pnpm dev:down
+pnpm dev:reset
+pnpm dev:reset:force
+pnpm dev
 pnpm dev:market
 pnpm dev:telegram
 pnpm dev:signal-telegram-dispatcher
 pnpm db:migrate
 ```
 
-`pnpm dev:setup` copies [`.env.example`](.env.example) only when `.env` is absent, never overwrites an existing file, and runs the local preflight. `pnpm dev:preflight` validates an existing configuration, Docker/Compose prerequisites, and local port availability without starting or stopping containers or contacting Binance or Telegram. Telegram is disabled by default; enabling it requires the local username and token settings. The preflight always selects `market`, conditionally selects `telegram`, and reports `historical-analysis` as a future conditional profile.
+`pnpm dev:setup` copies [`.env.example`](.env.example) only when `.env` is absent, never overwrites an existing file, and runs the local preflight. `pnpm dev:preflight` validates an existing configuration, Docker/Compose prerequisites, and local port availability without starting or stopping containers or contacting Binance or Telegram. `pnpm dev:all` reuses that preflight, starts the complete Compose topology, waits for initialization and health, prints the web/API readiness summary, and follows logs. `pnpm dev:all:detached` performs the same startup and readiness checks without following logs; `pnpm dev:all:logs` follows enabled full-stack logs. Telegram is disabled by default; enabling it requires the local username and token settings. The wrapper always selects `market`, conditionally selects `telegram`, and enables `historical-analysis` when the Compose model provides that profile.
 
-`pnpm dev:reset` removes local Compose volumes, including PostgreSQL data. See [OPERATIONS.md](docs/OPERATIONS.md) before using operational commands.
+`pnpm dev:reset` removes local Compose volumes, including PostgreSQL data, only after exact interactive `RESET` confirmation or the explicit `pnpm dev:reset:force` path. See [OPERATIONS.md](docs/OPERATIONS.md) before using operational commands.
 
 ## Runtime Profiles
 
-The default Compose stack starts PostgreSQL, prepares the shared API environment, applies migrations, and then starts the web app and API. The `market` profile first synchronizes the controlled catalog and runs the bounded candle bootstrap before starting the Binance market stream. The `telegram` profile starts the Telegram poller, notification worker, and signal fan-out dispatcher after migrations. The `historical-analysis` profile starts the real historical-analysis worker after migrations. The dispatcher does not contact Telegram; the notification worker delivers eligible preset-signal jobs when configured. Browser Telegram-delivery controls use the existing authenticated API and do not contact the provider directly. See [OPERATIONS.md](docs/OPERATIONS.md) for entry points, dependency ordering, and provider-contact boundaries.
+`pnpm dev:all` starts PostgreSQL, prepares the shared API environment, applies migrations, starts the web/API core, always enables the `market` profile, enables `telegram` only when `LOCAL_ENABLE_TELEGRAM=true`, and enables `historical-analysis` when the Compose model provides it. The `market` profile synchronizes the controlled catalog and runs bounded candle bootstrap before the Binance market stream. The `telegram` profile starts the Telegram poller, notification worker, and signal fan-out dispatcher after migrations. The dispatcher does not contact Telegram; the notification worker delivers eligible preset-signal jobs when configured. The narrower `pnpm dev`, `pnpm dev:market`, and `pnpm dev:telegram` commands remain useful for component debugging. Browser Telegram-delivery controls use the existing authenticated API and do not contact the provider directly. See [OPERATIONS.md](docs/OPERATIONS.md) for entry points, dependency ordering, readiness, and provider-contact boundaries.
 
 ## Documentation
 

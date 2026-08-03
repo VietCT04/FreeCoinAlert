@@ -12,13 +12,19 @@ Use CPython `3.14` and [uv](https://docs.astral.sh/uv/). From this directory, co
 uv sync
 ```
 
-Repository-wide Compose setup and shared environment values are in [`../../.env.example`](../../.env.example) and [Operations](../../docs/OPERATIONS.md). From the repository root, `pnpm dev:setup` creates the ignored root `.env` only when it is absent and performs the dependency-free local preflight; `pnpm dev:preflight` repeats validation without starting a process or contacting a provider. Compose prepares the shared `api_venv` volume once through `api-prepare`, then applies migrations through `db-migrate` before API or worker processes start; direct-host development keeps its own explicit `uv sync` setup.
+Repository-wide Compose setup and shared environment values are in [`../../.env.example`](../../.env.example) and [Operations](../../docs/OPERATIONS.md). From the repository root, `pnpm dev:setup` creates the ignored root `.env` only when it is absent and performs the dependency-free local preflight; `pnpm dev:all` then runs the validated full-stack startup and readiness flow. `pnpm dev:preflight` repeats validation without starting a process or contacting a provider. Compose prepares the shared `api_venv` volume once through `api-prepare`, then applies migrations through `db-migrate` before API or worker processes start; direct-host development keeps its own explicit `uv sync` setup.
 
 ## Entry Points
 
 Run these from the repository root unless noted otherwise:
 
 ```bash
+pnpm dev:all
+pnpm dev:all:detached
+pnpm dev:all:logs
+pnpm dev:status
+pnpm dev:down
+pnpm dev:reset
 pnpm dev:api
 pnpm db:migrate
 pnpm db:revision -- -m "description"
@@ -36,7 +42,7 @@ pnpm analysis:worker
 pnpm analysis:cleanup
 ```
 
-`market:sync`, `dev:market-stream`, `market:candles-bootstrap`, and `market:candles-reconcile` contact Binance. `dev:telegram-updates` and `dev:notification-worker` contact Telegram when configured; the worker also records a safe terminal failure when bot configuration is missing. `dev:signal-telegram-dispatcher` contacts only PostgreSQL and creates durable preset-signal outbox jobs; it does not contact Telegram. `signals:backfill` is a placeholder validation boundary, not automatic signal catch-up. API startup also starts the PostgreSQL signal-feed listener and bounded local SSE manager through FastAPI lifespan. See [Operations](../../docs/OPERATIONS.md) before using these commands.
+`dev:all` starts the enabled Compose profiles, waits for completed initialization and required health, and prints a normalized readiness summary before following logs. `dev:all:detached` performs the same startup and readiness checks without attaching logs; `dev:all:logs` follows logs for enabled profiles; `dev:down` preserves volumes; and `dev:reset` requires explicit confirmation. `market:sync`, `dev:market-stream`, `market:candles-bootstrap`, and `market:candles-reconcile` contact Binance. `dev:telegram-updates` and `dev:notification-worker` contact Telegram when configured; the worker also records a safe terminal failure when bot configuration is missing. `dev:signal-telegram-dispatcher` contacts only PostgreSQL and creates durable preset-signal outbox jobs; it does not contact Telegram. `signals:backfill` is a placeholder validation boundary, not automatic signal catch-up. API startup also starts the PostgreSQL signal-feed listener and bounded local SSE manager through FastAPI lifespan. See [Operations](../../docs/OPERATIONS.md) before using these commands.
 
 ## Authoritative Documentation
 
