@@ -210,6 +210,8 @@ Creation is limited to 10 per user and 30 per direct client IP per 15 minutes; c
 
 `GET /historical-analyses/{run_id}/trades` defaults to 50 rows and accepts a maximum of 100. `GET /historical-analyses/{run_id}/equity` defaults to 200 rows and accepts a maximum of 500. Both return ascending immutable sequence rows and an opaque sequence cursor; every trade includes signal, entry, exit, execution, return, PnL, equity, and outcome fields, while every equity row includes candle identity/revision/times, equity, drawdown, position state, and active trade sequence. The endpoints are owner-scoped and never expose user IDs, provider payloads, raw errors, or mutable live state.
 
+The authenticated browser `Historical analysis` section consumes these routes with native credentialed Fetch. It displays only server-returned market/preset/configuration and report values, uses the existing CSRF token for create/cancel mutations, keeps an idempotency key in memory for ambiguous create retries, polls selected queued/running details only while visible, and loads trade/equity pages through the documented opaque cursors. The browser does not calculate indicators or metrics, store report data, or contact Binance or Telegram.
+
 ## Ownership and Information-Exposure Rules
 
 The authenticated session selects the user ID; callers never supply it. Alert, subscription, signal-feed, Telegram connection, and notification reads/mutations are filtered by that ID. Responses omit tokens, password hashes, bot credentials, raw provider payloads, and internal evaluator state.

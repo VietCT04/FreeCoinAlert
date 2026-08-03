@@ -104,7 +104,7 @@ This document records unresolved current risks and decisions, not feature histor
 
 **Risk/impact:** Current-state documentation records implemented contracts, not evidence of exercised runtime behavior.
 
-**Current mitigation:** Documentation labels these paths unverified and avoids delivery guarantees; the browser signal surface keeps visual recovery independent from optional sound.
+**Current mitigation:** Documentation labels these paths unverified and avoids delivery guarantees; browser signal and historical-analysis surfaces keep client presentation separate from provider work, live occurrences, and optional sound.
 
 **Follow-up:** Maintain an explicit verification plan when the maintainer requests one.
 
