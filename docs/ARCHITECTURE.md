@@ -44,6 +44,10 @@ flowchart TD
   Bootstrap --> Market[market-stream]
 ```
 
+## Local Orchestration Boundary
+
+The dependency-free `scripts/local-dev.mjs` is a developer-facing orchestration boundary, not a runtime service or new application package. It loads the validated local environment, resolves the Compose profiles, invokes Docker commands with argument arrays and `shell: false`, waits for Compose initialization and health, reads JSON service state, and normalizes readiness/status output. `pnpm dev:all` starts the enabled full-local topology and follows logs; `pnpm dev:all:detached`, `dev:all:logs`, `dev:status`, `dev:down`, and the confirmed `dev:reset` command reuse the same profile resolution. The wrapper does not add an application health endpoint, provider client, queue, or persistent state boundary. Foreground interruption stops log following and removes containers without deleting volumes; reset is the only wrapper path that removes volumes and requires explicit confirmation or `--force`.
+
 ## Component Responsibilities
 
 The API routes authenticate browser requests and delegate to domain services. PostgreSQL persists durable state, immutable event history, occurrence-time subscription state history, signal Telegram dispatch state, the signal-feed transport cursor, historical-analysis run state, canonical historical-analysis dataset snapshots, and immutable historical-analysis reports and series. The API process owns a dedicated PostgreSQL listener and bounded in-process SSE connection manager; the listener loads durable rows and fans out only active-subscription sequences to local browser connections. The market stream owns one global Binance Spot aggregate-trade and kline pipeline, canonical candle persistence, aggregation, reconciliation, price-alert evaluation, and preset-signal evaluation. The Telegram poller consumes bot updates idempotently. The signal Telegram dispatcher claims occurrence work, evaluates occurrence-time subscription state, and creates immutable-snapshot outbox jobs without contacting Telegram. The notification worker claims test, price-alert, and preset-signal jobs; it strictly parses preset snapshots, rechecks server-owned delivery state, formats plain-text messages, and calls Telegram only after those checks. Historical-analysis execution is a separate PostgreSQL-backed worker process inside the API package; its pure engine remains a provider-neutral library boundary.
@@ -77,7 +81,7 @@ Binance market data is public and unauthenticated through a centralized REST/Web
 
 ## Failure Isolation and Recovery
 
-The market stream validates freshness and ordering, reconnects with bounded backoff, marks unsafe data stale, and has explicit bootstrap/reconciliation commands. Workers retry temporary Telegram failures through durable outbox state. The signal dispatcher retries bounded database work, requeues stale claims, skips backfilled/invalidated/expired occurrences, and never contacts a provider. Historical work is explicit and bounded so it does not silently become per-user live work.
+The market stream validates freshness and ordering, reconnects with bounded backoff, marks unsafe data stale, and has explicit bootstrap/reconciliation commands. Workers retry temporary Telegram failures through durable outbox state. The signal dispatcher retries bounded database work, requeues stale claims, skips backfilled/invalidated/expired occurrences, and never contacts a provider. Historical work is explicit and bounded so it does not silently become per-user live work. The local wrapper treats failed initialization, unhealthy required services, missing enabled services, and failed optional-enabled workers as startup failures without changing their underlying service semantics.
 
 ## Current Scaling Model
 
@@ -89,4 +93,4 @@ There is no message broker, cache cluster, independent market-data service, noti
 
 ## Verification Status
 
-Runtime topology and recovery paths, including signal-feed listener/SSE recovery, are implemented but unverified by a maintainer-requested runtime pass.
+Runtime topology, local orchestration, and recovery paths, including signal-feed listener/SSE recovery, are implemented but unverified by a maintainer-requested runtime pass.
