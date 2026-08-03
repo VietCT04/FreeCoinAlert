@@ -6,6 +6,8 @@ This document describes implemented local runtime entry points, settings, manual
 
 ## Runtime Components
 
+The authenticated API also owns historical-analysis run creation, listing, detail, and cancellation. This is database-backed request/lifecycle state only; no historical-analysis worker or report process exists in the current runtime.
+
 The web app, FastAPI API, and PostgreSQL run in the default Compose stack. The API process also starts the signal-feed PostgreSQL listener and local SSE connection manager through its FastAPI lifespan. Optional components are the singleton Binance market stream, Telegram update poller, signal Telegram dispatcher, and notification worker. Each uses the same database and configuration but is separately started.
 
 ## Default Local Stack
@@ -39,6 +41,8 @@ The commands invoke `freecoinalert_api.market_data.catalog_sync`, `.market_data.
 
 ## Environment Configuration
 
+Historical-analysis range, version, active-run, and request limits are fixed server policy in the API. `CANDLE_RETENTION_DAYS` bounds the warm-up validation; there are no separate worker, dataset, simulation, report, or historical-analysis cleanup settings in this change.
+
 `DATABASE_URL` is required and secret. `WEB_ORIGIN` defaults to `http://localhost:3000`; `SESSION_COOKIE_SECURE` defaults false; `SESSION_TTL_SECONDS` defaults 604800. Telegram username/token and TTL/retention are described in [TELEGRAM.md](TELEGRAM.md). Binance URLs are public provider settings. Market settings and defaults are in [MARKET_DATA.md](MARKET_DATA.md). `SIGNAL_LIVE_CATCHUP_MAX_DAYS=7` is reserved configuration with no automatic catch-up implementation; `SIGNAL_HISTORY_DAYS=90` only bounds the placeholder backfill coverage check; `SIGNAL_EVENT_RETENTION_DAYS=365` has no cleanup implementation. Signal SSE defaults are 2 connections per user, 500 per process, queue size 100, 15-second heartbeats, 60-second session revalidation, and 7-day stream-cursor retention; these limits are configured by `SIGNAL_SSE_*` and `SIGNAL_STREAM_RETENTION_DAYS`. Signal Telegram fan-out defaults are batch size 100, claim limit 10, 2-second polling, and a 900-second maximum delivery age; these limits are configured by `SIGNAL_TELEGRAM_FANOUT_*`. Signal Telegram-delivery preference mutations use a process-local limit of 30 per user per 15 minutes. Environment examples contain names and safe defaults only; never commit secrets.
 
 `NEXT_PUBLIC_API_BASE_URL` is the browser-visible API origin and must contain no secret. The browser signal section needs no separate process, provider credential, audio asset, or runtime configuration beyond the existing API origin and credentialed CORS/SSE proxy requirements. Telegram-delivery controls use the existing authenticated API and CSRF token; they do not contact Telegram from the browser or require provider configuration in the web app.
@@ -47,7 +51,9 @@ While visible, native EventSource uses the server retry value. After 60 seconds 
 
 ## Database Migrations
 
-Apply migrations manually through the release/development workflow with `pnpm db:migrate`. The current chain head adds the per-subscription Telegram-delivery columns, immutable state-history table, dispatch table, and preset-signal outbox references. Its data steps create one disabled baseline state row per existing subscription and no dispatch rows or notification work for existing signal history. The local Compose API startup is not production migration automation. Database backup, restore, and production rollout automation are not implemented.
+The current chain also adds the owner-scoped `historical_analysis_runs` table. Its migration creates no work rows and does not read candle history. Database backup, restore, and production rollout automation remain unimplemented.
+
+Apply migrations manually through the release/development workflow with `pnpm db:migrate`. The preceding signal Telegram migrations add the per-subscription delivery columns, immutable state-history table, dispatch table, and preset-signal outbox references. Their data steps create one disabled baseline state row per existing subscription and no dispatch rows or notification work for existing signal history. The historical-analysis migration adds only its request/lifecycle table; it creates no work rows and performs no candle or provider work. The local Compose API startup is not production migration automation. Database backup, restore, and production rollout automation are not implemented.
 
 ## Market Catalog Synchronization
 
@@ -75,6 +81,8 @@ PostgreSQL advisory locks serialize market streaming, candle maintenance, and si
 
 ## Retention and Maintenance
 
+Historical-analysis run rows have no automatic cleanup. Active runs must never be deleted automatically; terminal-run retention remains unresolved until a future worker/report boundary defines a bounded cleanup operation.
+
 The code has candle-revision cleanup bounded by `CANDLE_RETENTION_DAYS`, processed Telegram-update cleanup bounded by `TELEGRAM_UPDATE_RETENTION_DAYS`, and signal-event retention settings. The API listener performs at most one signal-feed stream-cursor cleanup pass per 24 hours, deleting no more than 10,000 rows older than `SIGNAL_STREAM_RETENTION_DAYS` in one transaction. It never deletes the referenced signal event. Signal dispatch and preset-signal outbox rows have no automatic cleanup. No scheduler invokes generic cleanup automatically. Run only implemented explicit maintenance under an operator-controlled schedule.
 
 ## Startup and Shutdown Expectations
@@ -88,6 +96,7 @@ Start PostgreSQL before direct API commands. API startup itself does not contact
 - Telegram configuration missing: provide the username for links and secret token for poller/worker when provider behavior is desired; the API remains available without them and a tokenless notification worker records `telegram_not_configured` safely.
 - Stuck notification claims: inspect the persisted job state. The worker detects stale claims and terminally records `telegram_delivery_outcome_unknown`; it does not resume or requeue an uncertain provider send.
 - Stuck signal fan-out: inspect `signal_telegram_dispatches` for `processing`, `retry_wait`, `failed`, `skipped`, counts, cursor, and safe failure code. The dispatcher requeues stale database-only claims, retries bounded database failures, and never retries beyond `max_attempts` or creates jobs older than the configured maximum age.
+- Historical-analysis cancellation: a queued run is cancelled immediately; a running run records a cancellation request for a future worker, but no worker currently acknowledges or advances historical-analysis runs. Do not treat queued lifecycle metadata as a completed report.
 - Provider rate limit: stop repeated commands, honor Retry-After, and wait for the bounded retry path; treat 418 as an incident.
 
 ## Production Gaps

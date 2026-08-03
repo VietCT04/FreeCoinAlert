@@ -2,7 +2,13 @@
 
 ## Current Availability
 
-No backtesting API, UI, job runner, trade simulator, stored result, profitability report, or historical-performance claim is implemented.
+The authenticated owner-scoped historical-analysis run API and `historical_analysis_runs` persistence are Implemented but Unverified. The API stores a bounded request snapshot and lifecycle metadata for queued, running, succeeded, failed, or cancelled work; it does not prepare a dataset, calculate indicators, simulate trades, execute a worker, persist a report, or provide a browser analysis flow.
+
+## Current Run Contract
+
+Run creation supports only controlled Binance Spot markets, active fixed preset code/version pairs, `1h` and `4h` preset timeframes, `historical_fixed_preset_v1`, `fixed_horizon_v1`, and explicit UTC start-inclusive/end-exclusive ranges of 7 through 90 days. The server resolves the SMA `sma_close_v1` or RSI `rsi_wilder_close_v1` calculation snapshot and the required 200- or 15-candle warm-up boundary. It validates the configured canonical candle-retention window without reading candle rows; exact stored-candle coverage belongs to the later dataset-manifest boundary.
+
+Users can create, list, inspect, and cancel only their own runs. Creation requires CSRF and a UUID idempotency key, uses bounded process-local rate limits, and allows at most two queued or running runs per user. A queued cancellation is immediate; a running cancellation is recorded for a future worker to acknowledge. Responses contain safe snapshots, progress, timestamps, and failure categories only. No run state creates live signal occurrences, alerts, subscriptions, Telegram jobs, browser notifications, or trading actions.
 
 ## Existing Compatibility Foundations
 
@@ -26,4 +32,4 @@ Any future presentation must disclose assumptions, date range, sample size, fees
 
 ## Explicitly Not Implemented
 
-Historical strategy reports, optimizers, customer-specific Binance queries, automated trading, profitability claims, and result persistence are not implemented.
+Canonical historical dataset manifests, strategy reports, deterministic simulation execution, worker processing, optimizers, customer-specific Binance queries, automated trading, profitability claims, and report/result persistence are not implemented. Terminal-run retention and cleanup remain unresolved until the worker/report boundary defines them.

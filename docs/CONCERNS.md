@@ -84,6 +84,18 @@ This document records unresolved current risks and decisions, not feature histor
 
 ## Active Operational Concerns
 
+### Historical-analysis execution and retention are deferred
+
+**Current fact:** The authenticated historical-analysis API persists bounded owner-scoped request snapshots and lifecycle metadata, but no dataset preparation, simulator, worker, report, or cleanup process exists.
+
+**Risk/impact:** Queued and running rows cannot advance to a historical result in the current runtime, and terminal rows remain retained until a future worker/report boundary defines safe cleanup. Users must not confuse a stored run request with a completed analysis or performance claim.
+
+**Current mitigation:** Creation is limited to controlled markets, fixed preset versions, bounded UTC ranges, two active runs per user, idempotent keys, safe lifecycle transitions, and no candle/provider work. Active runs are not automatically deleted.
+
+**Follow-up:** Define canonical dataset preparation, deterministic simulation, worker execution, report persistence, and bounded terminal-run retention in separately approved changes.
+
+**Owning document:** [BACKTESTING.md](BACKTESTING.md), [DATABASE.md](DATABASE.md), and [OPERATIONS.md](OPERATIONS.md).
+
 ### No scheduler or production deployment automation
 
 **Current fact:** Catalog synchronization, bootstrap, reconciliation, retention, and optional provider processes require explicit operator action or the stream's limited in-process cadence.

@@ -6,7 +6,7 @@ FreeCoinAlert helps a signed-in user watch a controlled set of Binance Spot mark
 
 ## Current Product Summary
 
-The current product has account sessions, private Telegram linking, a test-notification queue, a public supported-market catalogue, browser management for one-time price alerts, fixed preset subscription controls, inline Telegram-delivery controls, and an authenticated historical/live signal feed. Each signal subscription also stores an explicit owner-scoped Telegram-delivery preference and exposes dynamic Telegram readiness through the authenticated API. New live signal occurrences create one durable dispatch record; occurrence-time eligible subscriptions can produce at most one immutable-snapshot Telegram outbox job per user. The dispatcher does not call Telegram, while the notification worker performs the provider delivery with send-time safety checks. Browser and runtime/provider paths are implemented but unverified.
+The current product has account sessions, private Telegram linking, a test-notification queue, a public supported-market catalogue, browser management for one-time price alerts, fixed preset subscription controls, inline Telegram-delivery controls, an authenticated historical/live signal feed, and an authenticated owner-scoped historical-analysis run API. Each signal subscription also stores an explicit owner-scoped Telegram-delivery preference and exposes dynamic Telegram readiness through the authenticated API. Historical-analysis runs persist only bounded request snapshots and lifecycle metadata; no dataset, simulation, worker, report, or frontend analysis flow exists yet. New live signal occurrences create one durable dispatch record; occurrence-time eligible subscriptions can produce at most one immutable-snapshot Telegram outbox job per user. The dispatcher does not call Telegram, while the notification worker performs the provider delivery with send-time safety checks. Browser and runtime/provider paths are implemented but unverified.
 
 ## Current User Journeys
 
@@ -14,6 +14,7 @@ The current product has account sessions, private Telegram linking, a test-notif
 - Create a Telegram link, open its bot deep link, inspect connection state, disconnect it, and queue a Telegram test notification.
 - View the controlled market catalogue and create, list, inspect, and delete a one-time price-crossing alert.
 - Browse fixed signal presets, create/list/disable a subscription for an available market and preset version, and view the matching historical signal feed.
+- Request, list, inspect, and cancel a bounded historical-analysis run for an available market and fixed preset version through the authenticated API; only safe lifecycle metadata is available.
 - Read and change the per-subscription Telegram-delivery preference through the authenticated API and inline preset-card controls; enabling requires an active subscription and a connected, non-degraded Telegram destination, and the preference is disabled by default.
 - Filter loaded signal history, receive matching live events while the page is visible, recover missed entries after reconnect or visibility changes, and optionally activate a short in-page sound.
 
@@ -42,13 +43,15 @@ An unavailable or stale catalogue cannot be used to create alerts or subscriptio
 
 Enforced limits include: 15–128 character passwords; a 7-day default session lifetime; 10 price-alert creations per user and 30 per IP per 15 minutes; 20 subscription enables per user and 40 per IP per 15 minutes; 30 subscription disables per user per 15 minutes; 30 Telegram-delivery preference mutations per user per 15 minutes; and 3 test notifications per user per 15 minutes. Maximum active price alerts per user: 20. Maximum active signal subscriptions per user: 20. Disabled subscription records are not subject to a separate record-count limit. Limits are process-local.
 
+Historical-analysis endpoints add 10 creates per user and 30 per direct client IP per 15 minutes, 30 cancellations per user per 15 minutes, 120 configuration/list/detail reads per user per 15 minutes, and a maximum of 2 queued or running runs per user. These limits are process-local.
+
 ## Not Supported
 
-FreeCoinAlert does not execute trades, hold funds, request exchange API keys, accept user-authored strategies, expose arbitrary timeframes, provide backtesting or performance claims, provide mobile/system push notifications, or allow custom sounds. The API, browser controls, durable fan-out, and provider-worker delivery remain separate and do not guarantee delivery. Browser sound is optional, off by default, and does not guarantee delivery. The product makes no profit or delivery guarantee.
+FreeCoinAlert does not execute trades, hold funds, request exchange API keys, accept user-authored strategies, expose arbitrary timeframes, provide historical datasets, simulations, reports, or performance claims, provide mobile/system push notifications, or allow custom sounds. The historical-analysis run API only records bounded owner-scoped requests and safe lifecycle metadata; it does not calculate or deliver results. The API, browser controls, durable fan-out, and provider-worker delivery remain separate and do not guarantee delivery. Browser sound is optional, off by default, and does not guarantee delivery. The product makes no profit or delivery guarantee.
 
 ## Future and Not Supported Capabilities
 
-Historical analysis, charts, public/social feeds, and mobile/system push notifications are not supported. Any future capability requires an approved issue and must preserve the separation between signal occurrence, in-app visibility, sound, delivery preference, fan-out job, and Telegram provider delivery.
+Historical dataset preparation, deterministic simulation, worker execution, reports, charts, public/social feeds, and mobile/system push notifications are Planned or Not supported. The owner-scoped historical-analysis run request and lifecycle API is Implemented but Unverified. Any future capability requires an approved issue and must preserve the separation between signal occurrence, in-app visibility, sound, delivery preference, fan-out job, Telegram provider delivery, and hypothetical historical analysis.
 
 ## Product Safety and Financial-Information Boundary
 
