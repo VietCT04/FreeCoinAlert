@@ -100,11 +100,11 @@ This document records unresolved current risks and decisions, not feature histor
 
 ### No end-to-end runtime verification
 
-**Current fact:** No provider, worker, migration, Compose initialization, browser, signal-stream, audio, or maintenance command has been run for the approved implementation work.
+**Current fact:** No local setup/preflight script, provider, worker, migration, Compose initialization, browser, signal-stream, audio, or maintenance command has been run for the approved implementation work.
 
 **Risk/impact:** Current-state documentation records implemented contracts, not evidence of exercised runtime behavior.
 
-**Current mitigation:** Documentation labels these paths unverified and avoids delivery guarantees; Compose dependency conditions make initialization ordering explicit; browser signal and historical-analysis surfaces keep client presentation separate from provider work, live occurrences, and optional sound.
+**Current mitigation:** Documentation labels these paths unverified and avoids delivery guarantees; the local setup/preflight flow validates configuration and port boundaries without startup or provider contact; Compose dependency conditions make initialization ordering explicit; browser signal and historical-analysis surfaces keep client presentation separate from provider work, live occurrences, and optional sound.
 
 **Follow-up:** Maintain an explicit verification plan when the maintainer requests one.
 
