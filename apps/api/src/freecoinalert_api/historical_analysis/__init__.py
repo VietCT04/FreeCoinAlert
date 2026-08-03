@@ -1,1 +1,1 @@
-"""Historical-analysis run contracts, canonical datasets, and persistence."""
+"""Historical-analysis run contracts, pure simulation, datasets, and persistence."""

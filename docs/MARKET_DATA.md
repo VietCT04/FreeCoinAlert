@@ -30,6 +30,8 @@ Historical-analysis dataset preparation reads only current canonical `1h`/`4h` r
 
 The dataset keeps warm-up candles separate from the user-visible analysis range and records a deterministic `historical_dataset_fingerprint_v1` over the pinned run identity and snapshot values. A later revision, source change, deletion, non-current row, or value mismatch marks the dataset `stale`; it is not rebuilt under the same run. The dataset candle foreign key restricts canonical retention while the dataset remains retained, so cleanup is deferred to the historical-analysis worker/report boundary.
 
+The pure historical-analysis engine consumes these immutable snapshot values only after dataset validation. It recalculates fixed SMA/RSI signals without querying Binance, repairing gaps, aggregating new candles, or reading mutable current rows. The engine is not part of live market ingestion and has no worker or process entry point.
+
 The browser preset surface consumes only the server-provided supported-market catalogue and the confirmed candle-close signal snapshots. It does not request provider data directly, accept arbitrary symbols, or calculate indicators in the browser.
 
 ## UTC 1h and 4h Aggregation

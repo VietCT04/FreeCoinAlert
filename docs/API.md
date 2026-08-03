@@ -154,7 +154,7 @@ The authenticated root browser surface consumes these contracts with native cred
 
 ## Historical Analysis Runs
 
-The authenticated HTTP API exposes bounded owner-scoped historical-analysis requests and lifecycle metadata. Its routes do not read candles, prepare a dataset, calculate indicators, simulate trades, start a worker, contact Binance, create alerts or signals, or return a report. A separate internal database-facing service prepares canonical immutable datasets for future execution; simulation, execution, report persistence, and browser behavior remain future boundaries.
+The authenticated HTTP API exposes bounded owner-scoped historical-analysis requests and lifecycle metadata. Its routes do not read candles, prepare a dataset, calculate indicators, simulate trades, start a worker, contact Binance, create alerts or signals, or return a report. A separate internal database-facing service prepares canonical immutable datasets, and a separate pure engine can simulate fixed presets from validated immutable inputs; neither is invoked by these routes, and execution, report persistence, and browser behavior remain future boundaries.
 
 `GET /historical-analysis/configuration` requires authentication and returns `Cache-Control: no-store` with the fixed server contract:
 
@@ -178,7 +178,7 @@ The authenticated HTTP API exposes bounded owner-scoped historical-analysis requ
 }
 ```
 
-The configuration endpoint describes a future simulation contract; it does not claim that the simulation engine is available.
+The configuration endpoint describes the fixed simulation contract; it does not invoke the pure engine or claim that a simulation result/report is available through HTTP.
 
 `POST /historical-analyses` requires authentication, CSRF, and a UUID `Idempotency-Key` header. The body is:
 

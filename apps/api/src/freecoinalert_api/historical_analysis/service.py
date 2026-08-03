@@ -25,6 +25,10 @@ from freecoinalert_api.db.repositories.signal_presets import (
     get_preset_by_code_version,
 )
 from freecoinalert_api.db.repositories.supported_markets import get_supported_market
+from freecoinalert_api.historical_analysis.engine import (
+    ASSUMPTION_VERSION,
+    ENGINE_VERSION,
+)
 from freecoinalert_api.market_data.catalog import utc_now
 from freecoinalert_api.schemas.historical_analysis import (
     HistoricalAnalysisAssumptionsResponse,
@@ -55,8 +59,7 @@ logger = logging.getLogger(__name__)
 MINIMUM_RANGE_DAYS = 7
 MAXIMUM_RANGE_DAYS = 90
 MAXIMUM_ACTIVE_RUNS = 2
-SIMULATION_VERSION = "historical_fixed_preset_v1"
-ASSUMPTION_VERSION = "fixed_horizon_v1"
+SIMULATION_VERSION = ENGINE_VERSION
 
 SUPPORTED_CALCULATION_VERSIONS = {
     "price_sma_cross": "sma_close_v1",
