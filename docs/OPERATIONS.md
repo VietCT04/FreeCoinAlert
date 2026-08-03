@@ -28,7 +28,7 @@ Docker availability is checked with `docker version`, `docker compose version`, 
 
 ## Compose Initialization and Dependencies
 
-The shared `x-api-common` Compose extension centralizes the API image, source mount, persistent `api_venv` volume, database URL, and `init: true`. `api-prepare` runs `uv sync --frozen` once. `db-migrate` waits for a healthy PostgreSQL service and successful preparation before running `uv run --frozen alembic upgrade head`. All Python services wait for `api-prepare` through this migration dependency and use `uv run --frozen` without running `uv sync` themselves.
+The shared `x-api-common` Compose extension centralizes the API image, source mount, persistent `api_venv` volume, database URL, and `init: true`. The development image exposes the mounted `/app/src` package through `PYTHONPATH`, so Alembic and module-based workers import the API source while `uv sync --frozen` maintains dependencies. `api-prepare` runs `uv sync --frozen` once. `db-migrate` waits for a healthy PostgreSQL service and successful preparation before running `uv run --frozen alembic upgrade head`. All Python services wait for `api-prepare` through this migration dependency and use `uv run --frozen` without running `uv sync` themselves.
 
 The startup graph is:
 
