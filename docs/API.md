@@ -154,7 +154,7 @@ The authenticated root browser surface consumes these contracts with native cred
 
 ## Historical Analysis Runs
 
-The authenticated API exposes bounded owner-scoped historical-analysis requests and lifecycle metadata. It does not read candles, prepare a dataset, calculate indicators, simulate trades, start a worker, contact Binance, create alerts or signals, or return a report. Dataset preparation, simulation, execution, report persistence, and browser behavior remain future boundaries.
+The authenticated HTTP API exposes bounded owner-scoped historical-analysis requests and lifecycle metadata. Its routes do not read candles, prepare a dataset, calculate indicators, simulate trades, start a worker, contact Binance, create alerts or signals, or return a report. A separate internal database-facing service prepares canonical immutable datasets for future execution; simulation, execution, report persistence, and browser behavior remain future boundaries.
 
 `GET /historical-analysis/configuration` requires authentication and returns `Cache-Control: no-store` with the fixed server contract:
 

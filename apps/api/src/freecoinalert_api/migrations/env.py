@@ -13,6 +13,8 @@ from freecoinalert_api.db.models import (  # noqa: F401
     CandleSymbolState,
     CandleSyncRun,
     HistoricalAnalysisRun,
+    HistoricalAnalysisDataset,
+    HistoricalAnalysisDatasetCandle,
     MarketCandle,
     MarketSymbolState,
     NotificationOutbox,

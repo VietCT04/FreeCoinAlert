@@ -24,6 +24,12 @@ Only Binance `x=true` one-minute klines enter canonical persistence; open update
 
 Current candle identity is supported market, timeframe, and UTC open time. Values use `Decimal`/`NUMERIC(38,18)`. Identical confirmed input is idempotent. Changed confirmed input creates a new current revision and supersedes the earlier complete revision; it is never overwritten. Incomplete and invalid rows have no OHLCV values. Source fingerprints digest the ordered current source candle ID/revision pairs.
 
+## Historical-Analysis Canonical Dataset Snapshots
+
+Historical-analysis dataset preparation reads only current canonical `1h`/`4h` rows already stored in PostgreSQL. It selects the exact warm-up and start-inclusive/end-exclusive analysis window, accepts only current complete, fully valued, UTC-aligned and contiguous candles, and persists full OHLCV/trade/source metadata in immutable dataset rows. It does not call Binance, repair gaps, aggregate candles, or mutate live-ingestion state. Missing warm-up, gaps, incomplete/invalid rows, correction races, unavailable data, and oversized ranges become safe typed dataset outcomes; no partial snapshot is created.
+
+The dataset keeps warm-up candles separate from the user-visible analysis range and records a deterministic `historical_dataset_fingerprint_v1` over the pinned run identity and snapshot values. A later revision, source change, deletion, non-current row, or value mismatch marks the dataset `stale`; it is not rebuilt under the same run. The dataset candle foreign key restricts canonical retention while the dataset remains retained, so cleanup is deferred to the historical-analysis worker/report boundary.
+
 The browser preset surface consumes only the server-provided supported-market catalogue and the confirmed candle-close signal snapshots. It does not request provider data directly, accept arbitrary symbols, or calculate indicators in the browser.
 
 ## UTC 1h and 4h Aggregation

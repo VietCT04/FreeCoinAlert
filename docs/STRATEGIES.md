@@ -67,7 +67,7 @@ MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules,
 
 ## Future Historical Compatibility
 
-Any future historical analysis must use canonical candles and these versioned calculations, preserve UTC ordering and completeness, and disclose assumptions. It must not call Binance per user request.
+Historical-analysis dataset preparation supplies the future engine with immutable snapshots of canonical complete `1h`/`4h` candles. SMA 200 uses exactly 200 warm-up candles and RSI 14 uses 15; the first visible analysis candle is outside the warm-up range. The later engine must use these rows and the same versioned calculations, preserve UTC ordering and completeness, and disclose assumptions. It must not call Binance per user request or read mutable current candle rows after preparation.
 
 ## Verification Status
 
