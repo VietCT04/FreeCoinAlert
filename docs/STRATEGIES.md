@@ -63,11 +63,11 @@ The browser preset catalog renders these definitions read-only. It does not subm
 
 ## Unsupported Strategy Features
 
-MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, and public report sharing are not implemented. The authenticated browser historical-analysis presentation exposes only reports produced by the fixed server-controlled worker and engine; it does not expose formulas or editable parameters.
+MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, and public report sharing are not implemented. The authenticated browser historical-analysis presentation exposes only reports produced by the fixed server-controlled worker and engine through a read-only guided flow and methodology tab; it does not expose formulas or editable parameters.
 
 ## Historical Simulation Compatibility
 
-Historical-analysis dataset preparation supplies the pure engine with immutable snapshots of canonical complete `1h`/`4h` candles. SMA 200 uses exactly 200 warm-up candles and RSI 14 uses 15; the first visible analysis candle is outside the warm-up range. The engine recalculates from these rows with the same versioned calculations and equality-aware crossing helper used by live evaluation, preserves UTC ordering and completeness, and discloses the fixed simulation assumptions. The separate worker invokes it without calling Binance per user request, reusing stored `signal_events`, or reading mutable current candle rows after preparation. Successful output is persisted as an immutable owner-scoped report with complete trades and equity points; the browser does not calculate or reinterpret it.
+Historical-analysis dataset preparation supplies the pure engine with immutable snapshots of canonical complete `1h`/`4h` candles. SMA 200 uses exactly 200 warm-up candles and RSI 14 uses 15; the first visible analysis candle is outside the warm-up range. The engine recalculates from these rows with the same versioned calculations and equality-aware crossing helper used by live evaluation, preserves UTC ordering and completeness, and discloses the fixed simulation assumptions. The separate worker invokes it without calling Binance per user request, reusing stored `signal_events`, or reading mutable current candle rows after preparation. Successful output is persisted as an immutable owner-scoped report with complete trades and equity points; the browser presents server-provided metrics, exact series values, and the presentation-only chart/table without calculating or reinterpreting them.
 
 ## Verification Status
 

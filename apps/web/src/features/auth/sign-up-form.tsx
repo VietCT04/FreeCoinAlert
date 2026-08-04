@@ -2,9 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+
+import { InlineError } from "@/components/inline-error";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 import { AuthApiError, registerAccount } from "./api";
+import { AuthShell } from "./auth-shell";
 import { useAuth } from "./auth-provider";
 
 function getSignUpError(error: unknown): string {
@@ -89,78 +95,72 @@ export function SignUpForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-16 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-50">
-      <section className="w-full max-w-md space-y-6 rounded-2xl bg-white p-8 shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-900 dark:ring-zinc-800">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">Create an account</h1>
-          <p className="text-zinc-600 dark:text-zinc-300">
-            Start with a secure FreeCoinAlert account.
-          </p>
-        </div>
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          <div className="space-y-2">
-            <label className="block text-sm font-medium" htmlFor="email">
-              Email
-            </label>
-            <input
-              autoComplete="email"
-              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
-              id="email"
-              name="email"
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              type="email"
-              value={email}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-medium" htmlFor="password">
-              Password
-            </label>
-            <input
-              autoComplete="new-password"
-              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
-              id="password"
-              name="password"
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              type="password"
-              value={password}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="block text-sm font-medium" htmlFor="confirm-password">
-              Confirm password
-            </label>
-            <input
-              autoComplete="new-password"
-              className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
-              id="confirm-password"
-              name="confirm-password"
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              required
-              type="password"
-              value={confirmPassword}
-            />
-          </div>
-          <p aria-live="polite" className="min-h-6 text-sm text-red-700 dark:text-red-300">
-            {error}
-          </p>
-          <button
-            className="w-full rounded-lg bg-zinc-900 px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-900"
-            disabled={isSubmitting}
-            type="submit"
-          >
-            {isSubmitting ? "Creating account…" : "Create account"}
-          </button>
-        </form>
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">
+    <AuthShell
+      description="Create an account to manage your informational market alerts."
+      footer={
+        <>
           Already have an account?{" "}
-          <Link className="font-medium underline" href="/sign-in">
+          <Link className="font-medium text-foreground underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" href="/sign-in">
             Sign in
           </Link>
-        </p>
-      </section>
-    </main>
+        </>
+      }
+      title="Create an account"
+    >
+      <form className="space-y-5" onSubmit={handleSubmit}>
+        <div className="space-y-2">
+          <Label htmlFor="sign-up-email">Email</Label>
+          <Input
+            autoComplete="email"
+            id="sign-up-email"
+            name="email"
+            onChange={(event) => setEmail(event.target.value)}
+            required
+            type="email"
+            value={email}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="sign-up-password">Password</Label>
+          <Input
+            autoComplete="new-password"
+            id="sign-up-password"
+            name="password"
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            type="password"
+            value={password}
+          />
+          <p className="text-xs text-muted-foreground">
+            Use 15–128 characters.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="sign-up-confirm-password">Confirm password</Label>
+          <Input
+            autoComplete="new-password"
+            id="sign-up-confirm-password"
+            name="confirm-password"
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            required
+            type="password"
+            value={confirmPassword}
+          />
+        </div>
+        {error ? (
+          <InlineError message={error} title="Account creation failed" />
+        ) : (
+          <p aria-live="polite" className="sr-only" />
+        )}
+        <Button
+          aria-busy={isSubmitting}
+          className="w-full"
+          disabled={isSubmitting}
+          type="submit"
+        >
+          {isSubmitting ? "Creating account…" : "Create account"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

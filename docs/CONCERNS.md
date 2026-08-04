@@ -100,11 +100,11 @@ This document records unresolved current risks and decisions, not feature histor
 
 ### No end-to-end runtime verification
 
-**Current fact:** A local full-stack startup/readiness and status pass has run. The repository-owned browser foundation, responsive dashboard shell, overview, and core price-alert/preset-signal/Telegram workflow redesign are implemented, but browser, dashboard data handling, signal-stream, audio, Telegram delivery, maintenance, reset, and broad end-to-end behavior remain unverified.
+**Current fact:** A local full-stack startup/readiness and status pass has run. The repository-owned browser foundation, responsive dashboard shell, overview, core price-alert/preset-signal/Telegram workflow redesign, guided historical-analysis flow, Recharts/table report presentation, and card-based authentication are implemented, but browser, dashboard data handling, report-tab loading, signal-stream, audio, Telegram delivery, maintenance, reset, and broad end-to-end behavior remain unverified.
 
 **Risk/impact:** Current-state documentation records implemented contracts, not evidence of exercised runtime behavior.
 
-**Current mitigation:** Documentation labels the unexercised paths unverified and avoids delivery guarantees; the full wrapper checks Compose one-shot exit and health state before its readiness banner, keeps status/logs/shutdown/reset controls explicit, and protects reset with confirmation; Compose dependency conditions make initialization ordering explicit; browser signal, dashboard, price-alert, preset-signal, Telegram, and historical-analysis surfaces keep client presentation separate from provider work, live occurrences, and optional sound; the shared UI foundation keeps focus, status, error, table, dialog, switch, tab, theme, navigation, and safe-state patterns in repository-owned source.
+**Current mitigation:** Documentation labels the unexercised paths unverified and avoids delivery guarantees; the full wrapper checks Compose one-shot exit and health state before its readiness banner, keeps status/logs/shutdown/reset controls explicit, and protects reset with confirmation; Compose dependency conditions make initialization ordering explicit; browser signal, dashboard, price-alert, preset-signal, Telegram, authentication, and historical-analysis surfaces keep client presentation separate from provider work, live occurrences, and optional sound; the shared UI foundation keeps focus, status, error, table, chart, dialog, switch, tab, theme, navigation, and safe-state patterns in repository-owned source.
 
 **Follow-up:** Maintain an explicit verification plan when the maintainer requests one.
 

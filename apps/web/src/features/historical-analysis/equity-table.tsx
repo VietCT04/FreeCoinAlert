@@ -1,4 +1,18 @@
-import { formatDecimal, formatEquityPointTime, formatPositionState } from "./format";
+import { ResponsiveTable } from "@/components/responsive-table";
+import { InlineError, InlineErrorRetryButton } from "@/components/inline-error";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+import { formatEquityPointTime, formatPositionState } from "./format";
 import type { HistoricalAnalysisEquityPoint } from "./types";
 
 type EquityTableProps = {
@@ -17,64 +31,70 @@ export function EquityTable({
   points,
 }: EquityTableProps) {
   return (
-    <div className="space-y-3">
-      {error ? <p className="text-sm text-red-700 dark:text-red-300">{error}</p> : null}
-      {!isLoading && !points.length ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">
+    <div aria-busy={isLoading} className="space-y-3">
+      {error ? (
+        <InlineError
+          message={error}
+          retryAction={<InlineErrorRetryButton onRetry={onLoadMore} />}
+          title="Detailed equity is unavailable"
+        />
+      ) : null}
+      {!isLoading && !points.length && !error ? (
+        <p className="text-sm text-muted-foreground">
           No detailed equity points are available.
         </p>
       ) : null}
-      {points.length ? (
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-          <table className="min-w-full text-left text-sm">
-            <caption className="sr-only">
-              Detailed immutable hypothetical equity points, ordered by sequence.
-            </caption>
-            <thead className="bg-zinc-50 dark:bg-zinc-950">
-              <tr>
-                <th className="px-3 py-2 font-medium" scope="col">
-                  UTC candle close
-                </th>
-                <th className="px-3 py-2 font-medium" scope="col">
-                  Equity
-                </th>
-                <th className="px-3 py-2 font-medium" scope="col">
-                  Drawdown
-                </th>
-                <th className="px-3 py-2 font-medium" scope="col">
-                  Position state
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {points.map((point) => (
-                <tr className="border-t border-zinc-200 dark:border-zinc-700" key={point.sequence}>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatEquityPointTime(point)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatDecimal(point.equity)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatDecimal(point.drawdown)}
-                  </td>
-                  <td className="px-3 py-2">{formatPositionState(point.positionState)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {isLoading && !points.length ? (
+        <div className="space-y-2" role="status">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <span className="sr-only">Loading detailed equity</span>
         </div>
       ) : null}
-      {isLoading ? <p aria-live="polite">Loading detailed equity…</p> : null}
+      {points.length ? (
+        <ResponsiveTable caption="Detailed immutable hypothetical equity points.">
+          <Table className="min-w-[720px]">
+            <TableCaption className="sr-only">
+              Detailed immutable hypothetical equity points, preserving exact
+              server strings and UTC candle close times.
+            </TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">UTC candle close</TableHead>
+                <TableHead scope="col">Equity</TableHead>
+                <TableHead scope="col">Drawdown</TableHead>
+                <TableHead scope="col">Position state</TableHead>
+                <TableHead scope="col">Active trade</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {points.map((point) => (
+                <TableRow key={point.sequence}>
+                  <TableCell>{formatEquityPointTime(point)}</TableCell>
+                  <TableCell>{point.equity}</TableCell>
+                  <TableCell>{point.drawdown}</TableCell>
+                  <TableCell>{formatPositionState(point.positionState)}</TableCell>
+                  <TableCell>{point.activeTradeSequence ?? "None"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </ResponsiveTable>
+      ) : null}
+      {isLoading && points.length ? (
+        <p aria-live="polite" className="text-sm text-muted-foreground">
+          Loading more detailed equity…
+        </p>
+      ) : null}
       {nextCursor ? (
-        <button
-          className="rounded-lg border border-zinc-300 px-4 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700"
+        <Button
           disabled={isLoading}
           onClick={onLoadMore}
           type="button"
+          variant="outline"
         >
           {isLoading ? "Loading more…" : "Load more equity data"}
-        </button>
+        </Button>
       ) : null}
     </div>
   );
