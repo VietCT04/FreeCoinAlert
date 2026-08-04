@@ -12,9 +12,14 @@ from typing import Literal
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
 
 from freecoinalert_api.core.config import Settings, get_settings
 from freecoinalert_api.db.models.historical_analysis_run import HistoricalAnalysisRun
+from freecoinalert_api.db.models.market_candle import MarketCandle
+from freecoinalert_api.db.models.price_alert import PriceAlert
+from freecoinalert_api.db.models.telegram_connection import TelegramConnection
+from freecoinalert_api.db.models.telegram_link_token import TelegramLinkToken
 from freecoinalert_api.db.repositories.historical_analysis_datasets import (
     create_historical_analysis_dataset,
     create_historical_analysis_dataset_candles,
@@ -32,6 +37,10 @@ from freecoinalert_api.db.repositories.historical_analysis_runs import (
     get_historical_analysis_run_by_user_and_idempotency_key,
 )
 from freecoinalert_api.db.repositories.signal_presets import get_active_preset_by_code_version
+from freecoinalert_api.db.repositories.signal_events import (
+    create_signal_event,
+    create_signal_event_invalidation,
+)
 from freecoinalert_api.db.repositories.supported_markets import get_supported_market
 from freecoinalert_api.db.repositories.users import get_user_by_id
 from freecoinalert_api.db.session import get_async_session_factory
@@ -66,6 +75,8 @@ FIXTURE_NET_RETURN = Decimal("0.009")
 FIXTURE_FEE_RATE = Decimal("0.001")
 FIXTURE_SLIPPAGE_RATE = Decimal("0.0005")
 FIXTURE_HOLDING_CANDLES = 6
+PRICE_ALERT_FIXTURE_NAMESPACE = uuid.UUID("2d4c3ac7-6af2-4e6c-b30b-8d66f90f2f8d")
+SIGNAL_FIXTURE_NAMESPACE = uuid.UUID("75cb7d53-2833-45b2-83ac-51cc2bc84a4e")
 
 
 class HistoricalFixtureRequest(BaseModel):
@@ -91,6 +102,30 @@ class WorkerGateRequest(BaseModel):
     )
 
     names: list[str] = Field(default_factory=lambda: [WORKER_GATE_NAME], min_length=1)
+
+
+class OwnerFixtureRequest(BaseModel):
+    model_config = ConfigDict(
+        alias_generator=to_camel_case,
+        populate_by_name=True,
+        extra="forbid",
+    )
+
+    user_id: uuid.UUID
+
+
+class PriceAlertFixtureRequest(OwnerFixtureRequest):
+    symbol: str = DEFAULT_SYMBOL
+    count: int = Field(default=25, ge=1, le=100)
+    status: Literal["active", "disabled"] = "disabled"
+
+
+class SignalFeedFixtureRequest(OwnerFixtureRequest):
+    symbol: str = DEFAULT_SYMBOL
+    preset_code: str = DEFAULT_PRESET_CODE
+    preset_version: int = Field(default=1, ge=1)
+    count: int = Field(default=25, ge=1, le=100)
+    invalidated_count: int = Field(default=0, ge=0, le=100)
 
 
 def create_control_app(settings: Settings) -> FastAPI:
@@ -137,7 +172,209 @@ def create_control_app(settings: Settings) -> FastAPI:
         fixture = await _create_historical_fixture(settings, request)
         return {**_acknowledge(app), **fixture}
 
+    @app.post("/__e2e/fixtures/expire-telegram-link")
+    async def expire_telegram_link(
+        request: OwnerFixtureRequest,
+        x_e2e_control_token: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        _authorize(settings, x_e2e_control_token)
+        await _expire_telegram_link(request.user_id)
+        return {**_acknowledge(app), "expired": True}
+
+    @app.post("/__e2e/fixtures/price-alerts")
+    async def price_alert_fixture(
+        request: PriceAlertFixtureRequest,
+        x_e2e_control_token: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        _authorize(settings, x_e2e_control_token)
+        fixture = await _create_price_alert_fixture(request)
+        return {**_acknowledge(app), **fixture}
+
+    @app.post("/__e2e/fixtures/signal-feed")
+    async def signal_feed_fixture(
+        request: SignalFeedFixtureRequest,
+        x_e2e_control_token: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        _authorize(settings, x_e2e_control_token)
+        fixture = await _create_signal_feed_fixture(settings, request)
+        return {**_acknowledge(app), **fixture}
+
     return app
+
+
+async def _expire_telegram_link(user_id: uuid.UUID) -> None:
+    now = datetime.now(UTC)
+    async with get_async_session_factory()() as session:
+        token = await session.scalar(
+            select(TelegramLinkToken)
+            .where(
+                TelegramLinkToken.user_id == user_id,
+                TelegramLinkToken.consumed_at.is_(None),
+                TelegramLinkToken.revoked_at.is_(None),
+            )
+            .order_by(TelegramLinkToken.expires_at.desc())
+        )
+        if token is None:
+            raise HTTPException(status_code=404, detail="The E2E Telegram link does not exist.")
+        token.created_at = now - timedelta(seconds=2)
+        token.expires_at = now - timedelta(seconds=1)
+        await session.commit()
+
+
+async def _create_price_alert_fixture(request: PriceAlertFixtureRequest) -> dict[str, object]:
+    now = datetime.now(UTC)
+    async with get_async_session_factory()() as session:
+        user = await get_user_by_id(session, user_id=request.user_id)
+        market = await get_supported_market(
+            session,
+            exchange="binance",
+            market_type="spot",
+            symbol=request.symbol,
+        )
+        connection = await session.scalar(
+            select(TelegramConnection).where(
+                TelegramConnection.user_id == request.user_id,
+                TelegramConnection.status.in_(("connected", "degraded")),
+            )
+        )
+        if user is None or market is None or connection is None:
+            raise HTTPException(status_code=422, detail="The requested E2E fixture is unavailable.")
+        if market.base_asset is None or market.quote_asset is None or market.price_tick is None:
+            raise HTTPException(status_code=422, detail="The requested E2E fixture is unavailable.")
+
+        for index in range(request.count):
+            alert_id = uuid.uuid5(
+                PRICE_ALERT_FIXTURE_NAMESPACE,
+                f"{request.user_id}:{request.symbol}:{index}",
+            )
+            existing = await session.get(PriceAlert, alert_id)
+            if existing is not None:
+                continue
+            created_at = now - timedelta(seconds=index + 1)
+            session.add(
+                PriceAlert(
+                    id=alert_id,
+                    user_id=request.user_id,
+                    supported_market_id=market.id,
+                    telegram_connection_id=connection.id,
+                    creation_idempotency_key=f"e2e-price-alert:{request.user_id}:{request.symbol}:{index}",
+                    kind="price_cross",
+                    direction="cross_above",
+                    target_price=Decimal("100") + Decimal(index),
+                    exchange_snapshot=market.exchange,
+                    market_type_snapshot=market.market_type,
+                    symbol_snapshot=market.symbol,
+                    base_asset_snapshot=market.base_asset,
+                    quote_asset_snapshot=market.quote_asset,
+                    price_tick_snapshot=market.price_tick,
+                    status=request.status,
+                    status_reason="e2e_fixture",
+                    disabled_at=created_at if request.status == "disabled" else None,
+                    created_at=created_at,
+                    updated_at=created_at,
+                )
+            )
+        await session.commit()
+    return {"count": request.count, "status": request.status}
+
+
+async def _create_signal_feed_fixture(
+    settings: Settings,
+    request: SignalFeedFixtureRequest,
+) -> dict[str, object]:
+    now = (settings.e2e_clock_now or datetime.now(UTC)).astimezone(UTC)
+    async with get_async_session_factory()() as session:
+        user = await get_user_by_id(session, user_id=request.user_id)
+        market = await get_supported_market(
+            session,
+            exchange="binance",
+            market_type="spot",
+            symbol=request.symbol,
+        )
+        preset = await get_active_preset_by_code_version(
+            session,
+            code=request.preset_code,
+            version=request.preset_version,
+        )
+        if user is None or market is None or preset is None:
+            raise HTTPException(status_code=422, detail="The requested E2E fixture is unavailable.")
+        if market.base_asset is None or market.quote_asset is None:
+            raise HTTPException(status_code=422, detail="The requested E2E fixture is unavailable.")
+
+        candles = list(
+            (
+                await session.scalars(
+                    select(MarketCandle)
+                    .where(
+                        MarketCandle.supported_market_id == market.id,
+                        MarketCandle.timeframe == preset.timeframe,
+                        MarketCandle.status == "complete",
+                        MarketCandle.is_current.is_(True),
+                    )
+                    .order_by(MarketCandle.open_time.desc())
+                    .limit(request.count)
+                )
+            ).all()
+        )
+        if len(candles) < request.count:
+            raise HTTPException(status_code=409, detail="The deterministic E2E candle seed is incomplete.")
+
+        created = 0
+        for index, candle in enumerate(candles):
+            trigger_identity = str(
+                uuid.uuid5(
+                    SIGNAL_FIXTURE_NAMESPACE,
+                    f"{request.user_id}:{preset.id}:{candle.id}",
+                )
+            )
+            event = await create_signal_event(
+                session,
+                values={
+                    "supported_market_id": market.id,
+                    "signal_preset_id": preset.id,
+                    "trigger_candle_id": candle.id,
+                    "event_type": "preset_crossed",
+                    "trigger_identity": trigger_identity,
+                    "exchange_snapshot": market.exchange,
+                    "market_type_snapshot": market.market_type,
+                    "symbol_snapshot": market.symbol,
+                    "base_asset_snapshot": market.base_asset,
+                    "quote_asset_snapshot": market.quote_asset,
+                    "preset_code_snapshot": preset.code,
+                    "preset_version_snapshot": preset.version,
+                    "preset_name_snapshot": preset.name,
+                    "strategy_type_snapshot": preset.strategy_type,
+                    "calculation_version_snapshot": "e2e_fixture_v1",
+                    "timeframe_snapshot": preset.timeframe,
+                    "direction_snapshot": preset.direction,
+                    "period_snapshot": preset.period,
+                    "threshold_snapshot": preset.threshold,
+                    "price_input_snapshot": preset.price_input,
+                    "candle_revision": candle.revision,
+                    "candle_open_time": candle.open_time,
+                    "candle_close_time": candle.close_time,
+                    "previous_left_value": Decimal("99"),
+                    "previous_right_value": Decimal("100"),
+                    "current_left_value": Decimal("101"),
+                    "current_right_value": Decimal("100"),
+                    "candle_close_price": candle.close_price,
+                    "backfilled": False,
+                    "occurred_at": now - timedelta(seconds=index),
+                },
+            )
+            if event is None:
+                continue
+            created += 1
+            if index < request.invalidated_count:
+                await create_signal_event_invalidation(
+                    session,
+                    signal_event_id=event.id,
+                    reason="candle_corrected",
+                    replacement_candle_id=None,
+                    replacement_candle_revision=None,
+                )
+        await session.commit()
+    return {"count": created, "invalidatedCount": min(created, request.invalidated_count)}
 
 
 async def _create_historical_fixture(

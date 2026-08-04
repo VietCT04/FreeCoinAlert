@@ -84,6 +84,8 @@ Repository-owned UI primitives, theme controls, and toast composition do not log
 
 Rate limits are process-local. There is no documented production backup, account-deletion, distributed rate-limit, security-review, penetration-test, or provider-verification outcome. E2E browser and artifact-redaction behavior also remains unverified. Runtime CORS/cookie deployment values require an explicit operational review before exposure beyond the configured origin.
 
+The E2E browser suite registers users and exercises authentication through the UI, uses random in-memory passwords derived per test, transfers only the authenticated session cookie into feature-test contexts, and does not log or assert raw passwords, cookies, CSRF tokens, provider payloads, or internal identifiers. Provider and fixture mutations stay on the isolated internal simulator/control network; the suite does not intercept public API requests or contact real Binance/Telegram endpoints. Journey coverage is [E2E_COVERAGE.md](E2E_COVERAGE.md) and remains Implemented but Unverified.
+
 ## Verification Status
 
 Security behavior was inspected statically from code and configuration. No penetration test, provider request, browser flow, migration, E2E runner, artifact-redaction, or runtime security verification was run.
