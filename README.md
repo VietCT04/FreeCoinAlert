@@ -8,13 +8,13 @@ FreeCoinAlert is an informational cryptocurrency-alert application. Signed-in us
 
 - Account sessions, CSRF protection, and browser sign-in/sign-up flows.
 - Telegram linking, test-notification queueing, and durable notification processing.
-- One-time exact-decimal price-crossing alerts for the supported Binance Spot markets.
+- One-time exact-decimal price-crossing alerts for the supported Binance Spot markets, with status-filtered cards and an accessible create dialog.
 - Canonical closed-candle storage, `1h`/`4h` aggregation, and fixed SMA 200 / RSI 14 preset evaluation.
-- Read-only preset cards, authenticated subscription and Telegram-delivery controls, paginated signal history, credentialed live updates, visibility recovery, and optional built-in sound.
+- Fixed preset cards grouped by timeframe, authenticated subscription and Telegram-delivery controls, separate tabbed signal history, paginated signal history, credentialed live updates, visibility recovery, and optional built-in sound.
 - Owner-scoped signal Telegram-delivery preference storage and readiness API.
 - Owner-scoped historical-analysis run/lifecycle API, bounded database worker, immutable report persistence, paginated trades/equity reads, explicit terminal-run cleanup, and the authenticated browser request/lifecycle/report surface.
 - Occurrence-time signal fan-out into at-most-once-per-user durable Telegram outbox jobs and provider-worker delivery using immutable snapshots, bounded retries, and send-time safety checks.
-- A responsive authenticated dashboard shell, Overview page, dedicated feature routes, owner-visible recent activity, and light/dark/system theme selection using repository-owned UI primitives; feature workflows remain behaviorally unchanged.
+- A responsive authenticated dashboard shell, Overview page, dedicated feature routes, status-aware price-alert cards, tabbed preset workflows, Telegram connection/usage cards, owner-visible recent activity, and light/dark/system theme selection using repository-owned UI primitives; feature workflows remain behaviorally unchanged.
 
 See the authoritative [product overview](docs/PRODUCT.md) for capabilities, limits, planned work, and non-goals.
 

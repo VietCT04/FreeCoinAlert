@@ -1,9 +1,21 @@
 "use client";
 
-import type { SupportedMarket } from "../markets/types";
+import { EmptyState } from "@/components/empty-state";
+import { InlineError, InlineErrorRetryButton } from "@/components/inline-error";
+import { StatusBadge } from "@/components/status-badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  formatTimeframe,
-} from "./format";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+import type { SupportedMarket } from "../markets/types";
+import { formatTimeframe } from "./format";
 import { SignalFeedEntry } from "./signal-feed-entry";
 import type {
   SignalConnectionStatus,
@@ -56,6 +68,23 @@ function connectionMessage(status: SignalConnectionStatus): string {
   }
 }
 
+function connectionLabel(status: SignalConnectionStatus): string {
+  switch (status) {
+    case "live":
+      return "Live";
+    case "connecting":
+      return "Connecting";
+    case "reconnecting":
+      return "Reconnecting";
+    case "disconnected":
+      return "Disconnected";
+    case "history recovery required":
+      return "Recovery required";
+    case "authentication expired":
+      return "Authentication expired";
+  }
+}
+
 function presetFilterValue(preset: SignalPreset): string {
   return `${preset.code}:${preset.version}`;
 }
@@ -95,39 +124,43 @@ export function SignalFeed({
     return marketMatches && presetMatches;
   });
   const availableMarkets = markets.filter(
-    (market) => market.status === "available" && market.baseAsset && market.quoteAsset,
+    (market) =>
+      market.status === "available" &&
+      market.baseAsset &&
+      market.quoteAsset,
   );
 
   return (
     <section aria-labelledby="signal-history-heading" className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold" id="signal-history-heading">
+        <div className="space-y-1">
+          <h2
+            className="text-lg font-semibold outline-none"
+            id="signal-history-heading"
+            tabIndex={-1}
+          >
             Signal history
-          </h3>
-          <p className="text-sm text-zinc-600 dark:text-zinc-300">
+          </h2>
+          <p className="text-sm text-muted-foreground">
             Recent occurrences for signals you currently or previously subscribed
             to. Historical entries may predate your subscription.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700"
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={connectionLabel(connectionStatus)} />
+          <Button
             aria-busy={isRefreshing}
             disabled={isRefreshing}
             onClick={onRefresh}
             type="button"
+            variant="outline"
           >
-            {isRefreshing ? "Refreshing…" : "Refresh history"}
-          </button>
+            {isRefreshing ? "Refreshing…" : "Refresh"}
+          </Button>
           {connectionStatus === "disconnected" ? (
-            <button
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700"
-              onClick={onReconnect}
-              type="button"
-            >
-              Reconnect live updates
-            </button>
+            <Button onClick={onReconnect} type="button" variant="outline">
+              Reconnect
+            </Button>
           ) : null}
         </div>
       </div>
@@ -137,97 +170,105 @@ export function SignalFeed({
         {announcement ? <p>{announcement}</p> : null}
       </div>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-48 flex-1 space-y-1">
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="signal-feed-market-filter">
             Market filter
           </label>
-          <select
-            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950"
-            id="signal-feed-market-filter"
-            onChange={(event) => onMarketFilterChange(event.target.value)}
-            value={marketFilter}
+          <Select
+            onValueChange={(value) =>
+              onMarketFilterChange(value === "__all__" ? "" : value)
+            }
+            value={marketFilter || "__all__"}
           >
-            <option value="">All subscribed signals</option>
-            {availableMarkets.map((market) => (
-              <option key={market.symbol} value={market.symbol}>
-                {market.baseAsset}/{market.quoteAsset} ({market.symbol})
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full" id="signal-feed-market-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All subscribed signals</SelectItem>
+              {availableMarkets.map((market) => (
+                <SelectItem key={market.symbol} value={market.symbol}>
+                  {market.baseAsset}/{market.quoteAsset} ({market.symbol})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="min-w-48 flex-1 space-y-1">
+        <div className="space-y-2">
           <label className="text-sm font-medium" htmlFor="signal-feed-preset-filter">
             Preset filter
           </label>
-          <select
-            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950"
-            id="signal-feed-preset-filter"
-            onChange={(event) => onPresetFilterChange(event.target.value)}
-            value={presetFilter}
+          <Select
+            onValueChange={(value) =>
+              onPresetFilterChange(value === "__all__" ? "" : value)
+            }
+            value={presetFilter || "__all__"}
           >
-            <option value="">All presets</option>
-            {presets.map((preset) => (
-              <option key={presetFilterValue(preset)} value={presetFilterValue(preset)}>
-                {preset.name} · {formatTimeframe(preset.timeframe)}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full" id="signal-feed-preset-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All presets</SelectItem>
+              {presets.map((preset) => (
+                <SelectItem key={presetFilterValue(preset)} value={presetFilterValue(preset)}>
+                  {preset.name} · {formatTimeframe(preset.timeframe)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="flex-1">
+        <div className="flex items-end">
           {!soundPreferenceEnabled ? (
-            <button
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700"
-              onClick={onActivateSound}
-              type="button"
-            >
+            <Button onClick={onActivateSound} type="button" variant="outline">
               Enable sound
-            </button>
+            </Button>
           ) : !soundSessionActive ? (
-            <button
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700"
-              onClick={onActivateSound}
-              type="button"
-            >
+            <Button onClick={onActivateSound} type="button" variant="outline">
               Activate sound for this session
-            </button>
+            </Button>
           ) : (
-            <button
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700"
-              onClick={onMuteSound}
-              type="button"
-            >
+            <Button onClick={onMuteSound} type="button" variant="outline">
               Mute sound
-            </button>
+            </Button>
           )}
         </div>
       </div>
+
       {soundError ? (
-        <p aria-live="assertive" className="text-sm text-red-700 dark:text-red-300">
-          {soundError}
-        </p>
+        <InlineError message={soundError} title="Sound is unavailable" />
       ) : null}
       {soundAnnouncement ? <p aria-live="polite">{soundAnnouncement}</p> : null}
-
-      {isInitialLoading ? (
-        <p aria-live="polite">Loading signal history…</p>
-      ) : null}
       {isStale ? (
-        <p>
-          Signal history may be stale. Refresh to try again.
-        </p>
+        <Alert>
+          <AlertTitle>Signal history may be stale</AlertTitle>
+          <AlertDescription>Refresh to request the latest history.</AlertDescription>
+        </Alert>
       ) : null}
       {error ? (
-        <p aria-live="assertive" className="text-sm text-red-700 dark:text-red-300">
-          {error}
-        </p>
+        <InlineError
+          message={error}
+          retryAction={<InlineErrorRetryButton onRetry={onRefresh} disabled={isRefreshing} />}
+          title="Signal history could not be loaded"
+        />
+      ) : null}
+
+      {isInitialLoading ? (
+        <div aria-busy="true" aria-label="Loading signal history" role="status">
+          <div className="space-y-3">
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        </div>
       ) : null}
       {!isInitialLoading && !filteredEvents.length ? (
-        <p>
-          {events.length
-            ? "No signal history matches these filters."
-            : "No signal history for your current or previous signal subscriptions yet."}
-        </p>
+        <EmptyState
+          description={
+            events.length
+              ? "No signal history matches these filters."
+              : "No signal history is available for your current or previous subscriptions yet."
+          }
+          title={events.length ? "No matching signal history" : "No signal history yet"}
+        />
       ) : null}
       {filteredEvents.length ? (
         <div className="space-y-3" role="list">
@@ -242,15 +283,15 @@ export function SignalFeed({
         </div>
       ) : null}
       {nextCursor ? (
-        <button
-          className="rounded-lg border border-zinc-300 px-4 py-2 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700"
+        <Button
           aria-busy={isLoadingMore}
           disabled={isLoadingMore}
           onClick={onLoadMore}
           type="button"
+          variant="outline"
         >
           {isLoadingMore ? "Loading…" : "Load more"}
-        </button>
+        </Button>
       ) : null}
     </section>
   );

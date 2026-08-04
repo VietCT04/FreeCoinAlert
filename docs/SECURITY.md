@@ -72,6 +72,8 @@ Historical-analysis presentation receives only the approved owner-scoped run/rep
 
 The authenticated dashboard overview keeps only its read-only response state in component memory while the route is mounted. It requests existing owner-scoped or public-safe DTOs independently, does not add a dashboard cache, does not persist activity or summary values, and does not expose delivery-worker state, provider payloads, current prices, or internal identifiers.
 
+Price-alert, preset-signal, and Telegram workflow surfaces keep their form, filter, tab, confirmation, usage-count, and notification-result state in React memory. Telegram usage counts are derived from existing owner-scoped responses with `Promise.allSettled`; failed subsections show unavailable without exposing response internals. The browser does not store alert targets, signal history, subscription IDs, Telegram readiness, destination identifiers, tokens, provider payloads, or notification-worker state in browser persistence.
+
 Repository-owned UI primitives, theme controls, and toast composition do not log component props, API responses, authentication values, or Telegram data, and no analytics or telemetry dependency is added.
 
 ## Current Limitations and Unresolved Risks

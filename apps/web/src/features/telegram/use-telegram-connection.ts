@@ -47,8 +47,8 @@ export type TelegramConnectionState = {
   notificationError: string | null;
   notificationPollingExpired: boolean;
   refreshConnection: () => Promise<void>;
-  createLink: () => Promise<void>;
-  queueTestNotification: () => Promise<void>;
+  createLink: () => Promise<boolean>;
+  queueTestNotification: () => Promise<boolean>;
   refreshTestNotification: () => Promise<void>;
   disconnect: () => Promise<boolean>;
 };
@@ -208,9 +208,9 @@ export function useTelegramConnection({
     }
   }, [handleRequestError, notification]);
 
-  const createLink = useCallback(async () => {
+  const createLink = useCallback(async (): Promise<boolean> => {
     if (!csrfToken || isConnecting) {
-      return;
+      return false;
     }
 
     setIsConnecting(true);
@@ -223,16 +223,18 @@ export function useTelegramConnection({
       setDeepLink(response.telegramUrl);
       setIsLinkExpired(hasExpired(response.connection.linkExpiresAt));
       window.open(response.telegramUrl, "_blank", "noopener,noreferrer");
+      return true;
     } catch (error) {
       await handleRequestError(error, setConnectionError);
+      return false;
     } finally {
       setIsConnecting(false);
     }
   }, [csrfToken, handleRequestError, isConnecting, updateConnection]);
 
-  const queueTestNotification = useCallback(async () => {
+  const queueTestNotification = useCallback(async (): Promise<boolean> => {
     if (!csrfToken || isTestNotificationPending) {
-      return;
+      return false;
     }
 
     setIsTestNotificationPending(true);
@@ -246,8 +248,10 @@ export function useTelegramConnection({
       notificationPollingStartedAt.current = Date.now();
       setNotificationPollingExpired(false);
       setNotification(response.notification);
+      return true;
     } catch (error) {
       await handleRequestError(error, setNotificationError);
+      return false;
     } finally {
       setIsTestNotificationPending(false);
     }

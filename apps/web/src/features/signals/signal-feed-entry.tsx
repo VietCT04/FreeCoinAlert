@@ -1,5 +1,14 @@
 "use client";
 
+import { StatusBadge } from "@/components/status-badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
 import {
   formatComparisonLabel,
   formatDirection,
@@ -21,50 +30,62 @@ export function SignalFeedEntry({
   const rightLabel = formatComparisonLabel(event.comparison.rightLabel);
 
   return (
-    <article
-      className={`space-y-2 rounded-xl border p-4 ${
+    <Card
+      className={
         isHighlighted
           ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30"
-          : "border-zinc-200 dark:border-zinc-700"
-      }`}
+          : undefined
+      }
     >
-      {isHighlighted ? (
-        <p className="font-semibold text-emerald-800 dark:text-emerald-300">
-          New live signal
+      <CardHeader className="gap-2">
+        {isHighlighted ? (
+          <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+            New live signal
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle>
+              {event.market.symbol} · {event.preset.name}
+            </CardTitle>
+            <CardDescription>
+              Binance Spot · {formatTimeframe(event.preset.timeframe)} ·{" "}
+              {formatDirection(event.preset.direction)}
+            </CardDescription>
+          </div>
+          <StatusBadge
+            status={event.status === "current" ? "Current" : "Invalidated"}
+          />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        <p>
+          Previous: {leftLabel} {event.comparison.previousLeft} · {rightLabel}{" "}
+          {event.comparison.previousRight}
         </p>
-      ) : null}
-      <h4 className="font-semibold">
-        {event.market.symbol} · Binance Spot
-      </h4>
-      <p>
-        {event.preset.name} · {formatTimeframe(event.preset.timeframe)}
-      </p>
-      <p className="text-sm">Direction: {formatDirection(event.preset.direction)}</p>
-      <p className="text-sm">
-        Previous: {leftLabel} {event.comparison.previousLeft} · {rightLabel}{" "}
-        {event.comparison.previousRight}
-      </p>
-      <p className="text-sm">
-        Current: {leftLabel} {event.comparison.currentLeft} · {rightLabel}{" "}
-        {event.comparison.currentRight}
-      </p>
-      <p className="text-sm text-zinc-600 dark:text-zinc-300">
-        Candle closed {formatSignalDate(event.candle.closeTime)}
-      </p>
-      {event.backfilled ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">
-          Historical calculation
+        <p>
+          Current: {leftLabel} {event.comparison.currentLeft} · {rightLabel}{" "}
+          {event.comparison.currentRight}
         </p>
-      ) : null}
-      {event.status === "invalidated" ? (
-        <p className="text-sm text-red-700 dark:text-red-300">
-          Invalidated: {event.invalidationReason ?? "This signal is no longer current."}
+        <p>
+          Candle close: {event.candle.closePrice} · Closed{" "}
+          {formatSignalDate(event.candle.closeTime)}
         </p>
-      ) : (
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">
-          Signal status: current
+        <p className="text-muted-foreground">
+          Occurred {formatSignalDate(event.occurredAt)}
         </p>
-      )}
-    </article>
+        {event.backfilled ? (
+          <p className="text-muted-foreground">Backfilled history</p>
+        ) : null}
+        {event.deliveryMode === "replay" ? (
+          <p className="text-muted-foreground">Replayed after live-feed recovery</p>
+        ) : null}
+        {event.status === "invalidated" ? (
+          <p className="text-destructive">
+            Invalidated: {event.invalidationReason ?? "This signal is no longer current."}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

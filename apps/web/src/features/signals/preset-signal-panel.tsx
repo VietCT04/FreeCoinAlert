@@ -1,12 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+
+import { InlineError, InlineErrorRetryButton } from "@/components/inline-error";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { useAuth } from "../auth/auth-provider";
 import { useMarkets } from "../markets/use-markets";
 import { getSignalPresets } from "./api";
 import { signalErrorMessage, isSignalAuthenticationError } from "./errors";
 import { PresetCatalog } from "./preset-catalog";
+import type {
+  PresetSubscriptionFilter,
+  PresetTimeframeFilter,
+} from "./preset-catalog";
 import { SignalFeed } from "./signal-feed";
 import type {
   SignalFeedEvent,
@@ -28,6 +36,11 @@ export function PresetSignalPanel() {
   const [selectedSymbol, setSelectedSymbol] = useState("");
   const [marketFilter, setMarketFilter] = useState("");
   const [presetFilter, setPresetFilter] = useState("");
+  const [timeframeFilter, setTimeframeFilter] =
+    useState<PresetTimeframeFilter>("all");
+  const [subscriptionFilter, setSubscriptionFilter] =
+    useState<PresetSubscriptionFilter>("all");
+  const [activeTab, setActiveTab] = useState("presets");
   const [streamRestartToken, setStreamRestartToken] = useState(0);
 
   const handleNewLiveSignal = useCallback(
@@ -84,6 +97,9 @@ export function PresetSignalPanel() {
       setSelectedSymbol("");
       setMarketFilter("");
       setPresetFilter("");
+      setTimeframeFilter("all");
+      setSubscriptionFilter("all");
+      setActiveTab("presets");
       return;
     }
 
@@ -133,23 +149,39 @@ export function PresetSignalPanel() {
   }, [markets.markets, selectedSymbol]);
 
   const onSubscriptionSubscribe = useCallback(
-    (symbol: string, preset: SignalPreset) => {
-      void subscriptions.subscribe(symbol, preset);
+    async (symbol: string, preset: SignalPreset) => {
+      if (await subscriptions.subscribe(symbol, preset)) {
+        toast.success("Signal subscription saved.");
+      }
     },
     [subscriptions.subscribe],
   );
   const onSubscriptionConfirmDisable = useCallback(
-    (subscription: SignalSubscription) => {
-      void subscriptions.disable(subscription);
+    async (subscription: SignalSubscription) => {
+      if (await subscriptions.disable(subscription)) {
+        toast.success("Signal subscription disabled.");
+      }
     },
     [subscriptions.disable],
   );
   const onSetTelegramDelivery = useCallback(
-    (subscription: SignalSubscription, enabled: boolean) => {
-      void subscriptions.setTelegramDelivery(subscription, enabled);
+    async (subscription: SignalSubscription, enabled: boolean) => {
+      if (await subscriptions.setTelegramDelivery(subscription, enabled)) {
+        toast.success(
+          enabled ? "Telegram delivery enabled." : "Telegram delivery disabled.",
+        );
+      }
     },
     [subscriptions.setTelegramDelivery],
   );
+
+  const handleViewHistory = useCallback((preset: SignalPreset) => {
+    setPresetFilter(`${preset.code}:${preset.version}`);
+    setActiveTab("history");
+    window.requestAnimationFrame(() => {
+      document.getElementById("signal-history-heading")?.focus();
+    });
+  }, []);
 
   if (status !== "authenticated") {
     return null;
@@ -157,79 +189,98 @@ export function PresetSignalPanel() {
 
   return (
     <section
-      aria-labelledby="preset-signals-heading"
-      className="space-y-6 rounded-xl border border-zinc-200 p-5 dark:border-zinc-700"
+      aria-label="Preset subscriptions and signal history"
+      className="space-y-6"
     >
-      <div>
-        <h2 className="text-xl font-semibold" id="preset-signals-heading">
-          Preset signals
-        </h2>
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">
-          Subscribe to fixed technical signals and review their recent history.
-          These signals are informational and are not trading advice.
-        </p>
-      </div>
-      <div aria-live="polite">
-        {subscriptions.announcement ? <p>{subscriptions.announcement}</p> : null}
-        {subscriptions.error ? <p>{subscriptions.error}</p> : null}
-      </div>
-      <PresetCatalog
-        confirmingDisableId={subscriptions.confirmingDisableId}
-        isMarketsLoading={markets.isLoading}
-        isPresetsLoading={isPresetsLoading || subscriptions.isLoading}
-        marketError={markets.error}
-        markets={markets.markets}
-        onAskToDisable={subscriptions.askToDisable}
-        onCancelDisable={subscriptions.cancelDisable}
-        onConfirmDisable={onSubscriptionConfirmDisable}
-        onAskToEnableTelegramDelivery={
-          subscriptions.askToEnableTelegramDelivery
-        }
-        onCancelTelegramDeliveryConfirmation={
-          subscriptions.cancelTelegramDeliveryConfirmation
-        }
-        onSetTelegramDelivery={onSetTelegramDelivery}
-        onRetryMarkets={() => void markets.refreshMarkets()}
-        onSelectSymbol={setSelectedSymbol}
-        onSubscribe={onSubscriptionSubscribe}
-        onViewHistory={(preset) =>
-          setPresetFilter(`${preset.code}:${preset.version}`)
-        }
-        pendingKeys={subscriptions.pendingKeys}
-        pendingTelegramDeliveryIds={subscriptions.pendingTelegramDeliveryIds}
-        presetError={presetError}
-        presets={presets}
-        selectedSymbol={selectedSymbol}
-        subscriptions={subscriptions.subscriptions}
-        confirmingTelegramDeliveryId={subscriptions.confirmingTelegramDeliveryId}
-      />
-      <SignalFeed
-        announcement={feed.announcement}
-        connectionStatus={stream.status}
-        error={feed.error}
-        events={feed.events}
-        highlightedEventIds={feed.highlightedEventIds}
-        isInitialLoading={feed.isInitialLoading}
-        isLoadingMore={feed.isLoadingMore}
-        isRefreshing={feed.isRefreshing}
-        isStale={feed.isStale}
-        marketFilter={marketFilter}
-        markets={markets.markets}
-        nextCursor={feed.nextCursor}
-        onActivateSound={() => void sound.activate()}
-        onLoadMore={() => void feed.loadMore()}
-        onMarketFilterChange={setMarketFilter}
-        onMuteSound={sound.mute}
-        onPresetFilterChange={setPresetFilter}
-        onReconnect={() => void stream.reconnect()}
-        onRefresh={() => void recoverHistory()}
-        presetFilter={presetFilter}
-        presets={presets}
-        soundAnnouncement={sound.announcement}
-        soundError={sound.error}
-        soundPreferenceEnabled={sound.preferenceEnabled}
-        soundSessionActive={sound.sessionActive}
-      />
+      {subscriptions.announcement ? (
+        <p aria-live="polite">{subscriptions.announcement}</p>
+      ) : null}
+      {subscriptions.error ? (
+        <InlineError
+          message={subscriptions.error}
+          retryAction={
+            <InlineErrorRetryButton onRetry={() => void subscriptions.refresh()} />
+          }
+          title="Subscription update failed"
+        />
+      ) : null}
+      <Tabs onValueChange={setActiveTab} value={activeTab}>
+        <TabsList aria-label="Preset signal sections" variant="line">
+          <TabsTrigger value="presets">Presets</TabsTrigger>
+          <TabsTrigger value="history">Signal history</TabsTrigger>
+        </TabsList>
+        <TabsContent
+          className="data-[state=inactive]:hidden"
+          forceMount
+          value="presets"
+        >
+          <PresetCatalog
+            confirmingDisableId={subscriptions.confirmingDisableId}
+            confirmingTelegramDeliveryId={subscriptions.confirmingTelegramDeliveryId}
+            isMarketsLoading={markets.isLoading}
+            isPresetsLoading={isPresetsLoading || subscriptions.isLoading}
+            marketError={markets.error}
+            markets={markets.markets}
+            onAskToDisable={subscriptions.askToDisable}
+            onAskToEnableTelegramDelivery={
+              subscriptions.askToEnableTelegramDelivery
+            }
+            onCancelDisable={subscriptions.cancelDisable}
+            onCancelTelegramDeliveryConfirmation={
+              subscriptions.cancelTelegramDeliveryConfirmation
+            }
+            onConfirmDisable={onSubscriptionConfirmDisable}
+            onRetryMarkets={() => void markets.refreshMarkets()}
+            onSelectSymbol={setSelectedSymbol}
+            onSetTelegramDelivery={onSetTelegramDelivery}
+            onSubscribe={onSubscriptionSubscribe}
+            onSubscriptionFilterChange={setSubscriptionFilter}
+            onTimeframeFilterChange={setTimeframeFilter}
+            onViewHistory={handleViewHistory}
+            pendingKeys={subscriptions.pendingKeys}
+            pendingTelegramDeliveryIds={subscriptions.pendingTelegramDeliveryIds}
+            presetError={presetError}
+            presets={presets}
+            selectedSymbol={selectedSymbol}
+            subscriptionFilter={subscriptionFilter}
+            subscriptions={subscriptions.subscriptions}
+            timeframeFilter={timeframeFilter}
+          />
+        </TabsContent>
+        <TabsContent
+          className="data-[state=inactive]:hidden"
+          forceMount
+          value="history"
+        >
+          <SignalFeed
+            announcement={feed.announcement}
+            connectionStatus={stream.status}
+            error={feed.error}
+            events={feed.events}
+            highlightedEventIds={feed.highlightedEventIds}
+            isInitialLoading={feed.isInitialLoading}
+            isLoadingMore={feed.isLoadingMore}
+            isRefreshing={feed.isRefreshing}
+            isStale={feed.isStale}
+            marketFilter={marketFilter}
+            markets={markets.markets}
+            nextCursor={feed.nextCursor}
+            onActivateSound={() => void sound.activate()}
+            onLoadMore={() => void feed.loadMore()}
+            onMarketFilterChange={setMarketFilter}
+            onMuteSound={sound.mute}
+            onPresetFilterChange={setPresetFilter}
+            onReconnect={() => void stream.reconnect()}
+            onRefresh={() => void recoverHistory()}
+            presetFilter={presetFilter}
+            presets={presets}
+            soundAnnouncement={sound.announcement}
+            soundError={sound.error}
+            soundPreferenceEnabled={sound.preferenceEnabled}
+            soundSessionActive={sound.sessionActive}
+          />
+        </TabsContent>
+      </Tabs>
     </section>
   );
 }
