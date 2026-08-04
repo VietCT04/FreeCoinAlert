@@ -69,6 +69,8 @@ MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules,
 
 Historical-analysis dataset preparation supplies the pure engine with immutable snapshots of canonical complete `1h`/`4h` candles. SMA 200 uses exactly 200 warm-up candles and RSI 14 uses 15; the first visible analysis candle is outside the warm-up range. The engine recalculates from these rows with the same versioned calculations and equality-aware crossing helper used by live evaluation, preserves UTC ordering and completeness, and discloses the fixed simulation assumptions. The separate worker invokes it without calling Binance per user request, reusing stored `signal_events`, or reading mutable current candle rows after preparation. Successful output is persisted as an immutable owner-scoped report with complete trades and equity points; the browser presents server-provided metrics, exact series values, and the presentation-only chart/table without calculating or reinterpreting them.
 
+The isolated E2E historical manifest pins each worker scenario to an existing preset code/version and fixed UTC range. Scenario assertions read the server's exact decimal and UTC strings, report undefined reasons, immutable fingerprints, and paginated sequence values; the browser never reproduces an indicator, trade, equity, or metric calculation.
+
 ## Verification Status
 
 Implementations were inspected statically. Numeric equivalence, incremental execution, and historical/live runs are unverified.

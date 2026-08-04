@@ -13,6 +13,9 @@ from freecoinalert_api.e2e import require_e2e_mode
 
 
 DEFAULT_GATE_PATH = "/app/.e2e/worker-gates.json"
+HISTORICAL_ANALYSIS_BEFORE_CLAIM_GATE = "historical_analysis_before_claim"
+HISTORICAL_ANALYSIS_AFTER_CLAIM_GATE = "historical_analysis_after_claim"
+HISTORICAL_ANALYSIS_BEFORE_RUN_GATE = "historical_analysis_before_run"
 _WRITE_LOCK = Lock()
 
 

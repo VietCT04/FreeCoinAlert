@@ -32,7 +32,7 @@ type E2EFixtures = {
   providerSimulator: ProviderControl;
   e2eControl: E2EControl;
   waits: WaitHelpers;
-  checkAccessibility: (label: string) => Promise<AccessibilityResult>;
+  checkAccessibility: (label: string, targetPage?: Page) => Promise<AccessibilityResult>;
   authenticatedPage: Page;
 };
 
@@ -96,7 +96,9 @@ export const test = base.extend<E2EFixtures>({
     });
   },
   checkAccessibility: async ({ page }, use, testInfo) => {
-    await use((label) => collectAccessibilityResults(page, testInfo, label));
+    await use((label, targetPage = page) =>
+      collectAccessibilityResults(targetPage, testInfo, label),
+    );
   },
   authenticatedPage: async ({ page, testUser }, use) => {
     const authPage = new AuthPage(page);

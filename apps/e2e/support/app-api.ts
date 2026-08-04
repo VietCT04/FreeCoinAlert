@@ -203,6 +203,94 @@ export class AppApi {
     );
   }
 
+  getHistoricalConfiguration(): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>("/historical-analysis/configuration");
+  }
+
+  listHistoricalAnalyses(options: {
+    limit?: number;
+    status?: string;
+    cursor?: string;
+  } = {}): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(
+      this.withQuery("/historical-analyses", {
+        limit: options.limit ?? 20,
+        status: options.status,
+        cursor: options.cursor,
+      }),
+    );
+  }
+
+  getHistoricalAnalysis(runId: string): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(
+      `/historical-analyses/${encodeURIComponent(runId)}`,
+    );
+  }
+
+  createHistoricalAnalysis(input: {
+    symbol: string;
+    presetCode: string;
+    presetVersion: number;
+    analysisStart: string;
+    analysisEnd: string;
+    idempotencyKey?: string;
+  }): Promise<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(
+      "/historical-analyses",
+      {
+        exchange: "binance",
+        market_type: "spot",
+        symbol: input.symbol,
+        preset_code: input.presetCode,
+        preset_version: input.presetVersion,
+        analysis_start: input.analysisStart,
+        analysis_end: input.analysisEnd,
+      },
+      {
+        ...this.csrfHeaders(),
+        "Idempotency-Key": input.idempotencyKey ?? randomUUID(),
+      },
+    );
+  }
+
+  cancelHistoricalAnalysis(runId: string): Promise<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>(
+      `/historical-analyses/${encodeURIComponent(runId)}/cancel`,
+      undefined,
+      this.csrfHeaders(),
+    );
+  }
+
+  getHistoricalReport(runId: string): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(
+      `/historical-analyses/${encodeURIComponent(runId)}/report`,
+    );
+  }
+
+  getHistoricalTrades(
+    runId: string,
+    cursor?: string,
+  ): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(
+      this.withQuery(`/historical-analyses/${encodeURIComponent(runId)}/trades`, {
+        limit: 50,
+        cursor,
+      }),
+    );
+  }
+
+  getHistoricalEquity(
+    runId: string,
+    cursor?: string,
+  ): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(
+      this.withQuery(`/historical-analyses/${encodeURIComponent(runId)}/equity`, {
+        limit: 200,
+        cursor,
+      }),
+    );
+  }
+
   private async get<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const response = await this.request.get(path, options);
     return this.read<T>(response, 200);

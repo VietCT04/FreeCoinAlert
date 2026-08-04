@@ -42,7 +42,12 @@ from freecoinalert_api.db.repositories.historical_analysis_worker import (
     requeue_or_fail_historical_analysis_run,
 )
 from freecoinalert_api.db.session import get_async_session_factory
-from freecoinalert_api.e2e.worker_gate import wait_for_historical_worker_gate
+from freecoinalert_api.e2e.worker_gate import (
+    HISTORICAL_ANALYSIS_AFTER_CLAIM_GATE,
+    HISTORICAL_ANALYSIS_BEFORE_CLAIM_GATE,
+    HISTORICAL_ANALYSIS_BEFORE_RUN_GATE,
+    wait_for_historical_worker_gate,
+)
 from freecoinalert_api.historical_analysis.datasets import (
     HistoricalAnalysisDatasetPreparationResult,
     HistoricalAnalysisDatasetValidationResult,
@@ -90,6 +95,13 @@ class HistoricalAnalysisWorker:
     async def run(self) -> None:
         await self._recover_stale_runs()
         while not self._stop_event.is_set():
+            await wait_for_historical_worker_gate(
+                self._settings,
+                gate_name=HISTORICAL_ANALYSIS_BEFORE_CLAIM_GATE,
+                stop_event=self._stop_event,
+            )
+            if self._stop_event.is_set():
+                break
             claimed_runs = await self._claim_runs()
             if not claimed_runs:
                 await self._sleep_until_work_or_shutdown()
@@ -185,7 +197,12 @@ class HistoricalAnalysisWorker:
     async def _process_run(self, run_id: uuid.UUID) -> None:
         await wait_for_historical_worker_gate(
             self._settings,
-            gate_name="historical_analysis_before_run",
+            gate_name=HISTORICAL_ANALYSIS_AFTER_CLAIM_GATE,
+            stop_event=self._stop_event,
+        )
+        await wait_for_historical_worker_gate(
+            self._settings,
+            gate_name=HISTORICAL_ANALYSIS_BEFORE_RUN_GATE,
             stop_event=self._stop_event,
         )
         if self._stop_event.is_set():
