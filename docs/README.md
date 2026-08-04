@@ -26,7 +26,7 @@ Implemented does not imply Verified. Planned is absent, not Unverified. Do not u
 - API/backend change: [ARCHITECTURE.md](ARCHITECTURE.md) → [API.md](API.md) → [DATABASE.md](DATABASE.md)/[SECURITY.md](SECURITY.md) → relevant runtime domain → [CONCERNS.md](CONCERNS.md) → [AGENTS.md](../AGENTS.md).
 - Frontend change: [PRODUCT.md](PRODUCT.md) → [API.md](API.md) → [SECURITY.md](SECURITY.md) → relevant feature domain → [AGENTS.md](../AGENTS.md).
 - Operations or incident work: [OPERATIONS.md](OPERATIONS.md) → [OBSERVABILITY.md](OBSERVABILITY.md) → relevant runtime domain → [CONCERNS.md](CONCERNS.md) → [CONTINUITY.md](CONTINUITY.md).
-- E2E environment or verification work: [TESTING.md](TESTING.md) → [OPERATIONS.md](OPERATIONS.md) → affected runtime domain → [SECURITY.md](SECURITY.md) → [CONCERNS.md](CONCERNS.md).
+- E2E environment or verification work: [TESTING.md](TESTING.md) → [E2E_COVERAGE.md](E2E_COVERAGE.md) → [OPERATIONS.md](OPERATIONS.md) → affected runtime domain → [SECURITY.md](SECURITY.md) → [CONCERNS.md](CONCERNS.md).
 - Planning: [PRODUCT.md](PRODUCT.md) → [user story](user-stories/README.md) → GitHub issue and approved comment.
 
 ## Authoritative Ownership

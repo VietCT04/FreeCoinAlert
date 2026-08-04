@@ -44,6 +44,30 @@ export class E2EControl {
     return this.mutate("/__e2e/fixtures/historical-analysis", input);
   }
 
+  async expireTelegramLink(userId: string) {
+    return this.mutate("/__e2e/fixtures/expire-telegram-link", { userId });
+  }
+
+  async createPriceAlertFixture(input: {
+    userId: string;
+    symbol?: string;
+    count?: number;
+    status?: "active" | "disabled";
+  }) {
+    return this.mutate("/__e2e/fixtures/price-alerts", input);
+  }
+
+  async createSignalFeedFixture(input: {
+    userId: string;
+    symbol?: string;
+    presetCode?: string;
+    presetVersion?: number;
+    count?: number;
+    invalidatedCount?: number;
+  }) {
+    return this.mutate("/__e2e/fixtures/signal-feed", input);
+  }
+
   private async mutate(path: string, data?: Record<string, unknown>): Promise<MutationResponse> {
     const response = await this.request.post(`${this.baseUrl}${path}`, {
       headers: this.headers(),

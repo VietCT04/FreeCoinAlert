@@ -38,6 +38,28 @@ export class ProviderControl {
     return this.mutate("/__e2e/binance/kline", input);
   }
 
+  async publishClosedKlineRange(input: {
+    symbol: string;
+    startTimeMs: number;
+    count: number;
+    openPrice: string;
+    closePrice: string;
+    highPrice?: string;
+    lowPrice?: string;
+  }) {
+    for (let index = 0; index < input.count; index += 1) {
+      await this.setKline({
+        symbol: input.symbol,
+        openTimeMs: input.startTimeMs + index * 60_000,
+        openPrice: input.openPrice,
+        closePrice: input.closePrice,
+        highPrice: input.highPrice ?? input.closePrice,
+        lowPrice: input.lowPrice ?? input.openPrice,
+        closed: true,
+      });
+    }
+  }
+
   async disconnectBinance() {
     return this.mutate("/__e2e/binance/disconnect");
   }

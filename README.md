@@ -15,14 +15,14 @@ FreeCoinAlert is an informational cryptocurrency-alert application. Signed-in us
 - Owner-scoped historical-analysis run/lifecycle API, bounded database worker, immutable report persistence, paginated trades/equity reads, explicit terminal-run cleanup, and the authenticated guided browser flow with report tabs, server-provided chart preview, and responsive run history.
 - Occurrence-time signal fan-out into at-most-once-per-user durable Telegram outbox jobs and provider-worker delivery using immutable snapshots, bounded retries, and send-time safety checks.
 - A responsive authenticated dashboard shell, Overview page, dedicated feature routes, status-aware price-alert cards, tabbed preset workflows, Telegram connection/usage cards, owner-visible recent activity, card-based authentication, historical-analysis report tabs, and light/dark/system theme selection using repository-owned UI primitives; feature workflows remain behaviorally unchanged.
-- A pinned Playwright workspace with deterministic desktop/mobile smoke projects and a dependency-free isolated E2E runner that owns startup, safe failure artifacts, and teardown; complete feature journey coverage remains Planned and all browser/runtime behavior is Unverified.
+- A pinned Playwright workspace with deterministic desktop/mobile feature-journey projects and a dependency-free isolated E2E runner that owns startup, safe failure artifacts, and teardown; the current route/action matrix is in [E2E_COVERAGE.md](docs/E2E_COVERAGE.md), and all browser/runtime behavior is Unverified.
 
 See the authoritative [product overview](docs/PRODUCT.md) for capabilities, limits, planned work, and non-goals.
 
 ## Repository Layout
 
 - [`apps/web`](apps/web) — Next.js browser application.
-- [`apps/e2e`](apps/e2e) — pinned Playwright workspace and isolated runner smoke coverage.
+- [`apps/e2e`](apps/e2e) — pinned Playwright workspace and isolated feature-journey coverage.
 - [`apps/api`](apps/api) — FastAPI application and its runnable market, Telegram, and notification modules.
 - [`docs`](docs) — authoritative current-state documentation.
 - [`services`](services) contains the isolated E2E provider simulator used only by the approved E2E Compose overlay; [`packages`](packages) remains a repository boundary with no standalone runnable component.

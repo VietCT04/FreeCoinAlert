@@ -74,6 +74,8 @@ The authenticated browser section presents one-time price alerts as status-filte
 
 The browser merges feed entries by immutable signal-event ID, updates invalidations on the existing entry, orders by occurrence time then event ID, and bounds recent SSE sequence deduplication to 2,000 entries in memory. Feed events and sequences are never stored in browser persistence.
 
+The repository-owned browser journeys cover alert creation readiness, validation, idempotency, live evaluation states, provider-data warnings, owner-scoped filtering, pagination, and confirmed deletion through the real API and provider simulator. The exact route/action status is recorded in [E2E_COVERAGE.md](E2E_COVERAGE.md); these journeys are Implemented but Unverified.
+
 ## Current Limits
 
 - Maximum active price alerts per user: 20.

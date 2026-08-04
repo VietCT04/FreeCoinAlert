@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document owns the current testing boundary, verification vocabulary, isolated full-stack E2E environment, Playwright workspace, and repository runner. It does not claim that the E2E stack, provider simulator, browser, or smoke suite has been run.
+This document owns the current testing boundary, verification vocabulary, isolated full-stack E2E environment, Playwright workspace, and repository runner. It does not claim that the E2E stack, provider simulator, browser, or feature-journey suite has been run.
 
 ## Verification Boundary
 
@@ -32,22 +32,22 @@ The `apps/e2e` workspace pins `@playwright/test` to `1.62.0`, uses `mcr.microsof
 
 The configuration has two deterministic projects:
 
-- `chromium-desktop` runs all non-mobile smoke/spec files at `1440×900`.
+- `chromium-desktop` runs all non-mobile feature specifications at `1440×900`.
 - `chromium-mobile` uses the pinned Playwright `Pixel 7` Chromium descriptor and runs only `*.mobile.spec.ts` files.
 
 Both projects use one worker, no retries, UTC, `en-US`, a 10-second action/expect timeout, a 20-second navigation timeout, and a 60-second test timeout. Historical-analysis specifications may use a 120-second test timeout when those specifications are added. No test may use `page.waitForTimeout()`.
 
-The reusable fixture boundary supplies unique run/test-derived users, authenticated browser setup, provider-simulator controls, guarded E2E controls, business-state waits, page-task helpers, and accessibility result collection. Authentication tests register and sign in through the UI. Other feature tests may create an owner through Playwright `APIRequestContext` and transfer only the returned session cookie into a browser context. Tests never access PostgreSQL directly, intercept or fulfill FreeCoinAlert API requests, or call real providers. The current workspace contains only minimal runner smoke coverage; complete feature journey specifications and coverage mapping remain outside this implementation.
+The reusable fixture boundary supplies unique run/test-derived users, authenticated browser setup, provider-simulator controls, guarded E2E controls, business-state waits, page-task helpers, and accessibility result collection. Authentication tests register and sign in through the UI. Other feature tests may create an owner through Playwright `APIRequestContext` and transfer only the returned session cookie into a browser context. Tests never access PostgreSQL directly, intercept or fulfill FreeCoinAlert API requests, or call real providers. The current workspace contains feature specifications for authentication, dashboard, Telegram, one-time price alerts, preset signals, and the mobile dashboard shell; the route/action matrix is [E2E_COVERAGE.md](E2E_COVERAGE.md).
 
 Selectors prefer accessible roles and names, associated labels, stable visible text, and only then an approved `data-testid` for dynamic content with no unique semantic selector. Page helpers represent user tasks; assertions remain in spec files. Helpers wait for visible business states or URL transitions and do not use arbitrary sleeps.
 
 ## Provider and E2E Controls
 
-The Node simulator in `services/e2e-provider-simulator` provides deterministic Binance REST/combined WebSocket and Telegram contracts. Its internal mutations require `E2E_CONTROL_TOKEN` and acknowledge a monotonically increasing sequence. The guarded `e2e-control` service provides owner-scoped historical-analysis fixtures and worker gates. Tests use these controls for external events, delivery outcomes, large pagination, terminal fixtures, and worker timing; they do not create fixture users through internal controls.
+The Node simulator in `services/e2e-provider-simulator` provides deterministic Binance REST/combined WebSocket and Telegram contracts. Its internal mutations require `E2E_CONTROL_TOKEN` and acknowledge a monotonically increasing sequence. The guarded `e2e-control` service provides owner-scoped historical-analysis fixtures, Telegram-link expiry, and high-volume alert/signal-feed pagination fixtures. Tests use the simulator for provider events and delivery outcomes, the control service only for those bounded fixture operations, and normal UI/API contracts for owner records; they do not create fixture users through internal controls.
 
 ## Runner Lifecycle
 
-`pnpm e2e` is the only normal command required for the isolated full-stack smoke lifecycle. The dependency-free `scripts/e2e.mjs` runner uses Node built-ins and argument arrays with `shell: false`. It performs these actions in order:
+`pnpm e2e` is the only normal command required for the isolated full-stack E2E lifecycle. The dependency-free `scripts/e2e.mjs` runner uses Node built-ins and argument arrays with `shell: false`. It performs these actions in order:
 
 1. Verify Node satisfies the repository `24.18.0 <= version < 25` engine.
 2. Verify Docker Engine, Compose v2, and the fixed Compose configuration.
@@ -121,8 +121,8 @@ The runner does not print a ready state when any required service is unhealthy, 
 | Area | Availability | Verification |
 | --- | --- | --- |
 | Isolated E2E environment, simulator, seed, controls, and worker gate | Implemented | Unverified |
-| Playwright workspace, pinned image, fixtures, helpers, and smoke projects | Implemented | Unverified |
+| Playwright workspace, pinned image, fixtures, helpers, and feature projects | Implemented | Unverified |
 | Dependency-free E2E lifecycle runner and safe artifacts | Implemented | Unverified |
-| Complete feature journey suite and route coverage map | Planned | Not applicable |
+| Complete feature journey suite and route coverage map | Implemented | Unverified |
 
 No Compose startup, migration, seed, provider, browser, Playwright, build, package-install, lint, format, type-check, or other runtime verification was run for this change.

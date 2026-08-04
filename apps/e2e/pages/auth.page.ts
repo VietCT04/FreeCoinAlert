@@ -27,4 +27,27 @@ export class AuthPage {
     await this.page.getByRole("button", { name: "Sign in" }).click();
     await this.page.waitForURL("**/dashboard");
   }
+
+  async submitSignUp(user: TestUser, confirmPassword = user.password): Promise<void> {
+    await this.page.getByLabel("Email").fill(user.email);
+    await this.page.getByLabel("Password", { exact: true }).fill(user.password);
+    await this.page.getByLabel("Confirm password").fill(confirmPassword);
+    await this.page.getByRole("button", { name: "Create account" }).click();
+  }
+
+  async submitSignIn(user: TestUser): Promise<void> {
+    await this.page.getByLabel("Email").fill(user.email);
+    await this.page.getByLabel("Password", { exact: true }).fill(user.password);
+    await this.page.getByRole("button", { name: "Sign in" }).click();
+  }
+
+  async signOut(): Promise<void> {
+    await this.page.getByRole("button", { name: "Open account menu" }).click();
+    await this.page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
+    await this.page.waitForURL("**/sign-in");
+  }
+
+  error(message: string) {
+    return this.page.getByText(message, { exact: true });
+  }
 }
