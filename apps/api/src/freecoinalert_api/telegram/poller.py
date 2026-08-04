@@ -18,6 +18,7 @@ from freecoinalert_api.telegram.client import (
     TelegramBotClient,
     TelegramDeliveryOutcome,
 )
+from freecoinalert_api.telegram.bot import create_telegram_bot
 from freecoinalert_api.telegram.commands import StartCommandKind, parse_start_command
 from freecoinalert_api.telegram.linking import telegram_update_linking_service
 from freecoinalert_api.telegram.update_cleanup import telegram_update_cleanup
@@ -39,7 +40,7 @@ def create_application(settings: AuthenticationSettings) -> Application:
 
     application = (
         Application.builder()
-        .token(bot_token)
+        .bot(create_telegram_bot(settings))
         .concurrent_updates(False)
         .post_init(_run_startup_cleanup)
         .build()

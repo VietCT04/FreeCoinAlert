@@ -26,6 +26,7 @@ Implemented does not imply Verified. Planned is absent, not Unverified. Do not u
 - API/backend change: [ARCHITECTURE.md](ARCHITECTURE.md) → [API.md](API.md) → [DATABASE.md](DATABASE.md)/[SECURITY.md](SECURITY.md) → relevant runtime domain → [CONCERNS.md](CONCERNS.md) → [AGENTS.md](../AGENTS.md).
 - Frontend change: [PRODUCT.md](PRODUCT.md) → [API.md](API.md) → [SECURITY.md](SECURITY.md) → relevant feature domain → [AGENTS.md](../AGENTS.md).
 - Operations or incident work: [OPERATIONS.md](OPERATIONS.md) → [OBSERVABILITY.md](OBSERVABILITY.md) → relevant runtime domain → [CONCERNS.md](CONCERNS.md) → [CONTINUITY.md](CONTINUITY.md).
+- E2E environment or verification work: [TESTING.md](TESTING.md) → [OPERATIONS.md](OPERATIONS.md) → affected runtime domain → [SECURITY.md](SECURITY.md) → [CONCERNS.md](CONCERNS.md).
 - Planning: [PRODUCT.md](PRODUCT.md) → [user story](user-stories/README.md) → GitHub issue and approved comment.
 
 ## Authoritative Ownership
@@ -44,6 +45,7 @@ Implemented does not imply Verified. Planned is absent, not Unverified. Do not u
 | [`OPERATIONS.md`](OPERATIONS.md) | Current commands, processes, profiles, configuration, maintenance, recovery, and production gaps. |
 | [`OBSERVABILITY.md`](OBSERVABILITY.md) | Current health, persistent states, structured logs, measurements, freshness, redaction, and incident indicators. |
 | [`BACKTESTING.md`](BACKTESTING.md) | Current availability and future historical-analysis semantic requirements. |
+| [`TESTING.md`](TESTING.md) | Current verification boundary and isolated E2E environment contract. |
 | [`CONCERNS.md`](CONCERNS.md) | Genuinely unresolved current risks, assumptions, limitations, and decisions. |
 | [`CONTINUITY.md`](CONTINUITY.md) | Current handoff only: snapshot, active work, blockers, verification state, and next actions. |
 | [`user-stories/*.md`](user-stories/README.md) | Approved requirements and planning history, not the source of current implementation behavior. |

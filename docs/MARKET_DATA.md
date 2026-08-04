@@ -12,6 +12,8 @@ The product allowlist is seeded locally. `market:sync` fetches Spot `exchangeInf
 
 `market-stream` is the only long-running market process. It owns PostgreSQL advisory lock `freecoinalert:market-stream:binance:spot`; a second owner exits without streaming. It refreshes the catalog, opens one Binance combined WebSocket carrying every ready symbol's `@aggTrade` and `@kline_1m` streams, and routes accepted events through ordered bounded queues. Durable market-state recording precedes price-alert evaluation; confirmed-candle persistence, aggregation, and preset evaluation use the candle path. A full queue is backpressure: the connection is closed and reconnected rather than silently dropping an event.
 
+The isolated E2E overlay points both Binance REST and combined WebSocket traffic to `http://provider-simulator:9000` and `ws://provider-simulator:9000`. The simulator provides the fixed catalogue, klines, deterministic aggregate trades, open/closed one-minute klines, unavailable-market responses, and disconnect/reconnect controls without contacting Binance. E2E mode uses a fixed UTC clock and a separate database; it is not a normal market-data provider or a substitute for production verification.
+
 ## Live Aggregate-Trade Flow
 
 Aggregate trades are normalized to exact `Decimal` price events only when wrapper and payload symbols agree, IDs are non-negative and ordered, price is finite and positive, and event time is within `MARKET_EVENT_MAX_AGE_SECONDS` and the future tolerance. Aggregate ID is the per-symbol ordering key: duplicates and older IDs are dropped; gaps are observable but accepted. Latest accepted state is throttled into an operational snapshot. Raw trades are not persisted as history. The first accepted event after reconnect is marked as such.
@@ -42,6 +44,8 @@ The browser preset and historical-analysis surfaces consume only server-provided
 
 `market:candles-bootstrap` is an explicit one-shot, singleton-locked operator command. It reconciles up to `CANDLE_BOOTSTRAP_DAYS` (default 150 for direct-host use; 35–180) using chronological pages of at most 1,000 minutes. The Compose `market` profile runs this same gap-based module through `candle-bootstrap-init`, maps `LOCAL_CANDLE_BOOTSTRAP_DAYS` to `CANDLE_BOOTSTRAP_DAYS`, and defaults the local bounded range to 35 days. It contacts Binance's public `/api/v3/klines` endpoint and writes through the same closed-candle boundary.
 
+The isolated E2E overlay disables `candle-bootstrap-init`. After migration and catalogue initialization, the guarded `e2e-seed` module inserts deterministic fixed-UTC, exact-decimal canonical history and derived `1h`/`4h` rows idempotently. The market stream and historical-analysis worker wait for seed completion so live and historical paths consume the same stored canonical data. No synthetic missing candle is created and no production provider is contacted.
+
 ## Reconciliation and Gap Repair
 
 `market:candles-reconcile` is an explicit one-shot command for a bounded lookback (default 24 hours; maximum 168). The stream additionally requests a six-hour recent reconciliation at startup and then no more frequently than every 900 seconds by default. Reconciliation finds missing current complete `1m` ranges, requests only those pages, and persists returned closed rows. It does not invent gaps. Bootstrap allows a maximum 180-day range. All these modes share the stream singleton lock.
@@ -68,6 +72,7 @@ REST kline calls use a ten-second timeout, one request at a time, and up to thre
 | --- | --- | --- |
 | `BINANCE_SPOT_BASE_URL` | `https://api.binance.com` | Public REST base URL. |
 | `BINANCE_SPOT_WS_BASE_URL` | `wss://stream.binance.com:9443` | Public WebSocket base URL. |
+| E2E provider URLs | See [TESTING.md](TESTING.md) | E2E mode requires both Binance URLs to point exactly to `provider-simulator:9000`; the simulator is isolated and has no host port. |
 | `MARKET_CATALOG_MAX_AGE_SECONDS` | `86400` | API alert/subscription catalog freshness requirement. The stream currently uses a hardcoded 24-hour maximum instead. |
 | `MARKET_EVENT_MAX_AGE_SECONDS` / `MARKET_EVENT_FUTURE_TOLERANCE_SECONDS` | `10` / `2` | Aggregate-trade time acceptance window. |
 | `MARKET_CATALOG_REFRESH_SECONDS` / `MARKET_STATE_WRITE_INTERVAL_SECONDS` | `21600` / `1` | Stream catalog refresh and snapshot write cadence. |

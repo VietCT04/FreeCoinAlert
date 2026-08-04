@@ -36,6 +36,8 @@ The worker prepares or reuses one immutable dataset, validates it immediately be
 
 Reports persist schema-versioned market, preset, coverage, and assumptions snapshots, result and dataset fingerprints, engine/calculation/assumption versions, all summary metrics and undefined reasons, safety disclosures, immutable trades, and one equity point per visible analysis candle. The explicit `analysis:cleanup` command deletes only terminal runs older than `HISTORICAL_ANALYSIS_RETENTION_DAYS`, oldest first, up to `HISTORICAL_ANALYSIS_CLEANUP_BATCH_SIZE`; it does not run as a scheduler and never deletes queued or running work.
 
+The isolated E2E overlay seeds fixed canonical history after migration and provides an internal control service for already registered owner fixtures. It can create idempotent success, zero-trade, pagination, and terminal-failure scenarios, and can gate the worker before processing so cancellation/release behavior can be exercised by a later runner. The control service uses the existing repositories and lifecycle services, creates no users, bypasses no ownership checks, and is not mounted in the public API. E2E historical analysis remains provider-neutral and does not query Binance.
+
 ## Data and Strategy Version Requirements
 
 Results must identify data source/coverage, exchange, market type, symbol, timeframe, UTC range, canonical candle revisions, preset and calculation version, and missing-data treatment. A published preset version must never be silently reinterpreted.
