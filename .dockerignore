@@ -1,6 +1,7 @@
 .git
 .env
 **/.env
+.env.e2e
 !.env.example
 !**/.env.example
 **/node_modules
@@ -20,3 +21,4 @@ Thumbs.db
 *.db
 *.sqlite
 *.sqlite3
+artifacts/e2e
