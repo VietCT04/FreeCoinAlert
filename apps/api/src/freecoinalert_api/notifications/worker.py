@@ -41,6 +41,7 @@ from freecoinalert_api.telegram.client import (
     TelegramDeliveryResult,
     TelegramDeliveryOutcome,
 )
+from freecoinalert_api.telegram.bot import create_telegram_bot
 
 logger = logging.getLogger(__name__)
 SUPPORTED_NOTIFICATION_KINDS = (
@@ -480,9 +481,7 @@ def create_worker() -> NotificationWorker:
     settings = get_authentication_settings()
     telegram_client: TelegramBotClient | None = None
     if settings.telegram_bot_token:
-        from telegram import Bot
-
-        telegram_client = TelegramBotClient(Bot(settings.telegram_bot_token))
+        telegram_client = TelegramBotClient(create_telegram_bot(settings))
 
     return NotificationWorker(
         telegram_client=telegram_client,

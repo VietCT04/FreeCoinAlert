@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 !.env.*.example
+!.env.e2e
 
 # Python
 __pycache__/
@@ -34,3 +35,5 @@ Thumbs.db
 *.sqlite3
 coverage/
 htmlcov/
+apps/api/.e2e/
+artifacts/e2e/

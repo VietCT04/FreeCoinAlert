@@ -116,7 +116,10 @@ class TelegramConnectionService:
                 status="linking",
                 link_expires_at=expires_at,
             ),
-            url=f"https://t.me/{settings.telegram_bot_username}?start={raw_token}",
+            url=(
+                f"{settings.telegram_public_bot_base_url.rstrip('/')}/"
+                f"{settings.telegram_bot_username}?start={raw_token}"
+            ),
         )
 
     async def get_connection(

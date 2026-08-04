@@ -56,6 +56,8 @@ The signal dispatcher evaluates occurrence-time state and current connection tim
 
 Binance Spot REST/WebSocket access is public and centralized. The product neither requests nor stores customer exchange API keys. Provider input is normalized and freshness/order/data-quality guarded before it changes alert or candle state.
 
+The isolated E2E environment is a separate trust boundary. `.env.e2e` uses a dedicated `_e2e` database, fixed project/network/volumes, non-production credentials, and exact `provider-simulator` Telegram/Binance URLs. E2E provider and control services have no host ports, no Docker socket, no production secrets, and no normal-volume access. E2E seed, control, and worker-gate modules refuse to run outside E2E mode or against a database whose name does not end in `_e2e`; the public API does not expose their routes. When E2E mode is false, custom Telegram API, file, and public bot URLs are rejected. The simulator accepts only its control token on internal mutation routes and records deterministic fixtures rather than production identities.
+
 ## Database and Secret Handling
 
 `DATABASE_URL`, Telegram bot token, and local passwords are environment configuration. Tokens are hashed where replay is not needed; passwords are Argon2id hashes. Exact decimal values use `NUMERIC`, avoiding float-based financial persistence. Database deletion/backup policy remains an operational concern documented in [DATABASE.md](DATABASE.md).

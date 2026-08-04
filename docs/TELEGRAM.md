@@ -6,11 +6,13 @@ Telegram is the sole implemented notification provider. It supports one private-
 
 ## Configuration and Optional Startup
 
-`TELEGRAM_BOT_USERNAME` is public optional configuration for browser links. `TELEGRAM_BOT_TOKEN` is secret and required for poller and provider requests, not API startup. The notification worker can run without a token to mark claimed jobs with the safe terminal code `telegram_not_configured`, but normal delivery requires the token. The Compose `telegram` profile starts `telegram-updates`, `signal-telegram-dispatcher`, and `notification-worker` only after the shared API preparation and database migration services complete; the dispatcher needs only `DATABASE_URL` and fan-out settings and none is part of the default stack. Telegram startup is optional and a Telegram process failure does not block the core API/web stack.
+`TELEGRAM_BOT_USERNAME` is public optional configuration for browser links. `TELEGRAM_BOT_TOKEN` is secret and required for poller and provider requests, not API startup. The production defaults are `TELEGRAM_BOT_API_BASE_URL=https://api.telegram.org/bot`, `TELEGRAM_BOT_FILE_BASE_URL=https://api.telegram.org/file/bot`, and `TELEGRAM_PUBLIC_BOT_BASE_URL=https://t.me`. The notification worker can run without a token to mark claimed jobs with the safe terminal code `telegram_not_configured`, but normal delivery requires the token. The Compose `telegram` profile starts `telegram-updates`, `signal-telegram-dispatcher`, and `notification-worker` only after the shared API preparation and database migration services complete; the dispatcher needs only `DATABASE_URL` and fan-out settings and none is part of the default stack. Telegram startup is optional and a Telegram process failure does not block the core API/web stack.
 
 ## Browser Linking Flow
 
-An authenticated, CSRF-protected link request creates `https://t.me/<username>?start=<token>`. The browser receives only a safe `linking` response and expiry. Link creation rejects missing configuration, an already connected/degraded destination, or unavailable persistence. A new link replaces outstanding unused links.
+An authenticated, CSRF-protected link request creates `${TELEGRAM_PUBLIC_BOT_BASE_URL}/<username>?start=<token>`. The browser receives only a safe `linking` response and expiry. Link creation rejects missing configuration, an already connected/degraded destination, or unavailable persistence. A new link replaces outstanding unused links.
+
+The isolated E2E overlay sets the Telegram API and file base URLs and the public bot base URL to the internal `provider-simulator:9000` endpoints. The simulator serves the public linking page, records the browser visit, and queues the corresponding private `/start` update. E2E controls can produce sent, temporary, permanent, rate-limited, and uncertain outcomes; an uncertain send closes the provider connection so the existing worker records `telegram_delivery_outcome_unknown`. Custom Telegram URLs are rejected unless E2E mode is enabled, and the E2E token/database guards prevent these settings from being used against the normal environment.
 
 ## Link-Token Security and Lifecycle
 
@@ -19,6 +21,8 @@ Tokens are securely random, URL-safe values. Only their SHA-256 hash is stored. 
 ## Telegram Update Poller
 
 The optional poller uses long polling with `concurrent_updates(False)`, requests only message updates, and does not drop pending updates. It accepts private `/start <token>` and addressed `/start@<bot_username> <token>` commands. It records `update_id` before processing, so duplicate updates are ignored. A successful link is committed before one confirmation attempt; an uncertain or failed confirmation is recorded but not retried. Processed-update cleanup runs at startup when due, with 30-day retention by default. A Telegram webhook conflict stops polling safely.
+
+The poller and notification worker obtain their clients through the centralized Telegram Bot factory, which applies the configured API and file base URLs consistently. No browser code constructs a provider client or receives the bot token.
 
 ## Connection Lifecycle
 

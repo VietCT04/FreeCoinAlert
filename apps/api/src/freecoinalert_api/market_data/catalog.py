@@ -5,6 +5,7 @@ from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from freecoinalert_api.core.config import get_authentication_settings
 from freecoinalert_api.db.models.supported_market import SupportedMarket
 from freecoinalert_api.db.repositories.supported_markets import (
     get_alert_creation_ready_market,
@@ -245,6 +246,9 @@ async def save_catalog_metadata(
 
 
 def utc_now() -> datetime:
+    settings = get_authentication_settings()
+    if settings.e2e_test_mode and settings.e2e_clock_now is not None:
+        return settings.e2e_clock_now
     return datetime.now(UTC)
 
 

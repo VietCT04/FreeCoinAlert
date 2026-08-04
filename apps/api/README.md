@@ -44,6 +44,8 @@ pnpm analysis:cleanup
 
 `dev:all` starts the enabled Compose profiles, waits for completed initialization and required health, and prints a normalized readiness summary before following logs. `dev:all:detached` performs the same startup and readiness checks without attaching logs; `dev:all:logs` follows logs for enabled profiles; `dev:down` preserves volumes; and `dev:reset` requires explicit confirmation. `market:sync`, `dev:market-stream`, `market:candles-bootstrap`, and `market:candles-reconcile` contact Binance. `dev:telegram-updates` and `dev:notification-worker` contact Telegram when configured; the worker also records a safe terminal failure when bot configuration is missing. `dev:signal-telegram-dispatcher` contacts only PostgreSQL and creates durable preset-signal outbox jobs; it does not contact Telegram. `signals:backfill` is a placeholder validation boundary, not automatic signal catch-up. API startup also starts the PostgreSQL signal-feed listener and bounded local SSE manager through FastAPI lifespan. See [Operations](../../docs/OPERATIONS.md) before using these commands.
 
+The isolated E2E overlay uses this same API image and real application modules with a dedicated PostgreSQL database, deterministic seed, internal control service, and provider simulator. E2E-only seed/control/gate entry points refuse to run unless E2E mode and an `_e2e` database are configured; no E2E route is mounted in the public API. See [Testing](../../docs/TESTING.md) for the boundary and [Operations](../../docs/OPERATIONS.md) for the isolated Compose invocation.
+
 ## Authoritative Documentation
 
 - [API contracts](../../docs/API.md)

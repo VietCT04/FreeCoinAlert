@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,3 +30,11 @@ async def get_user_by_normalized_email(
 ) -> User | None:
     statement = select(User).where(User.email_normalized == email_normalized)
     return await session.scalar(statement)
+
+
+async def get_user_by_id(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+) -> User | None:
+    return await session.scalar(select(User).where(User.id == user_id))

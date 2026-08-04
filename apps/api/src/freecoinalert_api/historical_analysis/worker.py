@@ -42,6 +42,7 @@ from freecoinalert_api.db.repositories.historical_analysis_worker import (
     requeue_or_fail_historical_analysis_run,
 )
 from freecoinalert_api.db.session import get_async_session_factory
+from freecoinalert_api.e2e.worker_gate import wait_for_historical_worker_gate
 from freecoinalert_api.historical_analysis.datasets import (
     HistoricalAnalysisDatasetPreparationResult,
     HistoricalAnalysisDatasetValidationResult,
@@ -182,6 +183,13 @@ class HistoricalAnalysisWorker:
             return []
 
     async def _process_run(self, run_id: uuid.UUID) -> None:
+        await wait_for_historical_worker_gate(
+            self._settings,
+            gate_name="historical_analysis_before_run",
+            stop_event=self._stop_event,
+        )
+        if self._stop_event.is_set():
+            return
         if not await self._ensure_running(run_id):
             return
 

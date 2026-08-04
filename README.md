@@ -23,7 +23,7 @@ See the authoritative [product overview](docs/PRODUCT.md) for capabilities, limi
 - [`apps/web`](apps/web) — Next.js browser application.
 - [`apps/api`](apps/api) — FastAPI application and its runnable market, Telegram, and notification modules.
 - [`docs`](docs) — authoritative current-state documentation.
-- [`services`](services) and [`packages`](packages) — present as repository boundaries; they contain no standalone runnable components.
+- [`services`](services) contains the isolated E2E provider simulator used only by the approved E2E Compose overlay; [`packages`](packages) remains a repository boundary with no standalone runnable component.
 
 ## Local Development
 
@@ -57,6 +57,10 @@ pnpm db:migrate
 ```
 
 `pnpm dev:setup` copies [`.env.example`](.env.example) only when `.env` is absent, never overwrites an existing file, and runs the local preflight. `pnpm dev:preflight` validates an existing configuration, Docker/Compose prerequisites, and local port availability without starting or stopping containers or contacting Binance or Telegram. `pnpm dev:all` reuses that preflight, starts the complete Compose topology, waits for initialization and health, prints the web/API readiness summary, and follows logs. `pnpm dev:all:detached` performs the same startup and readiness checks without following logs; `pnpm dev:all:logs` follows enabled full-stack logs. Telegram is disabled by default; enabling it requires the local username and token settings. The wrapper always selects `market`, conditionally selects `telegram`, and enables `historical-analysis` when the Compose model provides that profile.
+
+## Isolated E2E Environment
+
+The committed `.env.e2e` and `compose.e2e.yaml` provide a separate, deterministic full-stack environment for the approved E2E workflow. It uses project `freecoinalert-e2e`, dedicated named volumes and network, ports `3100`, `8100`, and `55432`, the internal provider simulator, and guarded deterministic seed/control modules. It is not part of normal `pnpm dev:all`; the runner and browser suite are tracked separately. See [TESTING.md](docs/TESTING.md) and [OPERATIONS.md](docs/OPERATIONS.md).
 
 `pnpm dev:reset` removes local Compose volumes, including PostgreSQL data, only after exact interactive `RESET` confirmation or the explicit `pnpm dev:reset:force` path. See [OPERATIONS.md](docs/OPERATIONS.md) before using operational commands.
 
