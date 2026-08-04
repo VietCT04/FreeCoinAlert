@@ -5,7 +5,7 @@ export default function PresetSignalsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        description="Browse fixed informational signals, manage subscriptions, and review owner-visible history."
+        description="Browse fixed informational signals, manage subscriptions, and review owner-visible history. These signals are not trading advice."
         title="Preset Signals"
       />
       <PresetSignalPanel />

@@ -21,6 +21,7 @@ type ConfirmActionDialogProps = {
   onConfirm: () => void;
   isPending?: boolean;
   confirmIcon?: ReactNode;
+  confirmVariant?: "default" | "destructive";
 };
 
 export function ConfirmActionDialog({
@@ -33,6 +34,7 @@ export function ConfirmActionDialog({
   onConfirm,
   isPending = false,
   confirmIcon,
+  confirmVariant = "destructive",
 }: ConfirmActionDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -47,7 +49,7 @@ export function ConfirmActionDialog({
             aria-busy={isPending}
             disabled={isPending}
             onClick={onConfirm}
-            variant="destructive"
+            variant={confirmVariant}
           >
             {confirmIcon}
             {isPending ? "Please wait…" : confirmLabel}
