@@ -15,12 +15,14 @@ FreeCoinAlert is an informational cryptocurrency-alert application. Signed-in us
 - Owner-scoped historical-analysis run/lifecycle API, bounded database worker, immutable report persistence, paginated trades/equity reads, explicit terminal-run cleanup, and the authenticated guided browser flow with report tabs, server-provided chart preview, and responsive run history.
 - Occurrence-time signal fan-out into at-most-once-per-user durable Telegram outbox jobs and provider-worker delivery using immutable snapshots, bounded retries, and send-time safety checks.
 - A responsive authenticated dashboard shell, Overview page, dedicated feature routes, status-aware price-alert cards, tabbed preset workflows, Telegram connection/usage cards, owner-visible recent activity, card-based authentication, historical-analysis report tabs, and light/dark/system theme selection using repository-owned UI primitives; feature workflows remain behaviorally unchanged.
+- A pinned Playwright workspace with deterministic desktop/mobile smoke projects and a dependency-free isolated E2E runner that owns startup, safe failure artifacts, and teardown; complete feature journey coverage remains Planned and all browser/runtime behavior is Unverified.
 
 See the authoritative [product overview](docs/PRODUCT.md) for capabilities, limits, planned work, and non-goals.
 
 ## Repository Layout
 
 - [`apps/web`](apps/web) — Next.js browser application.
+- [`apps/e2e`](apps/e2e) — pinned Playwright workspace and isolated runner smoke coverage.
 - [`apps/api`](apps/api) — FastAPI application and its runnable market, Telegram, and notification modules.
 - [`docs`](docs) — authoritative current-state documentation.
 - [`services`](services) contains the isolated E2E provider simulator used only by the approved E2E Compose overlay; [`packages`](packages) remains a repository boundary with no standalone runnable component.
@@ -49,6 +51,9 @@ pnpm dev:status
 pnpm dev:down
 pnpm dev:reset
 pnpm dev:reset:force
+pnpm e2e
+pnpm e2e:ui
+pnpm e2e:report
 pnpm dev
 pnpm dev:market
 pnpm dev:telegram
@@ -60,7 +65,7 @@ pnpm db:migrate
 
 ## Isolated E2E Environment
 
-The committed `.env.e2e` and `compose.e2e.yaml` provide a separate, deterministic full-stack environment for the approved E2E workflow. It uses project `freecoinalert-e2e`, dedicated named volumes and network, ports `3100`, `8100`, and `55432`, the internal provider simulator, and guarded deterministic seed/control modules. It is not part of normal `pnpm dev:all`; the runner and browser suite are tracked separately. See [TESTING.md](docs/TESTING.md) and [OPERATIONS.md](docs/OPERATIONS.md).
+The committed `.env.e2e` and `compose.e2e.yaml` provide a separate, deterministic full-stack environment for `pnpm e2e`. The runner uses project `freecoinalert-e2e`, dedicated named volumes and network, ports `3100`, `8100`, and `55432`, the internal provider simulator, guarded deterministic seed/control modules, and the pinned Playwright image. It is not part of normal `pnpm dev:all`; `pnpm e2e:ui` is the only mode that exposes the local Playwright UI at `127.0.0.1:9323`. See [TESTING.md](docs/TESTING.md), [OPERATIONS.md](docs/OPERATIONS.md), and the [E2E workspace README](apps/e2e/README.md).
 
 `pnpm dev:reset` removes local Compose volumes, including PostgreSQL data, only after exact interactive `RESET` confirmation or the explicit `pnpm dev:reset:force` path. See [OPERATIONS.md](docs/OPERATIONS.md) before using operational commands.
 
@@ -74,7 +79,7 @@ Start with the [Documentation Guide](docs/README.md). It identifies the sole det
 
 ## Current Availability and Verification
 
-Current behavior is implemented in merged `main` but has not received a maintainer-requested runtime verification pass. Implemented does not mean verified; see [PRODUCT.md](docs/PRODUCT.md) and [CONTINUITY.md](docs/CONTINUITY.md).
+Current application behavior and the E2E runner are implemented in merged `main` but have not received a maintainer-requested browser/runtime verification pass. Implemented does not mean verified; see [PRODUCT.md](docs/PRODUCT.md), [TESTING.md](docs/TESTING.md), and [CONTINUITY.md](docs/CONTINUITY.md).
 
 ## Safety Boundary
 

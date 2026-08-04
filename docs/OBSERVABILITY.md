@@ -14,6 +14,8 @@ The local wrapper does not add metrics, tracing, or a readiness endpoint. `pnpm 
 
 The wrapper's profile selection is derived from validated local configuration and `docker compose config --profiles`. It reports Telegram as `disabled` when `LOCAL_ENABLE_TELEGRAM=false` and reports historical analysis as `unavailable` when that Compose profile is absent. It does not persist status, emit application log events, contact providers during preflight, or reinterpret the API's liveness response as dependency readiness.
 
+`pnpm e2e` adds an isolated runner-level status boundary. Before Playwright starts, it inspects `docker compose ps --all --format json` and requires `api-prepare`, `db-migrate`, `market-catalog-init`, and `e2e-seed` to be completed successfully; `db`, `provider-simulator`, `api`, `web`, and `e2e-control` to be healthy; and the market, Telegram, dispatcher, and historical-analysis workers to be running. It does not print a ready state for a missing, unhealthy, restarting, dead, or unexpected exited service. On startup or browser-test failure it retains the latest 1,000 timestamped, no-colour log lines per E2E service and a safe `run-summary.json` containing only service states, test counts, timestamps, and exit code.
+
 ## Persistent Operational State
 
 `market_symbol_states` holds the latest accepted market-stream state; `candle_symbol_states` holds candle freshness/quality state; `candle_sync_runs` records bounded maintenance progress; `historical_analysis_runs` records owner-scoped historical-analysis request snapshots, lifecycle, progress, cancellation, attempts, and safe failure categories; `historical_analysis_datasets` records bounded canonical coverage, fingerprint, preparation, and stale state; `historical_analysis_dataset_candles` records immutable full-value candle snapshots; `historical_analysis_reports` records immutable owner-scoped result snapshots and summary metrics; `historical_analysis_trades` and `historical_analysis_equity_points` record immutable engine series; signal evaluation state records warming, ready, stale, or disabled calculation state; `signal_subscription_state_events` records immutable occurrence-time subscription and Telegram-preference state; `signal_feed_stream_events` records the bounded durable SSE cursor log; `signal_telegram_dispatches` records occurrence fan-out claims, cursors, counts, retries, skips, expiry, and failure; notification outbox rows record delivery processing. See [DATABASE.md](DATABASE.md) for schema and constraints.
@@ -65,8 +67,8 @@ Use [OPERATIONS.md](OPERATIONS.md) for recovery actions, [MARKET_DATA.md](MARKET
 
 ## Missing Observability and Unresolved Gaps
 
-Cross-process metrics, dashboards, tracing, production readiness/dependency health, automated alerting, and verified alert-delivery monitoring are absent. These risks are tracked in [CONCERNS.md](CONCERNS.md).
+Cross-process metrics, dashboards, tracing, production readiness/dependency health, automated alerting, verified alert-delivery monitoring, and verified browser/E2E observability are absent. These risks are tracked in [CONCERNS.md](CONCERNS.md).
 
 ## Verification Status
 
-This inventory is based on static code inspection plus a maintainer-requested local startup/status pass. Database, API/web health, migration, market initialization, market-stream startup, and historical-worker states were exercised; signal-feed, Telegram, browser, maintenance, reset, and production observability remain unverified.
+This inventory is based on static code inspection plus a maintainer-requested local startup/status pass. Database, API/web health, migration, market initialization, market-stream startup, and historical-worker states were exercised; signal-feed, Telegram, browser, E2E runner/stack, accessibility, maintenance, reset, and production observability remain unverified.

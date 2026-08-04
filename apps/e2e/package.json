@@ -1,0 +1,14 @@
+{
+  "name": "@freecoinalert/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui --ui-host=0.0.0.0 --ui-port=9323",
+    "report": "playwright show-report /artifacts/e2e/playwright-report"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@playwright/test": "1.62.0"
+  }
+}

@@ -56,7 +56,7 @@ The signal dispatcher evaluates occurrence-time state and current connection tim
 
 Binance Spot REST/WebSocket access is public and centralized. The product neither requests nor stores customer exchange API keys. Provider input is normalized and freshness/order/data-quality guarded before it changes alert or candle state.
 
-The isolated E2E environment is a separate trust boundary. `.env.e2e` uses a dedicated `_e2e` database, fixed project/network/volumes, non-production credentials, and exact `provider-simulator` Telegram/Binance URLs. E2E provider and control services have no host ports, no Docker socket, no production secrets, and no normal-volume access. E2E seed, control, and worker-gate modules refuse to run outside E2E mode or against a database whose name does not end in `_e2e`; the public API does not expose their routes. When E2E mode is false, custom Telegram API, file, and public bot URLs are rejected. The simulator accepts only its control token on internal mutation routes and records deterministic fixtures rather than production identities.
+The isolated E2E environment is a separate trust boundary. `.env.e2e` uses a dedicated `_e2e` database, fixed project/network/volumes, non-production credentials, and exact `provider-simulator` Telegram/Binance URLs. E2E provider and control services have no host ports, no Docker socket, no production secrets, and no normal-volume access. E2E seed, control, and worker-gate modules refuse to run outside E2E mode or against a database whose name does not end in `_e2e`; the public API does not expose their routes. When E2E mode is false, custom Telegram API, file, and public bot URLs are rejected. The simulator accepts only its control token on internal mutation routes and records deterministic fixtures rather than production identities. The Playwright runner accepts only the fixed Compose project and `.env.e2e`, uses argument arrays with `shell: false`, verifies provider hostnames before startup, and removes only its fixed project, volumes, and `artifacts/e2e` directory.
 
 ## Database and Secret Handling
 
@@ -66,7 +66,7 @@ The tracked root `.env.example` contains only safe local placeholders, and `.env
 
 ## Logging and Error Redaction
 
-Structured logs may contain lifecycle identifiers and safe failure codes. They must not include passwords, session or CSRF tokens, Telegram bot/link tokens, database URLs, raw provider payloads, or unnecessary personal data. API errors return stable safe codes/messages rather than internal exceptions.
+Structured logs may contain lifecycle identifiers and safe failure codes. They must not include passwords, session or CSRF tokens, Telegram bot/link tokens, database URLs, raw provider payloads, or unnecessary personal data. API errors return stable safe codes/messages rather than internal exceptions. E2E failure logs are bounded per service and the runner redacts configured secret values before writing them to `artifacts/e2e/`.
 
 ## Frontend Information Exposure
 
@@ -82,8 +82,8 @@ Repository-owned UI primitives, theme controls, and toast composition do not log
 
 ## Current Limitations and Unresolved Risks
 
-Rate limits are process-local. There is no documented production backup, account-deletion, distributed rate-limit, security-review, penetration-test, or provider-verification outcome. Runtime CORS/cookie deployment values require an explicit operational review before exposure beyond the configured origin.
+Rate limits are process-local. There is no documented production backup, account-deletion, distributed rate-limit, security-review, penetration-test, or provider-verification outcome. E2E browser and artifact-redaction behavior also remains unverified. Runtime CORS/cookie deployment values require an explicit operational review before exposure beyond the configured origin.
 
 ## Verification Status
 
-Security behavior was inspected statically from code and configuration. No penetration test, provider request, browser flow, migration, or runtime security verification was run.
+Security behavior was inspected statically from code and configuration. No penetration test, provider request, browser flow, migration, E2E runner, artifact-redaction, or runtime security verification was run.

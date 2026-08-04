@@ -94,13 +94,14 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *e2e_api_environment
+      WEB_ORIGIN: http://web:3000
 
   web:
     networks:
       - e2e_network
     environment:
       NEXT_TELEMETRY_DISABLED: "1"
-      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+      NEXT_PUBLIC_API_BASE_URL: http://api:8000
 
   market-stream:
     networks:
@@ -178,6 +179,13 @@ services:
     environment:
       <<: *e2e_api_environment
       E2E_WORKER_GATE_PATH: /e2e/worker-gates.json
+    healthcheck:
+      test:
+        ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9100/health')"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 2s
     init: true
     networks:
       - e2e_network
@@ -185,6 +193,35 @@ services:
       - ./apps/api:/app
       - api_venv:/app/.venv
       - e2e_state:/e2e
+
+  e2e-tests:
+    profiles: ["e2e"]
+    build:
+      context: .
+      dockerfile: apps/e2e/Dockerfile
+    command: ["pnpm", "exec", "playwright", "test"]
+    working_dir: /workspace/apps/e2e
+    depends_on:
+      provider-simulator:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      e2e-control:
+        condition: service_healthy
+    environment:
+      E2E_CONTROL_TOKEN: ${E2E_CONTROL_TOKEN}
+      E2E_RUN_ID: ${E2E_RUN_ID:-compose-run}
+      E2E_ARTIFACT_DIR: /artifacts/e2e
+    init: true
+    ipc: host
+    networks:
+      - e2e_network
+    ports:
+      - "127.0.0.1:9323:9323"
+    volumes:
+      - ./artifacts/e2e:/artifacts/e2e
 
 networks:
   e2e_network:
