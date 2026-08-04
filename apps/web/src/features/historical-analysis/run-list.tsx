@@ -1,3 +1,9 @@
+import { EmptyState } from "@/components/empty-state";
+import { StatusBadge } from "@/components/status-badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+
 import {
   formatStatus,
   formatTimeframe,
@@ -6,6 +12,7 @@ import {
 import type { HistoricalAnalysisRun } from "./types";
 
 type RunListProps = {
+  headingId?: string;
   isLoading: boolean;
   isLoadingMore: boolean;
   nextCursor: string | null;
@@ -16,6 +23,7 @@ type RunListProps = {
 };
 
 export function RunList({
+  headingId = "historical-analysis-runs-heading",
   isLoading,
   isLoadingMore,
   nextCursor,
@@ -25,59 +33,85 @@ export function RunList({
   selectedRunId,
 }: RunListProps) {
   return (
-    <section aria-labelledby="historical-analysis-runs-heading" className="space-y-4">
+    <section aria-labelledby={headingId} className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold" id="historical-analysis-runs-heading">
-          Recent analyses
-        </h3>
-        {isLoading ? <span aria-live="polite">Loading…</span> : null}
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold" id={headingId}>
+            Previous analyses
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Select an owner-scoped run to inspect its current lifecycle or report.
+          </p>
+        </div>
+        {isLoading ? <span className="text-sm text-muted-foreground">Loading…</span> : null}
       </div>
 
+      {isLoading ? (
+        <div aria-busy="true" aria-label="Loading previous analyses" className="space-y-3" role="status">
+          {Array.from({ length: 3 }, (_, index) => (
+            <Card key={index}>
+              <CardContent className="space-y-3 p-4">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : null}
+
       {!isLoading && !runs.length ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">
-          No historical analyses yet. Create one above to see its lifecycle and
-          report here.
-        </p>
+        <EmptyState
+          description="Create a historical analysis to see its lifecycle and report here."
+          title="No previous analyses"
+        />
       ) : null}
 
       {runs.length ? (
         <ol className="space-y-3">
           {runs.map((run) => {
             const selected = run.id === selectedRunId;
+            const statusLabel = formatStatus(
+              run.status,
+              run.progressStage,
+              run.cancellationRequested,
+            );
+            const isActive = run.status === "queued" || run.status === "running";
+
             return (
               <li key={run.id}>
-                <button
-                  aria-pressed={selected}
-                  className={`w-full rounded-lg border p-4 text-left transition-colors ${
-                    selected
-                      ? "border-zinc-900 dark:border-zinc-100"
-                      : "border-zinc-200 hover:border-zinc-400 dark:border-zinc-700 dark:hover:border-zinc-500"
-                  }`}
-                  onClick={() => onSelect(run.id)}
-                  type="button"
-                >
-                  <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                    <div className="space-y-1">
-                      <p className="font-medium">
-                        {run.market.symbol} · {run.preset.name} · {formatTimeframe(run.preset.timeframe)}
-                      </p>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-300">
-                        {formatUtcDateTime(run.analysisStart)} → {formatUtcDateTime(run.analysisEnd)}
-                      </p>
-                      <p className="text-sm text-zinc-600 dark:text-zinc-300">
-                        Created {formatUtcDateTime(run.createdAt)}
-                      </p>
-                    </div>
-                    <div className="text-sm sm:text-right">
-                      <p className="font-medium">
-                        {formatStatus(run.status, run.progressStage, run.cancellationRequested)}
-                      </p>
-                      {run.status === "queued" || run.status === "running" ? (
-                        <p>{run.progressPercent}%</p>
-                      ) : null}
-                    </div>
-                  </div>
-                </button>
+                <Card className={selected ? "ring-2 ring-ring" : undefined}>
+                  <button
+                    aria-pressed={selected}
+                    className="w-full rounded-xl text-left outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                    onClick={() => onSelect(run.id)}
+                    type="button"
+                  >
+                    <CardContent className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <div className="min-w-0 space-y-1">
+                        <p className="truncate font-medium">
+                          {run.market.symbol} · {run.preset.name} ·{" "}
+                          {formatTimeframe(run.preset.timeframe)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatUtcDateTime(run.analysisStart)} →{" "}
+                          {formatUtcDateTime(run.analysisEnd)}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Created {formatUtcDateTime(run.createdAt)}
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-2 sm:flex-col sm:items-end">
+                        <StatusBadge status={statusLabel} />
+                        {isActive && Number.isFinite(run.progressPercent) ? (
+                          <span className="text-xs text-muted-foreground">
+                            {run.progressPercent}% server-reported
+                          </span>
+                        ) : null}
+                      </div>
+                    </CardContent>
+                  </button>
+                </Card>
               </li>
             );
           })}
@@ -85,14 +119,14 @@ export function RunList({
       ) : null}
 
       {nextCursor ? (
-        <button
-          className="rounded-lg border border-zinc-300 px-4 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700"
+        <Button
           disabled={isLoadingMore}
           onClick={onLoadMore}
           type="button"
+          variant="outline"
         >
           {isLoadingMore ? "Loading more…" : "Load more analyses"}
-        </button>
+        </Button>
       ) : null}
     </section>
   );

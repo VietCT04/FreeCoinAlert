@@ -40,6 +40,8 @@ export type HistoricalAnalysesState = {
   equity: HistoricalAnalysisEquityPoint[];
   equityError: string | null;
   equityNextCursor: string | null;
+  hasLoadedEquity: boolean;
+  hasLoadedTrades: boolean;
   isConfigurationLoading: boolean;
   isCancelling: boolean;
   isEquityLoading: boolean;
@@ -58,6 +60,7 @@ export type HistoricalAnalysesState = {
   runsNextCursor: string | null;
   selectedRun: HistoricalAnalysisRun | null;
   selectedRunId: string | null;
+  clearSelectedRun: () => void;
   selectRun: (runId: string) => void;
   cancelRun: () => Promise<boolean>;
   createRun: (
@@ -84,6 +87,8 @@ export function useHistoricalAnalyses({
   const [equity, setEquity] = useState<HistoricalAnalysisEquityPoint[]>([]);
   const [equityError, setEquityError] = useState<string | null>(null);
   const [equityNextCursor, setEquityNextCursor] = useState<string | null>(null);
+  const [hasLoadedEquity, setHasLoadedEquity] = useState(false);
+  const [hasLoadedTrades, setHasLoadedTrades] = useState(false);
   const [isConfigurationLoading, setIsConfigurationLoading] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isEquityLoading, setIsEquityLoading] = useState(false);
@@ -126,9 +131,11 @@ export function useHistoricalAnalyses({
     setTrades([]);
     setTradesError(null);
     setTradesNextCursor(null);
+    setHasLoadedTrades(false);
     setEquity([]);
     setEquityError(null);
     setEquityNextCursor(null);
+    setHasLoadedEquity(false);
   }, []);
 
   const refreshConfiguration = useCallback(async () => {
@@ -290,6 +297,15 @@ export function useHistoricalAnalyses({
     [refreshSelectedRun, resetReportSeries, runs],
   );
 
+  const clearSelectedRun = useCallback(() => {
+    selectedRunIdRef.current = null;
+    setSelectedRunId(null);
+    setSelectedRun(null);
+    resetReportSeries();
+    setError(null);
+    setAnnouncement(null);
+  }, [resetReportSeries]);
+
   const createRun = useCallback(
     async (
       request: HistoricalAnalysisCreateRequest,
@@ -360,7 +376,7 @@ export function useHistoricalAnalyses({
       authStatus !== "authenticated" ||
       !runId ||
       tradesRequestInFlight.current ||
-      (trades.length > 0 && !tradesNextCursor)
+      (hasLoadedTrades && !tradesNextCursor)
     ) {
       return;
     }
@@ -375,6 +391,7 @@ export function useHistoricalAnalyses({
       if (selectedRunIdRef.current === runId) {
         setTrades((current) => (cursor ? [...current, ...response.trades] : response.trades));
         setTradesNextCursor(response.nextCursor);
+        setHasLoadedTrades(true);
       }
     } catch (requestError) {
       if (selectedRunIdRef.current === runId) {
@@ -384,7 +401,7 @@ export function useHistoricalAnalyses({
       tradesRequestInFlight.current = false;
       setIsTradesLoading(false);
     }
-  }, [authStatus, requestErrorMessage, trades.length, tradesNextCursor]);
+  }, [authStatus, hasLoadedTrades, requestErrorMessage, tradesNextCursor]);
 
   const loadEquity = useCallback(async () => {
     const runId = selectedRunIdRef.current;
@@ -392,7 +409,7 @@ export function useHistoricalAnalyses({
       authStatus !== "authenticated" ||
       !runId ||
       equityRequestInFlight.current ||
-      (equity.length > 0 && !equityNextCursor)
+      (hasLoadedEquity && !equityNextCursor)
     ) {
       return;
     }
@@ -407,6 +424,7 @@ export function useHistoricalAnalyses({
       if (selectedRunIdRef.current === runId) {
         setEquity((current) => (cursor ? [...current, ...response.equity] : response.equity));
         setEquityNextCursor(response.nextCursor);
+        setHasLoadedEquity(true);
       }
     } catch (requestError) {
       if (selectedRunIdRef.current === runId) {
@@ -416,7 +434,7 @@ export function useHistoricalAnalyses({
       equityRequestInFlight.current = false;
       setIsEquityLoading(false);
     }
-  }, [authStatus, equity.length, equityNextCursor, requestErrorMessage]);
+  }, [authStatus, equityNextCursor, hasLoadedEquity, requestErrorMessage]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") {
@@ -428,6 +446,7 @@ export function useHistoricalAnalyses({
       setEquity([]);
       setEquityError(null);
       setEquityNextCursor(null);
+      setHasLoadedEquity(false);
       setReport(null);
       setReportError(null);
       setRuns([]);
@@ -437,18 +456,13 @@ export function useHistoricalAnalyses({
       setTrades([]);
       setTradesError(null);
       setTradesNextCursor(null);
+      setHasLoadedTrades(false);
       return;
     }
 
     void refreshConfiguration();
     void refreshRuns();
   }, [authStatus, refreshConfiguration, refreshRuns]);
-
-  useEffect(() => {
-    if (authStatus === "authenticated" && !selectedRunId && runs[0]) {
-      selectRun(runs[0].id);
-    }
-  }, [authStatus, runs, selectRun, selectedRunId]);
 
   useEffect(() => {
     if (
@@ -511,6 +525,8 @@ export function useHistoricalAnalyses({
     equity,
     equityError,
     equityNextCursor,
+    hasLoadedEquity,
+    hasLoadedTrades,
     isConfigurationLoading,
     isCancelling,
     isEquityLoading,
@@ -529,6 +545,7 @@ export function useHistoricalAnalyses({
     runsNextCursor,
     selectedRun,
     selectedRunId,
+    clearSelectedRun,
     selectRun,
     cancelRun,
     createRun,

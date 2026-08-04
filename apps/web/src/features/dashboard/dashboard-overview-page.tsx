@@ -32,7 +32,12 @@ import { useDashboardOverview } from "./use-dashboard-overview";
 
 function formatActivityDate(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? "Unknown time" : date.toLocaleString();
+  return Number.isNaN(date.valueOf())
+    ? "Unknown UTC time"
+    : date.toLocaleString(undefined, {
+        timeZone: "UTC",
+        timeZoneName: "short",
+      });
 }
 
 function telegramLabel(status: string): string {
@@ -155,7 +160,7 @@ function RecentActivity({
               return (
                 <li key={item.id}>
                   <Link
-                    className="flex items-start gap-3 py-4 first:pt-0 last:pb-0 focus-visible:outline-none"
+                    className="flex items-start gap-3 py-4 first:pt-0 last:pb-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     href={item.href}
                   >
                     <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -166,7 +171,7 @@ function RecentActivity({
                         <span className="font-medium">{item.title}</span>
                         <StatusBadge status={item.statusLabel} />
                       </span>
-                      <span className="block text-sm text-muted-foreground">
+                      <span className="block break-words text-sm text-muted-foreground">
                         {item.description}
                       </span>
                       <time

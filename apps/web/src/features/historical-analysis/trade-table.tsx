@@ -1,5 +1,18 @@
+import { InlineError, InlineErrorRetryButton } from "@/components/inline-error";
+import { Button } from "@/components/ui/button";
 import {
-  formatDecimal,
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ResponsiveTable } from "@/components/responsive-table";
+
+import {
   formatDirection,
   formatOutcome,
   formatPositionState,
@@ -24,83 +37,94 @@ export function TradeTable({
   trades,
 }: TradeTableProps) {
   return (
-    <div className="space-y-3">
-      {error ? <p className="text-sm text-red-700 dark:text-red-300">{error}</p> : null}
-      {!isLoading && !trades.length ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">
-          This analysis completed with no hypothetical trades in the selected range.
+    <div aria-busy={isLoading} className="space-y-3">
+      {error ? (
+        <InlineError
+          message={error}
+          retryAction={<InlineErrorRetryButton onRetry={onLoadMore} />}
+          title="Hypothetical trades are unavailable"
+        />
+      ) : null}
+      {!isLoading && !trades.length && !error ? (
+        <p className="text-sm text-muted-foreground">
+          This analysis completed with no hypothetical trades in the selected
+          range.
         </p>
       ) : null}
-      {trades.length ? (
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-          <table className="min-w-[1100px] text-left text-sm">
-            <caption className="sr-only">
-              Immutable hypothetical trades, ordered by sequence.
-            </caption>
-            <thead className="bg-zinc-50 dark:bg-zinc-950">
-              <tr>
-                <th className="px-3 py-2 font-medium" scope="col">Sequence</th>
-                <th className="px-3 py-2 font-medium" scope="col">Signal time</th>
-                <th className="px-3 py-2 font-medium" scope="col">Direction</th>
-                <th className="px-3 py-2 font-medium" scope="col">Entry time / fill</th>
-                <th className="px-3 py-2 font-medium" scope="col">Exit time / fill</th>
-                <th className="px-3 py-2 font-medium" scope="col">Holding candles</th>
-                <th className="px-3 py-2 font-medium" scope="col">Gross return</th>
-                <th className="px-3 py-2 font-medium" scope="col">Net return</th>
-                <th className="px-3 py-2 font-medium" scope="col">Net PnL</th>
-                <th className="px-3 py-2 font-medium" scope="col">Outcome</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trades.map((trade) => (
-                <tr className="border-t border-zinc-200 dark:border-zinc-700" key={trade.sequence}>
-                  <td className="px-3 py-2">{trade.sequence}</td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatUtcDateTime(trade.signalCloseTime)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div>{formatDirection(trade.signalDirection)}</div>
-                    <div className="text-xs text-zinc-600 dark:text-zinc-300">
-                      {formatPositionState(trade.positionDirection)}
-                    </div>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatUtcDateTime(trade.entryOpenTime)}
-                    <br />
-                    {formatDecimal(trade.entryFillPrice)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatUtcDateTime(trade.exitCloseTime)}
-                    <br />
-                    {formatDecimal(trade.exitFillPrice)}
-                  </td>
-                  <td className="px-3 py-2">{trade.holdingCandleCount}</td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatSignedRate(trade.grossReturn)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatSignedRate(trade.netReturn)}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {formatDecimal(trade.netPnl)}
-                  </td>
-                  <td className="px-3 py-2">{formatOutcome(trade.outcome)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {isLoading && !trades.length ? (
+        <div className="space-y-2" role="status">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <span className="sr-only">Loading hypothetical trades</span>
         </div>
       ) : null}
-      {isLoading ? <p aria-live="polite">Loading hypothetical trades…</p> : null}
+      {trades.length ? (
+        <ResponsiveTable caption="Immutable hypothetical trades, ordered by sequence.">
+          <Table className="min-w-[1100px]">
+            <TableCaption className="sr-only">
+              Immutable hypothetical trades, ordered by sequence. Every column
+              remains available on narrow screens through horizontal scrolling.
+            </TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Sequence</TableHead>
+                <TableHead scope="col">Signal time</TableHead>
+                <TableHead scope="col">Direction</TableHead>
+                <TableHead scope="col">Entry time / fill</TableHead>
+                <TableHead scope="col">Exit time / fill</TableHead>
+                <TableHead scope="col">Holding candles</TableHead>
+                <TableHead scope="col">Gross return</TableHead>
+                <TableHead scope="col">Net return</TableHead>
+                <TableHead scope="col">Net PnL</TableHead>
+                <TableHead scope="col">Outcome</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {trades.map((trade) => (
+                <TableRow key={trade.sequence}>
+                  <TableCell>{trade.sequence}</TableCell>
+                  <TableCell>{formatUtcDateTime(trade.signalCloseTime)}</TableCell>
+                  <TableCell>
+                    <div>{formatDirection(trade.signalDirection)}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatPositionState(trade.positionDirection)}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {formatUtcDateTime(trade.entryOpenTime)}
+                    <br />
+                    {trade.entryFillPrice}
+                  </TableCell>
+                  <TableCell>
+                    {formatUtcDateTime(trade.exitCloseTime)}
+                    <br />
+                    {trade.exitFillPrice}
+                  </TableCell>
+                  <TableCell>{trade.holdingCandleCount}</TableCell>
+                  <TableCell>{formatSignedRate(trade.grossReturn)}</TableCell>
+                  <TableCell>{formatSignedRate(trade.netReturn)}</TableCell>
+                  <TableCell>{trade.netPnl}</TableCell>
+                  <TableCell>{formatOutcome(trade.outcome)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </ResponsiveTable>
+      ) : null}
+      {isLoading && trades.length ? (
+        <p aria-live="polite" className="text-sm text-muted-foreground">
+          Loading more hypothetical trades…
+        </p>
+      ) : null}
       {nextCursor ? (
-        <button
-          className="rounded-lg border border-zinc-300 px-4 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700"
+        <Button
           disabled={isLoading}
           onClick={onLoadMore}
           type="button"
+          variant="outline"
         >
           {isLoading ? "Loading more…" : "Load more trades"}
-        </button>
+        </Button>
       ) : null}
     </div>
   );

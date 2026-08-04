@@ -2,10 +2,27 @@
 
 import { useEffect, useState } from "react";
 
+import { InlineError } from "@/components/inline-error";
+import { MetricCard } from "@/components/metric-card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+
 import {
   formatAssumptionKey,
   formatAssumptionValue,
-  formatDecimal,
   formatDirection,
   formatFingerprint,
   formatPercent,
@@ -16,17 +33,21 @@ import {
   formatUtcDateTime,
 } from "./format";
 import type {
+  HistoricalAnalysisEquityPoint,
   HistoricalAnalysisReport,
   HistoricalAnalysisRun,
+  HistoricalAnalysisTrade,
 } from "./types";
 import { EquityChart } from "./equity-chart";
 import { EquityTable } from "./equity-table";
 import { TradeTable } from "./trade-table";
 
 type ReportSummaryProps = {
-  equity: import("./types").HistoricalAnalysisEquityPoint[];
+  equity: HistoricalAnalysisEquityPoint[];
   equityError: string | null;
   equityNextCursor: string | null;
+  hasLoadedEquity: boolean;
+  hasLoadedTrades: boolean;
   isEquityLoading: boolean;
   isReportLoading: boolean;
   isTradesLoading: boolean;
@@ -35,7 +56,7 @@ type ReportSummaryProps = {
   report: HistoricalAnalysisReport | null;
   reportError: string | null;
   selectedRun: HistoricalAnalysisRun | null;
-  trades: import("./types").HistoricalAnalysisTrade[];
+  trades: HistoricalAnalysisTrade[];
   tradesError: string | null;
   tradesNextCursor: string | null;
 };
@@ -77,13 +98,15 @@ function SnapshotDetails({
   title: string;
 }) {
   return (
-    <details className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-      <summary className="cursor-pointer font-medium">{title}</summary>
-      <dl className="mt-3 grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
+    <details className="rounded-xl border p-4">
+      <summary className="cursor-pointer font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+        {title}
+      </summary>
+      <dl className="mt-4 grid gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
         {entries.map(([key, value]) => (
           <div key={key}>
             <dt className="font-medium">{formatAssumptionKey(key)}</dt>
-            <dd className="break-words text-zinc-600 dark:text-zinc-300">
+            <dd className="break-words text-muted-foreground">
               {formatValue(key, value)}
             </dd>
           </div>
@@ -93,11 +116,220 @@ function SnapshotDetails({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+function FingerprintDetail({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  const [isCopied, setIsCopied] = useState(false);
+
+  async function copyFingerprint() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setIsCopied(true);
+      window.setTimeout(() => setIsCopied(false), 2_000);
+    } catch {
+      setIsCopied(false);
+    }
+  }
+
   return (
-    <div className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
-      <dt className="text-sm text-zinc-600 dark:text-zinc-300">{label}</dt>
-      <dd className="mt-1 font-medium">{value}</dd>
+    <div className="space-y-2">
+      <dt className="font-medium">{label}</dt>
+      <div className="flex flex-wrap items-center gap-2">
+        <dd className="break-all text-muted-foreground">
+          <span aria-hidden="true">{formatFingerprint(value)}</span>
+          <span className="sr-only">{value}</span>
+        </dd>
+        <Button
+          onClick={() => void copyFingerprint()}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {isCopied ? "Copied" : "Copy fingerprint"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function signedMetric(value: string | null, undefinedReason?: string | null) {
+  const formatted = formatSignedPercent(value, undefinedReason);
+  const tone =
+    value?.startsWith("-")
+      ? "text-destructive"
+      : value && value !== "0"
+        ? "text-success"
+        : undefined;
+
+  return <span className={tone}>{formatted}</span>;
+}
+
+function ReportContext({ report }: { report: HistoricalAnalysisReport }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          {report.preset.name} on {report.market.symbol}
+        </CardTitle>
+        <CardDescription>
+          {formatUtcDateTime(report.analysisStart)} →{" "}
+          {formatUtcDateTime(report.analysisEnd)} · {formatTimeframe(report.preset.timeframe)}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCard
+          label="Market"
+          value={`${report.market.baseAsset}/${report.market.quoteAsset} (${report.market.symbol})`}
+        />
+        <MetricCard
+          label="Preset code / version"
+          value={`${report.preset.code} · v${report.preset.version}`}
+        />
+        <MetricCard
+          label="Strategy type"
+          value={formatStrategyType(report.preset.strategyType)}
+        />
+        <MetricCard label="Direction" value={formatDirection(report.preset.direction)} />
+        <MetricCard label="Calculation version" value={report.calculationVersion} />
+        <MetricCard label="Engine version" value={report.engineVersion} />
+        <MetricCard label="Assumption version" value={report.assumptionVersion} />
+        <MetricCard label="Dataset snapshot ID" value={report.datasetId} />
+        <MetricCard label="Report ID" value={report.reportId} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function PrimaryMetrics({ report }: { report: HistoricalAnalysisReport }) {
+  const { summary } = report;
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <MetricCard label="Net return" value={signedMetric(summary.netReturn)} />
+      <MetricCard
+        label="Maximum drawdown"
+        value={signedMetric(summary.maximumDrawdown)}
+      />
+      <MetricCard
+        label="Win rate"
+        value={formatPercent(summary.winRate, summary.winRateUndefinedReason)}
+      />
+      <MetricCard
+        label="Profit factor"
+        value={
+          summary.profitFactor === null
+            ? formatUndefinedMetric(summary.profitFactorUndefinedReason)
+            : summary.profitFactor
+        }
+      />
+      <MetricCard label="Executed trades" value={summary.tradeCount} />
+    </div>
+  );
+}
+
+function SecondaryMetrics({ report }: { report: HistoricalAnalysisReport }) {
+  const { summary } = report;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Additional report metrics</CardTitle>
+        <CardDescription>
+          Counts and server-provided values for the selected hypothetical run.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <MetricCard label="Gross return" value={signedMetric(summary.grossReturn)} />
+        <MetricCard label="Signal count" value={summary.signalCount} />
+        <MetricCard label="Analysis candle count" value={summary.analysisCandleCount} />
+        <MetricCard
+          label="Wins / losses / flat"
+          value={`${summary.winningTradeCount} / ${summary.losingTradeCount} / ${summary.flatTradeCount}`}
+        />
+        <MetricCard label="Initial equity" value={summary.initialEquity} />
+        <MetricCard label="Final equity" value={summary.finalEquity} />
+        <MetricCard
+          label="Overlapping signals ignored"
+          value={summary.overlappingSignalCount}
+        />
+        <MetricCard
+          label="Incomplete-forward-window signals"
+          value={summary.insufficientForwardSignalCount}
+        />
+        <MetricCard
+          label="Equity-exhausted signals"
+          value={summary.equityExhaustedSignalCount}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function Methodology({ report }: { report: HistoricalAnalysisReport }) {
+  const coverageEntries = Object.entries(report.coverage).filter(
+    ([key]) => key !== "manifestFingerprint",
+  );
+  const assumptionEntries = Object.entries(report.assumptions).filter(
+    ([key]) => key !== "safety_disclosures" && key !== "safetyDisclosures",
+  );
+
+  return (
+    <div className="space-y-4">
+      <ReportContext report={report} />
+      <Card>
+        <CardHeader>
+          <CardTitle>Data coverage and assumptions</CardTitle>
+          <CardDescription>
+            Full server snapshots remain available without changing their domain meaning.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <SnapshotDetails
+            entries={coverageEntries}
+            formatValue={formatCoverageValue}
+            title="View stored data coverage"
+          />
+          <SnapshotDetails
+            entries={assumptionEntries}
+            formatValue={formatAssumptionValue}
+            title="View complete execution assumptions"
+          />
+          <details className="rounded-xl border p-4">
+            <summary className="cursor-pointer font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              View dataset and result fingerprints
+            </summary>
+            <dl className="mt-4 space-y-3 text-sm">
+              <FingerprintDetail
+                label="Dataset fingerprint"
+                value={report.datasetFingerprint}
+              />
+              <FingerprintDetail
+                label="Result fingerprint"
+                value={report.resultFingerprint}
+              />
+            </dl>
+          </details>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Safety disclosures</CardTitle>
+          <CardDescription>
+            These statements describe the limits of this historical hypothetical simulation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground">
+            {report.safetyDisclosures.map((disclosure, index) => (
+              <li key={`${disclosure}-${index}`}>{disclosure}</li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -106,6 +338,8 @@ export function ReportSummary({
   equity,
   equityError,
   equityNextCursor,
+  hasLoadedEquity,
+  hasLoadedTrades,
   isEquityLoading,
   isReportLoading,
   isTradesLoading,
@@ -118,227 +352,131 @@ export function ReportSummary({
   tradesError,
   tradesNextCursor,
 }: ReportSummaryProps) {
-  const [showDetailedEquity, setShowDetailedEquity] = useState(false);
-  const [showTrades, setShowTrades] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
-    setShowDetailedEquity(false);
-    setShowTrades(false);
+    setActiveTab("overview");
   }, [report?.reportId]);
 
   if (isReportLoading) {
     return <p aria-live="polite">Loading historical-analysis report…</p>;
   }
   if (reportError) {
-    return (
-      <p aria-live="assertive" className="text-sm text-red-700 dark:text-red-300">
-        {reportError}
-      </p>
-    );
+    return <InlineError message={reportError} title="Historical report unavailable" />;
   }
   if (!report || !selectedRun || selectedRun.status !== "succeeded") {
     return null;
   }
 
-  const { summary } = report;
-  const coverageEntries = Object.entries(report.coverage).filter(
-    ([key]) => key !== "manifestFingerprint",
-  );
-  const assumptionEntries = Object.entries(report.assumptions).filter(
-    ([key]) => key !== "safety_disclosures" && key !== "safetyDisclosures",
-  );
+  function handleTabChange(value: string) {
+    setActiveTab(value);
+    if (value === "trades" && report.tradesAvailable && !hasLoadedTrades) {
+      onLoadTrades();
+    }
+    if (value === "equity" && report.equityAvailable && !hasLoadedEquity) {
+      onLoadEquity();
+    }
+  }
 
   return (
     <section aria-labelledby="historical-analysis-report-heading" className="space-y-6">
-      <div className="space-y-3 rounded-lg border-2 border-zinc-900 p-4 dark:border-zinc-100">
-        <p className="text-sm font-semibold tracking-wide uppercase">
+      <Alert
+        className="border-warning/50 bg-warning/10"
+        variant="warning"
+      >
+        <AlertTitle id="historical-analysis-report-heading">
           Historical hypothetical simulation
-        </p>
-        <h3 className="text-xl font-semibold" id="historical-analysis-report-heading">
-          {report.preset.name} on {report.market.symbol}
-        </h3>
-        <p className="leading-6 text-zinc-600 dark:text-zinc-300">
-          This is a historical hypothetical simulation using stored candle data
-          and fixed assumptions. It is not financial advice, a prediction, or a
-          guarantee of future results. Real execution, liquidity, fees, slippage,
-          and market behavior may differ.
-        </p>
-        <p className="text-sm leading-6 text-zinc-600 dark:text-zinc-300">
-          Cross-below trades are shown as synthetic short analytical inverse
-          exposure. They are not executable Binance Spot trades and do not model
-          borrowing, margin, leverage, liquidation, or derivatives.
-        </p>
-        {report.safetyDisclosures.length ? (
-          <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-600 dark:text-zinc-300">
-            {report.safetyDisclosures.map((disclosure) => (
-              <li key={disclosure}>{disclosure}</li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
+        </AlertTitle>
+        <AlertDescription>
+          Not financial advice. This is not a prediction or guarantee. Real
+          execution may differ. Synthetic-short results are not executable
+          Binance Spot trades.
+        </AlertDescription>
+      </Alert>
 
-      <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-        <Metric label="Market" value={`${report.market.baseAsset}/${report.market.quoteAsset} (${report.market.symbol})`} />
-        <Metric label="Preset code / version" value={`${report.preset.code} · v${report.preset.version}`} />
-        <Metric label="Strategy type" value={formatStrategyType(report.preset.strategyType)} />
-        <Metric label="Timeframe" value={formatTimeframe(report.preset.timeframe)} />
-        <Metric label="Direction" value={formatDirection(report.preset.direction)} />
-        <Metric label="Calculation version" value={report.calculationVersion} />
-        <Metric label="Engine version" value={report.engineVersion} />
-        <Metric label="Assumption version" value={report.assumptionVersion} />
-        <Metric label="Dataset snapshot ID" value={report.datasetId} />
-        <Metric label="Report ID" value={report.reportId} />
-        <Metric
-          label="UTC analysis range"
-          value={`${formatUtcDateTime(report.analysisStart)} → ${formatUtcDateTime(report.analysisEnd)}`}
-        />
-      </div>
+      <Tabs onValueChange={handleTabChange} value={activeTab}>
+        <TabsList aria-label="Historical analysis report sections" className="w-full flex-wrap justify-start sm:w-auto" variant="line">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="trades">Hypothetical trades</TabsTrigger>
+          <TabsTrigger value="equity">Equity data</TabsTrigger>
+          <TabsTrigger value="methodology">Methodology</TabsTrigger>
+        </TabsList>
 
-      <div className="space-y-3">
-        <h4 className="text-lg font-semibold">Data coverage and assumptions</h4>
-        <SnapshotDetails
-          entries={coverageEntries}
-          formatValue={formatCoverageValue}
-          title="View stored data coverage"
-        />
-        <SnapshotDetails
-          entries={assumptionEntries}
-          formatValue={formatAssumptionValue}
-          title="View complete execution assumptions"
-        />
-        <details className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-          <summary className="cursor-pointer font-medium">
-            View dataset and result fingerprints
-          </summary>
-          <dl className="mt-3 space-y-2 text-sm">
-            <div>
-              <dt className="font-medium">Dataset fingerprint</dt>
-              <dd className="break-all text-zinc-600 dark:text-zinc-300">
-                <span aria-hidden="true">{formatFingerprint(report.datasetFingerprint)}</span>
-                <span className="sr-only">{report.datasetFingerprint}</span>
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium">Result fingerprint</dt>
-              <dd className="break-all text-zinc-600 dark:text-zinc-300">
-                <span aria-hidden="true">{formatFingerprint(report.resultFingerprint)}</span>
-                <span className="sr-only">{report.resultFingerprint}</span>
-              </dd>
-            </div>
-          </dl>
-        </details>
-      </div>
+        <TabsContent className="space-y-6" forceMount value="overview">
+          <ReportContext report={report} />
+          <PrimaryMetrics report={report} />
+          <SecondaryMetrics report={report} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Equity progression</CardTitle>
+              <CardDescription>
+                The chart uses only the server-provided at-most-200-point preview.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <EquityChart points={report.equityPreview} />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <div className="space-y-3">
-        <h4 className="text-lg font-semibold">Summary metrics</h4>
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Metric label="Analysis candles" value={summary.analysisCandleCount} />
-          <Metric label="Signals" value={summary.signalCount} />
-          <Metric label="Executed trades" value={summary.tradeCount} />
-          <Metric
-            label="Wins / losses / flat"
-            value={`${summary.winningTradeCount} / ${summary.losingTradeCount} / ${summary.flatTradeCount}`}
-          />
-          <Metric label="Gross return" value={formatSignedPercent(summary.grossReturn)} />
-          <Metric label="Net return" value={formatSignedPercent(summary.netReturn)} />
-          <Metric
-            label="Maximum drawdown"
-            value={formatSignedPercent(summary.maximumDrawdown)}
-          />
-          <Metric
-            label="Win rate"
-            value={formatPercent(summary.winRate, summary.winRateUndefinedReason)}
-          />
-          <Metric
-            label="Profit factor"
-            value={
-              summary.profitFactor === null
-                ? historicalAnalysisUndefinedMetric(summary.profitFactorUndefinedReason)
-                : formatDecimal(summary.profitFactor)
-            }
-          />
-          <Metric label="Initial equity" value={formatDecimal(summary.initialEquity)} />
-          <Metric label="Final equity" value={formatDecimal(summary.finalEquity)} />
-          <Metric label="Overlapping signals ignored" value={summary.overlappingSignalCount} />
-          <Metric
-            label="Signals without complete forward window"
-            value={summary.insufficientForwardSignalCount}
-          />
-          <Metric
-            label="Signals skipped after equity exhaustion"
-            value={summary.equityExhaustedSignalCount}
-          />
-        </dl>
-      </div>
+        <TabsContent className="space-y-4" forceMount value="trades">
+          <Card>
+            <CardHeader>
+              <CardTitle>Hypothetical trades</CardTitle>
+              <CardDescription>
+                Immutable trades from the selected historical simulation. No
+                live execution is implied.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {report.tradesAvailable ? (
+                <TradeTable
+                  error={tradesError}
+                  isLoading={isTradesLoading}
+                  nextCursor={tradesNextCursor}
+                  onLoadMore={onLoadTrades}
+                  trades={trades}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Detailed hypothetical trades are not available for this report.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <div className="space-y-3">
-        <h4 className="text-lg font-semibold">Equity progression</h4>
-        <EquityChart points={report.equityPreview} />
-        {report.equityAvailable ? (
-          <div className="space-y-3">
-            <button
-              className="rounded-lg border border-zinc-300 px-4 py-2 font-medium dark:border-zinc-700"
-              onClick={() => {
-                setShowDetailedEquity((current) => !current);
-                if (!showDetailedEquity && !equity.length) {
-                  onLoadEquity();
-                }
-              }}
-              type="button"
-            >
-              {showDetailedEquity
-                ? "Hide detailed equity data"
-                : "View detailed equity data"}
-            </button>
-            {showDetailedEquity ? (
-              <EquityTable
-                error={equityError}
-                isLoading={isEquityLoading}
-                nextCursor={equityNextCursor}
-                onLoadMore={onLoadEquity}
-                points={equity}
-              />
-            ) : null}
-          </div>
-        ) : null}
-      </div>
+        <TabsContent className="space-y-4" forceMount value="equity">
+          <Card>
+            <CardHeader>
+              <CardTitle>Equity data</CardTitle>
+              <CardDescription>
+                Immutable equity points retain exact server strings, candle
+                identity, drawdown, and position state.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {report.equityAvailable ? (
+                <EquityTable
+                  error={equityError}
+                  isLoading={isEquityLoading}
+                  nextCursor={equityNextCursor}
+                  onLoadMore={onLoadEquity}
+                  points={equity}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Detailed equity data is not available for this report.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <div className="space-y-3">
-        <h4 className="text-lg font-semibold">Hypothetical trades</h4>
-        {report.tradesAvailable ? (
-          <>
-            <button
-              className="rounded-lg border border-zinc-300 px-4 py-2 font-medium dark:border-zinc-700"
-              onClick={() => {
-                setShowTrades((current) => !current);
-                if (!showTrades && !trades.length) {
-                  onLoadTrades();
-                }
-              }}
-              type="button"
-            >
-              {showTrades ? "Hide hypothetical trades" : "View hypothetical trades"}
-            </button>
-            {showTrades ? (
-              <TradeTable
-                error={tradesError}
-                isLoading={isTradesLoading}
-                nextCursor={tradesNextCursor}
-                onLoadMore={onLoadTrades}
-                trades={trades}
-              />
-            ) : null}
-          </>
-        ) : (
-          <p className="text-sm text-zinc-600 dark:text-zinc-300">
-            Detailed hypothetical trades are not available for this report.
-          </p>
-        )}
-      </div>
+        <TabsContent className="space-y-4" forceMount value="methodology">
+          <Methodology report={report} />
+        </TabsContent>
+      </Tabs>
     </section>
   );
-}
-
-function historicalAnalysisUndefinedMetric(reason: string | null): string {
-  return formatUndefinedMetric(reason);
 }
