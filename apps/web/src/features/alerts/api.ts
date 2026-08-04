@@ -76,7 +76,13 @@ export function createPriceAlert(
   return requestAlerts<PriceAlertEnvelope>("/alerts/price", {
     method: "POST",
     headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey, "X-CSRF-Token": csrfToken },
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      exchange: request.exchange,
+      market_type: request.marketType,
+      symbol: request.symbol,
+      direction: request.direction,
+      target_price: request.targetPrice,
+    }),
   });
 }
 
