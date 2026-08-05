@@ -244,6 +244,18 @@ def _aggregate_candle(
 
 def _price(symbol: str, index: int) -> Decimal:
     base = Decimal("100") + Decimal(str((SUPPORTED_SYMBOLS.index(symbol) + 1) * 10))
+    if symbol == "XRPUSDT":
+        return base
+    if symbol == "ETHUSDT":
+        movement = _mixed_event_movement(index)
+        return (base + movement).quantize(Decimal("0.000001"))
+    if symbol == "SOLUSDT":
+        movement = _event_movement(index, period_hours=24, losing=True)
+        return (base + movement).quantize(Decimal("0.000001"))
+    if symbol == "BNBUSDT":
+        movement = _event_movement(index, period_hours=12, losing=False)
+        return (base + movement).quantize(Decimal("0.000001"))
+
     cycle = index % 1_440
     if cycle < 720:
         movement = Decimal(cycle) / Decimal("100")
@@ -252,6 +264,35 @@ def _price(symbol: str, index: int) -> Decimal:
     return (base + movement + Decimal(index // 3_600) / Decimal("100")).quantize(
         Decimal("0.000001")
     )
+
+
+def _mixed_event_movement(index: int) -> Decimal:
+    hour = index // 60
+    cycle = hour // 24
+    return _event_movement(
+        index,
+        period_hours=24,
+        losing=cycle % 5 == 4,
+    )
+
+
+def _event_movement(index: int, *, period_hours: int, losing: bool) -> Decimal:
+    hour = index // 60
+    minute = index % 60
+    position = hour % period_hours
+    current = _hourly_event_movement(position, losing=losing)
+    following = _hourly_event_movement((position + 1) % period_hours, losing=losing)
+    return current + (following - current) * Decimal(minute) / Decimal("60")
+
+
+def _hourly_event_movement(position: int, *, losing: bool) -> Decimal:
+    if position == 1:
+        return Decimal("6")
+    if 2 <= position <= 7:
+        if losing:
+            return Decimal(7 - position)
+        return Decimal("6") + Decimal(position - 1) / Decimal("2")
+    return Decimal("0")
 
 
 def _align_four_hour_boundary(value: datetime) -> datetime:

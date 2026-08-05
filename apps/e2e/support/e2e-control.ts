@@ -7,10 +7,16 @@ type MutationResponse = {
 };
 
 export type HistoricalFixtureScenario =
-  | "success"
-  | "zero_trade"
-  | "pagination"
-  | "terminal_failure";
+  | "analysis-positive"
+  | "analysis-negative"
+  | "analysis-zero-trade"
+  | "analysis-paginated"
+  | "analysis-missing-coverage";
+
+export type HistoricalWorkerGate =
+  | "historical_analysis_before_claim"
+  | "historical_analysis_after_claim"
+  | "historical_analysis_before_run";
 
 export class E2EControl {
   private readonly baseUrl = "http://e2e-control:9100";
@@ -33,13 +39,33 @@ export class E2EControl {
     });
   }
 
+  async gateHistoricalWorkerBeforeClaim() {
+    return this.gateHistoricalWorkerAt("historical_analysis_before_claim");
+  }
+
+  async releaseHistoricalWorkerBeforeClaim() {
+    return this.releaseHistoricalWorkerAt("historical_analysis_before_claim");
+  }
+
+  async gateHistoricalWorkerAfterClaim() {
+    return this.mutate("/__e2e/historical-worker/gates", {
+      names: ["historical_analysis_after_claim", "historical_analysis_before_run"],
+    });
+  }
+
+  async releaseHistoricalWorkerAfterClaim() {
+    return this.mutate("/__e2e/historical-worker/release", {
+      names: ["historical_analysis_after_claim", "historical_analysis_before_run"],
+    });
+  }
+
   async createHistoricalFixture(input: {
     userId: string;
     scenario?: HistoricalFixtureScenario;
     symbol?: string;
     presetCode?: string;
     presetVersion?: number;
-    tradeCount?: number;
+    rangeDays?: number;
   }) {
     return this.mutate("/__e2e/fixtures/historical-analysis", input);
   }
@@ -66,6 +92,23 @@ export class E2EControl {
     invalidatedCount?: number;
   }) {
     return this.mutate("/__e2e/fixtures/signal-feed", input);
+  }
+
+  async invalidateLatestSignal(input: {
+    userId: string;
+    symbol?: string;
+    presetCode?: string;
+    presetVersion?: number;
+  }) {
+    return this.mutate("/__e2e/fixtures/invalidate-signal", input);
+  }
+
+  private gateHistoricalWorkerAt(name: HistoricalWorkerGate) {
+    return this.mutate("/__e2e/historical-worker/gates", { names: [name] });
+  }
+
+  private releaseHistoricalWorkerAt(name: HistoricalWorkerGate) {
+    return this.mutate("/__e2e/historical-worker/release", { names: [name] });
   }
 
   private async mutate(path: string, data?: Record<string, unknown>): Promise<MutationResponse> {

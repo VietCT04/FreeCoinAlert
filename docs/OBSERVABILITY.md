@@ -16,7 +16,7 @@ The wrapper's profile selection is derived from validated local configuration an
 
 `pnpm e2e` adds an isolated runner-level status boundary. Before Playwright starts, it inspects `docker compose ps --all --format json` and requires `api-prepare`, `db-migrate`, `market-catalog-init`, and `e2e-seed` to be completed successfully; `db`, `provider-simulator`, `api`, `web`, and `e2e-control` to be healthy; and the market, Telegram, dispatcher, and historical-analysis workers to be running. It does not print a ready state for a missing, unhealthy, restarting, dead, or unexpected exited service. On startup or browser-test failure it retains the latest 1,000 timestamped, no-colour log lines per E2E service and a safe `run-summary.json` containing only service states, test counts, timestamps, and exit code.
 
-The authentication, dashboard, Telegram, price-alert, and preset-signal browser journeys use the existing safe UI/API state and provider-simulator acknowledgements; they add no application telemetry and do not expose credentials or internal identifiers. Their route/action coverage is [E2E_COVERAGE.md](E2E_COVERAGE.md), and their runtime observability remains Unverified until a maintainer-requested browser pass.
+The authentication, dashboard, Telegram, price-alert, preset-signal, historical-analysis, recovery, mobile, and accessibility browser journeys use the existing safe UI/API state and provider-simulator/control acknowledgements; they add no application telemetry and do not expose credentials or internal identifiers. Historical worker gates and signal invalidation are setup acknowledgements, not production health signals. Their route/action coverage is [E2E_COVERAGE.md](E2E_COVERAGE.md), and their runtime observability remains Unverified until a maintainer-requested browser pass.
 
 ## Persistent Operational State
 
@@ -43,7 +43,7 @@ The authentication, dashboard, Telegram, price-alert, and preset-signal browser 
 
 The exact field set is implementation detail; logs use IDs and safe categories rather than credentials or provider payloads. The browser price-alert, preset-signal, Telegram, signal, and historical-analysis panels do not log event/report payloads, subscription or run IDs, cursors, authentication values, CSRF values, Telegram readiness, fingerprints, trades, equity, destination identifiers, or sound state; connection status, card presentation, report presentation, and sound activation are visual client state only. Preference, usage-summary, and historical-analysis controls use safe announcements without logging provider details. A successful mutation toast or a `sent` test-notification result does not imply device receipt, a signal notification job, a Telegram provider request for another feature, or a live occurrence was created.
 
-The historical-analysis guided flow, report tabs, Recharts preview, accessible tables, and authentication cards add no browser-side operational events or health signals. Lifecycle and report availability remain defined by the server-owned API and worker states documented above.
+The historical-analysis guided flow, report tabs, Recharts preview, accessible tables, recovery states, and authentication cards add no browser-side operational events or health signals. Lifecycle and report availability remain defined by the server-owned API and worker states documented above. Axe scans attach only bounded violation summaries and do not become production observability.
 
 ## Status and Freshness Semantics
 

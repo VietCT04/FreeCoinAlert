@@ -14,7 +14,7 @@ An authenticated, CSRF-protected link request creates `${TELEGRAM_PUBLIC_BOT_BAS
 
 The isolated E2E overlay sets the Telegram API and file base URLs and the public bot base URL to the internal `provider-simulator:9000` endpoints. The simulator serves the public linking page, records the browser visit, and queues the corresponding private `/start` update. E2E controls can produce sent, temporary, permanent, rate-limited, and uncertain outcomes; an uncertain send closes the provider connection so the existing worker records `telegram_delivery_outcome_unknown`. Custom Telegram URLs are rejected unless E2E mode is enabled, and the E2E token/database guards prevent these settings from being used against the normal environment.
 
-The browser journey specifications cover disconnected, linking, expiry, connected, refresh, test-message outcome, and disconnect states through the real API, poller, worker, and internal provider simulator. They never contact `t.me` or `api.telegram.org`; coverage status is in [E2E_COVERAGE.md](E2E_COVERAGE.md), and the journeys are Implemented but Unverified.
+The browser journey specifications cover disconnected, linking, expiry, connected, refresh, test-message sent/temporary/rate-limited/permanent/uncertain outcomes, disconnect, and temporary-failure recovery states through the real API, poller, worker, and internal provider simulator. They never contact `t.me` or `api.telegram.org`; coverage status is in [E2E_COVERAGE.md](E2E_COVERAGE.md), and the journeys are Implemented but Unverified.
 
 ## Link-Token Security and Lifecycle
 
