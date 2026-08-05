@@ -29,4 +29,4 @@ The normal runner does not install host browser binaries, read `.env`, accept an
 
 ## Current Status
 
-The workspace, fixtures, controls, feature specifications, and route coverage map are Implemented and Unverified. See [the E2E coverage matrix](../../docs/E2E_COVERAGE.md). No Playwright, browser, Compose, provider, build, or test verification pass has been run.
+The workspace, fixtures, controls, feature specifications, and route coverage map are Implemented and Verified for the isolated environment. The latest maintainer-requested full `pnpm e2e` pass completed 65 browser cases with 0 failures, skips, or timeouts. See [the E2E coverage matrix](../../docs/E2E_COVERAGE.md). Real provider, production, maintenance, and reset verification remain outside this pass.
