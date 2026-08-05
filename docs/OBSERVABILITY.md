@@ -16,7 +16,7 @@ The wrapper's profile selection is derived from validated local configuration an
 
 `pnpm e2e` adds an isolated runner-level status boundary. Before Playwright starts, it inspects `docker compose ps --all --format json` and requires `api-prepare`, `db-migrate`, `market-catalog-init`, and `e2e-seed` to be completed successfully; `db`, `provider-simulator`, `api`, `web`, and `e2e-control` to be healthy; and the market, Telegram, dispatcher, and historical-analysis workers to be running. It does not print a ready state for a missing, unhealthy, restarting, dead, or unexpected exited service. On startup or browser-test failure it retains the latest 1,000 timestamped, no-colour log lines per E2E service and a safe `run-summary.json` containing only service states, test counts, timestamps, and exit code.
 
-The authentication, dashboard, Telegram, price-alert, preset-signal, historical-analysis, recovery, mobile, and accessibility browser journeys use the existing safe UI/API state and provider-simulator/control acknowledgements; they add no application telemetry and do not expose credentials or internal identifiers. Historical worker gates and signal invalidation are setup acknowledgements, not production health signals. Their route/action coverage is [E2E_COVERAGE.md](E2E_COVERAGE.md), and their runtime observability remains Unverified until a maintainer-requested browser pass.
+The authentication, dashboard, Telegram, price-alert, preset-signal, historical-analysis, recovery, mobile, and accessibility browser journeys use the existing safe UI/API state and provider-simulator/control acknowledgements; they add no application telemetry and do not expose credentials or internal identifiers. Historical worker gates and signal invalidation are setup acknowledgements, not production health signals. Their route/action coverage is [E2E_COVERAGE.md](E2E_COVERAGE.md), and the isolated browser/runtime paths are Verified by the latest full E2E pass; this is not production observability verification.
 
 ## Persistent Operational State
 
@@ -69,8 +69,8 @@ Use [OPERATIONS.md](OPERATIONS.md) for recovery actions, [MARKET_DATA.md](MARKET
 
 ## Missing Observability and Unresolved Gaps
 
-Cross-process metrics, dashboards, tracing, production readiness/dependency health, automated alerting, verified alert-delivery monitoring, and verified browser/E2E observability are absent. These risks are tracked in [CONCERNS.md](CONCERNS.md).
+Cross-process metrics, dashboards, tracing, production readiness/dependency health, automated alerting, and verified production alert-delivery monitoring are absent. The isolated E2E runner has safe service-state and test-count artifacts, but it is not production observability. These risks are tracked in [CONCERNS.md](CONCERNS.md).
 
 ## Verification Status
 
-This inventory is based on static code inspection plus a maintainer-requested local startup/status pass. Database, API/web health, migration, market initialization, market-stream startup, and historical-worker states were exercised; signal-feed, Telegram, browser feature journeys, E2E runner/stack, accessibility, maintenance, reset, and production observability remain unverified.
+This inventory is based on static code inspection, a maintainer-requested local startup/status pass, and the latest full isolated E2E pass. Database, API/web health, migration, market initialization, market-stream startup, historical-worker states, signal-feed recovery, simulator-backed Telegram paths, browser journeys, E2E runner/stack, accessibility, and safe artifacts were exercised. Maintenance, reset, production provider behavior, and production observability remain unverified.

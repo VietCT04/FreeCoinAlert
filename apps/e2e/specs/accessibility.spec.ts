@@ -30,13 +30,15 @@ test.describe("stable browser accessibility states", () => {
     await expectStableAccessibility(checkAccessibility, newAnonymousPage, "sign-in");
 
     await newAnonymousPage.goto("/sign-up");
-    await expect(newAnonymousPage.getByRole("heading", { name: "Sign up", exact: true })).toBeVisible();
+    await expect(newAnonymousPage.getByRole("heading", { name: "Create an account", exact: true })).toBeVisible();
     await expectStableAccessibility(checkAccessibility, newAnonymousPage, "sign-up");
   });
 
   test("scans an empty dashboard state", async ({ checkAccessibility, newAuthenticatedPage }) => {
     await newAuthenticatedPage.goto("/dashboard");
     await expect(newAuthenticatedPage.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByRole("heading", { name: "No recent activity", exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByRole("button", { name: "Refresh", exact: true })).toBeEnabled();
     await expectStableAccessibility(checkAccessibility, newAuthenticatedPage, "dashboard-empty");
   });
 
@@ -73,13 +75,13 @@ test.describe("stable browser accessibility states", () => {
 
   test("scans a connected Telegram state", async ({ checkAccessibility, connectedTelegramPage }) => {
     await connectedTelegramPage.goto("/telegram");
-    await expect(connectedTelegramPage.getByText("Connected", { exact: true })).toBeVisible();
+    await expect(connectedTelegramPage.getByText("Connected", { exact: true }).first()).toBeVisible();
     await expectStableAccessibility(checkAccessibility, connectedTelegramPage, "telegram-connected");
   });
 
   test("scans historical configure and review dialog states", async ({ checkAccessibility, newAuthenticatedPage }) => {
     await newAuthenticatedPage.goto("/historical-analysis");
-    await expect(newAuthenticatedPage.getByRole("heading", { name: "Configure analysis", exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByRole("region", { name: "Configure analysis", exact: true })).toBeVisible();
     await expectStableAccessibility(checkAccessibility, newAuthenticatedPage, "historical-configure");
     await newAuthenticatedPage.getByRole("button", { name: "Review analysis", exact: true }).click();
     await expect(newAuthenticatedPage.getByRole("dialog", { name: "Review analysis" })).toBeVisible();
@@ -110,6 +112,12 @@ test.describe("stable browser accessibility states", () => {
     await e2eControl.releaseHistoricalWorkerBeforeClaim();
     await waitForHistoricalStatus(appApi, String(fixture.runId), "succeeded");
     await newAuthenticatedPage.reload();
+    const completedRun = newAuthenticatedPage
+      .getByRole("button")
+      .filter({ hasText: scenario.symbol })
+      .first();
+    await expect(completedRun).toBeVisible();
+    await completedRun.click();
     await expect(
       newAuthenticatedPage.getByRole("tab", { name: "Methodology", exact: true }),
     ).toBeVisible();
@@ -137,8 +145,15 @@ test.describe("stable browser accessibility states", () => {
     await waitForHistoricalStatus(appApi, String(fixture.runId), "succeeded");
     await newAuthenticatedPage.goto("/historical-analysis");
     await newAuthenticatedPage.getByRole("button").filter({ hasText: scenario.symbol }).first().click();
-    await expect(newAuthenticatedPage.getByText("Historical hypothetical simulation", { exact: true })).toBeVisible();
-    await expect(newAuthenticatedPage.getByText(/Not defined .* no completed trades\./)).toBeVisible();
+    await expect(
+      newAuthenticatedPage.getByRole("region", {
+        name: "Historical hypothetical simulation",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      newAuthenticatedPage.getByText(/Not defined .* no completed trades\./),
+    ).toHaveCount(2);
     await expectStableAccessibility(checkAccessibility, newAuthenticatedPage, "historical-zero-trade");
   });
 

@@ -194,6 +194,25 @@ export function useSignalStream({
   }, [clearFallback, closeSource, recover]);
 
   useEffect(() => {
+    const handleOffline = () => {
+      clearFallback();
+      closeSource();
+      setIsVisible(false);
+      setStatus("reconnecting");
+    };
+    const handleOnline = () => {
+      void recover();
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [clearFallback, closeSource, recover]);
+
+  useEffect(() => {
     if (
       authStatus !== "authenticated" ||
       !enabled ||

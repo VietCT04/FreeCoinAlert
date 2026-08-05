@@ -1,7 +1,7 @@
 import { expect, test } from "../fixtures/test";
 import { PresetSignalsPage } from "../pages/preset-signals.page";
 import { TelegramPage } from "../pages/telegram.page";
-import { waitForBusinessState } from "../support/waits";
+import { E2E_API_ORIGIN, E2E_WEB_ORIGIN } from "../support/urls";
 
 test.describe.configure({ mode: "serial" });
 test.setTimeout(120_000);
@@ -17,10 +17,10 @@ test.describe("session, provider, and live-feed recovery", () => {
     newAuthenticatedPage,
   }) => {
     await newAuthenticatedPage.goto("/historical-analysis");
-    await expect(newAuthenticatedPage.getByRole("heading", { name: "Configure analysis", exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByRole("region", { name: "Configure analysis", exact: true })).toBeVisible();
     const revokingRequest = await playwright.request.newContext({
-      baseURL: "http://api:8000",
-      extraHTTPHeaders: { Origin: "http://web:3000" },
+      baseURL: E2E_API_ORIGIN,
+      extraHTTPHeaders: { Origin: E2E_WEB_ORIGIN },
       storageState: await appApi.storageState(),
     });
     const response = await revokingRequest.post("/auth/logout", {
@@ -53,11 +53,13 @@ test.describe("session, provider, and live-feed recovery", () => {
     playwright,
   }) => {
     await newAuthenticatedPage.goto("/preset-signals");
-    await expect(newAuthenticatedPage.getByText("Live updates connected.", { exact: true })).toBeVisible();
+    const signals = new PresetSignalsPage(newAuthenticatedPage);
+    await signals.openHistory();
+    await expect(newAuthenticatedPage.getByText("Live updates connected.", { exact: true })).toBeVisible({ timeout: 30_000 });
 
     const revokingRequest = await playwright.request.newContext({
-      baseURL: "http://api:8000",
-      extraHTTPHeaders: { Origin: "http://web:3000" },
+      baseURL: E2E_API_ORIGIN,
+      extraHTTPHeaders: { Origin: E2E_WEB_ORIGIN },
       storageState: await appApi.storageState(),
     });
     const response = await revokingRequest.post("/auth/logout", {
@@ -79,10 +81,11 @@ test.describe("session, provider, and live-feed recovery", () => {
     connectedTelegramPage,
     providerSimulator,
   }) => {
+    const telegramPanel = connectedTelegramPage.locator("#telegram-connection");
     await providerSimulator.queueTelegramOutcomes(["temporary_failure", "sent"]);
     const telegram = new TelegramPage(connectedTelegramPage);
     await telegram.sendTest();
-    await expect(connectedTelegramPage.getByText("retrying", { exact: true })).toBeVisible();
+    await expect(telegramPanel.getByText("retrying", { exact: true })).toBeVisible();
     await expect
       .poll(async () => {
         const payload = await providerSimulator.getTelegramMessages();
@@ -93,7 +96,7 @@ test.describe("session, provider, and live-feed recovery", () => {
         );
       })
       .toBe(true);
-    await expect(connectedTelegramPage.getByText("Telegram accepted the test notification.", { exact: true })).toBeVisible();
+    await expect(telegramPanel.getByText("Telegram accepted the test notification.", { exact: true })).toBeVisible();
   });
 
   test("pauses an alert during Binance disconnect and resumes after reconnect", async ({
@@ -107,14 +110,27 @@ test.describe("session, provider, and live-feed recovery", () => {
       targetPrice: "101.000000",
     });
     await connectedTelegramPage.goto("/price-alerts");
-    await expect(connectedTelegramPage.getByText("BTCUSDT", { exact: true }).first()).toBeVisible();
+    await expect(connectedTelegramPage.getByText(/BTCUSDT/).first()).toBeVisible();
 
     await providerSimulator.disconnectBinance();
     await connectedTelegramPage.getByRole("button", { name: "Refresh", exact: true }).click();
     await expect(connectedTelegramPage.getByText("The market-data connection is unavailable. Evaluation will resume after reconnecting.", { exact: true })).toBeVisible();
 
     await providerSimulator.reconnectBinance();
-    await providerSimulator.setPrice("BTCUSDT", "100.000000");
+    await expect
+      .poll(
+        async () => {
+          const result = await providerSimulator.setPrice("BTCUSDT", "100.000000");
+          if (result.published !== true) {
+            return false;
+          }
+          const response = await appApi.listAlerts({ limit: 20 });
+          const alerts = Array.isArray(response.alerts) ? response.alerts : [];
+          return (alerts[0] as { evaluationReady?: boolean } | undefined)?.evaluationReady === true;
+        },
+        { intervals: [250, 500, 1_000], timeout: 30_000 },
+      )
+      .toBe(true);
     await connectedTelegramPage.getByRole("button", { name: "Refresh", exact: true }).click();
     await expect(connectedTelegramPage.getByText("The market-data connection is unavailable. Evaluation will resume after reconnecting.", { exact: true })).toBeHidden();
     expect(((await appApi.listAlerts()).alerts as unknown[])).toHaveLength(1);
@@ -140,7 +156,7 @@ test.describe("session, provider, and live-feed recovery", () => {
       .toBe("unavailable");
 
     await newAuthenticatedPage.goto("/historical-analysis");
-    await expect(newAuthenticatedPage.getByRole("heading", { name: "Configure analysis", exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByRole("region", { name: "Configure analysis", exact: true })).toBeVisible();
     await newAuthenticatedPage.locator("#historical-analysis-market").click();
     await expect(newAuthenticatedPage.getByRole("option", { name: /SOLUSDT/ })).toHaveCount(0);
   });
@@ -191,6 +207,11 @@ test.describe("session, provider, and live-feed recovery", () => {
     });
     await expect(newAuthenticatedPage.getByText("Invalidated", { exact: true }).first()).toBeVisible();
     await expect(newAuthenticatedPage.getByText("Replayed after live-feed recovery", { exact: true })).toHaveCount(0);
-    await waitForBusinessState(newAuthenticatedPage, "Signal history");
+    await expect(
+      newAuthenticatedPage.getByRole("heading", {
+        name: "Signal history",
+        exact: true,
+      }),
+    ).toBeVisible();
   });
 });

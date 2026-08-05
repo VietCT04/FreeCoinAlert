@@ -30,7 +30,9 @@ from freecoinalert_api.market_data.catalog import (
 
 
 E2E_SEED_NAMESPACE = uuid.UUID("6d0f8fd4-e8df-4cbf-9d91-e2e84ac2c89b")
-SEED_DAYS = 150
+# Covers the 90-day analysis maximum, the 200-candle warm-up for 4h presets,
+# and the completed-day gap used by the deterministic E2E clock.
+SEED_DAYS = 126
 SOURCE_BATCH_SIZE = 2_000
 
 
@@ -111,6 +113,7 @@ async def _seed_market(
 
     hourly_sources: list[MarketCandle] = []
     four_hour_sources: list[MarketCandle] = []
+    pending_candles: list[MarketCandle] = []
     for index in range(expected_source_count):
         open_time = start_time + timedelta(minutes=index)
         source = _source_candle(
@@ -120,19 +123,61 @@ async def _seed_market(
             open_time=open_time,
             seed_clock=seed_clock,
         )
-        session.add(source)
+        pending_candles.append(source)
         hourly_sources.append(source)
         four_hour_sources.append(source)
         if len(hourly_sources) == 60:
-            session.add(_aggregate_candle(market.id, "1h", hourly_sources, seed_clock))
+            pending_candles.append(_aggregate_candle(market.id, "1h", hourly_sources, seed_clock))
             hourly_sources.clear()
         if len(four_hour_sources) == 240:
-            session.add(_aggregate_candle(market.id, "4h", four_hour_sources, seed_clock))
+            pending_candles.append(_aggregate_candle(market.id, "4h", four_hour_sources, seed_clock))
             four_hour_sources.clear()
-        if index and index % SOURCE_BATCH_SIZE == 0:
-            await session.flush()
+        if len(pending_candles) >= SOURCE_BATCH_SIZE:
+            await _insert_candles(session, pending_candles)
+            pending_candles.clear()
 
-    await session.flush()
+    await _insert_candles(session, pending_candles)
+
+
+async def _insert_candles(session, candles: Sequence[MarketCandle]) -> None:
+    if not candles:
+        return
+
+    await session.execute(
+        MarketCandle.__table__.insert(),
+        [_candle_values(candle) for candle in candles],
+    )
+
+
+def _candle_values(candle: MarketCandle) -> dict[str, object]:
+    return {
+        "id": candle.id,
+        "supported_market_id": candle.supported_market_id,
+        "timeframe": candle.timeframe,
+        "open_time": candle.open_time,
+        "close_time": candle.close_time,
+        "source_kind": candle.source_kind,
+        "status": candle.status,
+        "status_reason": candle.status_reason,
+        "revision": candle.revision,
+        "is_current": candle.is_current,
+        "supersedes_candle_id": candle.supersedes_candle_id,
+        "source_candle_count": candle.source_candle_count,
+        "expected_source_candle_count": candle.expected_source_candle_count,
+        "source_fingerprint": candle.source_fingerprint,
+        "open_price": candle.open_price,
+        "high_price": candle.high_price,
+        "low_price": candle.low_price,
+        "close_price": candle.close_price,
+        "base_volume": candle.base_volume,
+        "quote_volume": candle.quote_volume,
+        "trade_count": candle.trade_count,
+        "first_trade_id": candle.first_trade_id,
+        "last_trade_id": candle.last_trade_id,
+        "provider_event_time": candle.provider_event_time,
+        "provider_close_time": candle.provider_close_time,
+        "received_at": candle.received_at,
+    }
 
 
 async def _count_current_candles(

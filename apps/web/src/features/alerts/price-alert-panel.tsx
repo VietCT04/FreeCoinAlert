@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshCw } from "lucide-react";
 
 import { useAuth } from "../auth/auth-provider";
@@ -160,44 +160,45 @@ export function PriceAlertPanel() {
             <TabsTrigger key={filter.value} value={filter.value}>
               {filter.label}
             </TabsTrigger>
-          ))}
+            ))}
         </TabsList>
+        <TabsContent className="mt-6 space-y-4" value={statusFilter}>
+          {alerts.error && !isCreateDialogOpen ? (
+            <InlineError
+              message={alerts.error}
+              retryAction={
+                <InlineErrorRetryButton onRetry={() => void alerts.refreshAlerts()} />
+              }
+              title="Price alerts could not be loaded"
+            />
+          ) : null}
+
+          <section aria-labelledby="price-alert-collection-heading" className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold" id="price-alert-collection-heading">
+                {currentFilterLabel} alerts
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Server-confirmed alerts in the selected lifecycle view.
+              </p>
+            </div>
+            {alerts.isInitialLoading ? (
+              <div aria-busy="true" aria-label="Loading price alerts" role="status">
+                <Skeleton className="h-40 w-full" />
+              </div>
+            ) : (
+              <PriceAlertList
+                alerts={alerts.alerts}
+                filterLabel={currentFilterLabel}
+                isLoadingMore={alerts.isLoadingMore}
+                nextCursor={alerts.nextCursor}
+                onDelete={handleDelete}
+                onLoadMore={alerts.loadMore}
+              />
+            )}
+          </section>
+        </TabsContent>
       </Tabs>
-
-      {alerts.error && !isCreateDialogOpen ? (
-        <InlineError
-          message={alerts.error}
-          retryAction={
-            <InlineErrorRetryButton onRetry={() => void alerts.refreshAlerts()} />
-          }
-          title="Price alerts could not be loaded"
-        />
-      ) : null}
-
-      <section aria-labelledby="price-alert-collection-heading" className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold" id="price-alert-collection-heading">
-            {currentFilterLabel} alerts
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Server-confirmed alerts in the selected lifecycle view.
-          </p>
-        </div>
-        {alerts.isInitialLoading ? (
-          <div aria-busy="true" aria-label="Loading price alerts" role="status">
-            <Skeleton className="h-40 w-full" />
-          </div>
-        ) : (
-          <PriceAlertList
-            alerts={alerts.alerts}
-            filterLabel={currentFilterLabel}
-            isLoadingMore={alerts.isLoadingMore}
-            nextCursor={alerts.nextCursor}
-            onDelete={handleDelete}
-            onLoadMore={alerts.loadMore}
-          />
-        )}
-      </section>
     </div>
   );
 }

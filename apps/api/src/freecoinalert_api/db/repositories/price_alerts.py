@@ -319,6 +319,7 @@ async def mark_price_alert_deleted(
 
     alert.status = "deleted"
     alert.status_reason = "user_deleted"
+    alert.disabled_at = None
     alert.deleted_at = deleted_at
     await session.flush()
     return True

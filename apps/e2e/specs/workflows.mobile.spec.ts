@@ -40,7 +40,7 @@ test.describe("mobile authenticated workflows", () => {
     await alerts.fillTarget("101.000000");
     await alerts.submitCreate();
     await expect(connectedTelegramPage.getByRole("dialog", { name: "Create price alert" })).toBeHidden();
-    await expect(connectedTelegramPage.getByText("BTCUSDT", { exact: true }).first()).toBeVisible();
+    await expect(connectedTelegramPage.getByText(/BTCUSDT/).first()).toBeVisible();
     await expectNoPageOverflow(connectedTelegramPage);
   });
 
@@ -55,6 +55,8 @@ test.describe("mobile authenticated workflows", () => {
     await connectedTelegramPage.getByText("Technical details", { exact: true }).first().click();
     await expect(connectedTelegramPage.getByText("Preset code/version", { exact: true }).first()).toBeVisible();
     await connectedTelegramPage.getByRole("button", { name: "Subscribe", exact: true }).first().click();
+    await expect(connectedTelegramPage.getByText("Signal subscribed.", { exact: true })).toBeVisible();
+    await presets.chooseSubscription("Subscribed");
     await expect(connectedTelegramPage.getByRole("heading", { name: "Telegram delivery", exact: true })).toBeVisible();
     const deliverySwitch = connectedTelegramPage.getByRole("switch", { name: "Delivery preference", exact: true }).first();
     await deliverySwitch.click();
@@ -70,6 +72,7 @@ test.describe("mobile authenticated workflows", () => {
     newAuthenticatedPage,
   }) => {
     const telegram = new TelegramPage(newAuthenticatedPage);
+    await telegram.goto();
     const popup = await telegram.createLink();
     await expect(popup.getByText("E2E Telegram simulator", { exact: true })).toBeVisible();
     await popup.close();
@@ -81,10 +84,11 @@ test.describe("mobile authenticated workflows", () => {
     connectedTelegramPage,
     providerSimulator,
   }) => {
+    const telegramPanel = connectedTelegramPage.locator("#telegram-connection");
     await providerSimulator.queueTelegramOutcomes(["sent"]);
     const connectedTelegram = new TelegramPage(connectedTelegramPage);
     await connectedTelegram.sendTest();
-    await expect(connectedTelegramPage.getByText("Telegram accepted the test notification.", { exact: true })).toBeVisible();
+    await expect(telegramPanel.getByText("Telegram accepted the test notification.", { exact: true })).toBeVisible();
     await connectedTelegram.confirmDisconnect();
     await expect(connectedTelegramPage.getByText("Disconnected", { exact: true })).toBeVisible();
     await expectNoPageOverflow(connectedTelegramPage);

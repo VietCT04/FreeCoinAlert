@@ -53,8 +53,16 @@ test.describe("one-time price alerts", () => {
     providerSimulator,
   }) => {
     const idempotencyKey = "00000000-0000-4000-8000-000000000114";
-    await appApi.createPriceAlert({ idempotencyKey, targetPrice: "101.000001" });
-    await appApi.createPriceAlert({ idempotencyKey, targetPrice: "101.000001" });
+    await appApi.createPriceAlert({
+      idempotencyKey,
+      symbol: "BTCUSDT",
+      targetPrice: "101.000001",
+    });
+    await appApi.createPriceAlert({
+      idempotencyKey,
+      symbol: "BTCUSDT",
+      targetPrice: "101.000001",
+    });
     const replayed = (await appApi.listAlerts({ limit: 20 })) as { alerts: unknown[] };
     expect(replayed.alerts).toHaveLength(1);
 
@@ -62,14 +70,40 @@ test.describe("one-time price alerts", () => {
     await alerts.goto();
     await expect(connectedTelegramPage.getByText("Waiting for the first live price before evaluation.", { exact: true })).toBeVisible();
 
-    await providerSimulator.setPrice("BTCUSDT", "100.000000");
+    await expect
+      .poll(
+        async () => {
+          const result = await providerSimulator.setPrice("BTCUSDT", "100.000000");
+          if (result.published !== true) {
+            return false;
+          }
+          const response = await appApi.listAlerts({ limit: 20 });
+          const alerts = Array.isArray(response.alerts) ? response.alerts : [];
+          return (alerts[0] as { evaluationReady?: boolean } | undefined)?.evaluationReady === true;
+        },
+        { intervals: [250, 500, 1_000], timeout: 30_000 },
+      )
+      .toBe(true);
     await connectedTelegramPage.getByRole("button", { name: "Refresh", exact: true }).click();
     await expect(connectedTelegramPage.getByText("Monitoring live prices.", { exact: true })).toBeVisible();
 
-    await providerSimulator.setPrice("BTCUSDT", "102.000000");
+    await expect
+      .poll(
+        async () => {
+          const result = await providerSimulator.setPrice("BTCUSDT", "102.000000");
+          if (result.published !== true) {
+            return false;
+          }
+          const response = await appApi.listAlerts({ limit: 20 });
+          const alerts = Array.isArray(response.alerts) ? response.alerts : [];
+          return (alerts[0] as { status?: string } | undefined)?.status === "triggered";
+        },
+        { intervals: [250, 500, 1_000], timeout: 30_000 },
+      )
+      .toBe(true);
     await connectedTelegramPage.getByRole("button", { name: "Refresh", exact: true }).click();
     await expect(connectedTelegramPage.getByText("Triggered", { exact: true })).toBeVisible();
-    await expect(connectedTelegramPage.getByText("Telegram notification queued.", { exact: true })).toBeVisible();
+    await expect(connectedTelegramPage.getByText("Telegram accepted the notification.", { exact: false })).toBeVisible();
   });
 
   test("handles market-data warnings and terminal deletion rules", async ({
@@ -154,7 +188,7 @@ test.describe("one-time price alerts", () => {
     await connectedTelegramPage.getByRole("alertdialog").getByRole("button", { name: "Delete alert", exact: true }).click();
     await expect(connectedTelegramPage.getByRole("alertdialog")).toBeHidden();
 
-    const remaining = (await appApi.listAlerts({ limit: 100, status: "disabled" })) as {
+    const remaining = (await appApi.listAlerts({ limit: 50, status: "disabled" })) as {
       alerts: unknown[];
     };
     expect(remaining.alerts.length).toBeGreaterThan(0);

@@ -89,4 +89,4 @@ Futures, other exchanges, arbitrary symbols, raw-trade history, synthetic missin
 
 ## Verification Status
 
-The maintainer-requested local startup pass exercised Binance catalogue synchronization, REST candle bootstrap, and market-stream startup. Gap repair, correction/reconnect behavior, retention, and production behavior remain unverified.
+The maintainer-requested local startup pass exercised Binance catalogue synchronization, REST candle bootstrap, and market-stream startup; the latest full isolated E2E pass exercised the simulator-backed catalogue, canonical seed, market stream, and disconnect/reconnect selection paths. Binance gap repair, correction behavior, retention, and production behavior remain unverified.

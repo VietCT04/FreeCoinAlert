@@ -8,7 +8,7 @@ export class TelegramPage {
   }
 
   async refresh(): Promise<void> {
-    await this.page.getByRole("button", { name: "Refresh status", exact: true }).click();
+    await this.page.getByRole("button", { name: "Refresh status", exact: true }).first().click();
   }
 
   async createLink(): Promise<Page> {

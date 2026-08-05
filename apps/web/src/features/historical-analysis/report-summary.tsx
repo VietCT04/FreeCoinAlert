@@ -138,20 +138,20 @@ function FingerprintDetail({
   return (
     <div className="space-y-2">
       <dt className="font-medium">{label}</dt>
-      <div className="flex flex-wrap items-center gap-2">
-        <dd className="break-all text-muted-foreground">
+      <dd className="break-all text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2">
           <span aria-hidden="true">{formatFingerprint(value)}</span>
           <span className="sr-only">{value}</span>
-        </dd>
-        <Button
-          onClick={() => void copyFingerprint()}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          {isCopied ? "Copied" : "Copy fingerprint"}
-        </Button>
-      </div>
+          <Button
+            onClick={() => void copyFingerprint()}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {isCopied ? "Copied" : "Copy fingerprint"}
+          </Button>
+        </div>
+      </dd>
     </div>
   );
 }

@@ -9,7 +9,7 @@ async function selectRun(page: import("@playwright/test").Page, symbol: string) 
   const run = page.getByRole("button").filter({ hasText: symbol }).first();
   await expect(run).toBeVisible();
   await run.click();
-  await expect(page.getByRole("heading", { name: "Run status", exact: true })).toBeVisible();
+  await expect(page.getByText("Run status", { exact: true })).toBeVisible();
 }
 
 test.describe("historical analysis cancellation checkpoints", () => {

@@ -74,7 +74,7 @@ The authenticated browser section presents one-time price alerts as status-filte
 
 The browser merges feed entries by immutable signal-event ID, updates invalidations on the existing entry, orders by occurrence time then event ID, and bounds recent SSE sequence deduplication to 2,000 entries in memory. Feed events and sequences are never stored in browser persistence.
 
-The repository-owned browser journeys cover alert creation readiness, validation, idempotency, live evaluation states, provider-data warnings, owner-scoped filtering, pagination, and confirmed deletion through the real API and provider simulator. The exact route/action status is recorded in [E2E_COVERAGE.md](E2E_COVERAGE.md); these journeys are Implemented but Unverified.
+The repository-owned browser journeys cover alert creation readiness, validation, idempotency, live evaluation states, provider-data warnings, owner-scoped filtering, pagination, and confirmed deletion through the real API and provider simulator. The exact route/action status is recorded in [E2E_COVERAGE.md](E2E_COVERAGE.md); these journeys are Implemented and Verified through the latest full isolated E2E pass.
 
 ## Current Limits
 
@@ -91,4 +91,4 @@ Custom alerts, recurring indicator alerts, arbitrary periods, multi-condition ru
 
 ## Verification Status
 
-The lifecycle and evaluator code were inspected statically. Live crossings, restart/catch-up, correction rebuild, and delivery behavior are unverified.
+The lifecycle and evaluator code were inspected statically, and the covered live crossings, provider warnings, and delivery-queued browser paths passed in the isolated E2E suite. Restart/catch-up, correction rebuild, and production delivery behavior remain unverified.

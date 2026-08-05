@@ -60,7 +60,7 @@ async def register(
         validate_authentication_origin(request, settings)
         await authentication_rate_limiter.consume(
             registration_ip_key(get_client_ip(request)),
-            limit=5,
+            limit=100 if settings.e2e_test_mode else 5,
         )
         email, email_normalized = normalize_email(authentication_request.email)
         validate_password(authentication_request.password)

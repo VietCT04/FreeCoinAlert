@@ -73,4 +73,4 @@ The isolated E2E historical manifest pins each worker scenario to an existing pr
 
 ## Verification Status
 
-Implementations were inspected statically. Numeric equivalence, incremental execution, and historical/live runs are unverified.
+Implementations were inspected statically, and the named fixed-preset historical scenarios passed through the real worker in the isolated E2E suite. Numeric equivalence, incremental execution, and production historical/live runs remain unverified.

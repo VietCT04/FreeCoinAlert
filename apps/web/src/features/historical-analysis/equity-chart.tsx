@@ -126,12 +126,12 @@ export function EquityChart({
         <figure aria-labelledby="historical-analysis-equity-chart-title" className="space-y-3">
           <div className="min-h-[260px] w-full rounded-xl border bg-card p-2 sm:p-4">
             <ChartContainer
-              aria-label="Hypothetical equity progression chart"
+              aria-hidden="true"
               className="min-h-[260px] w-full aspect-auto"
               config={chartConfig}
             >
               <LineChart
-                accessibilityLayer
+                accessibilityLayer={false}
                 data={plotPoints}
                 margin={{ bottom: 8, left: 4, right: 12, top: 8 }}
               >

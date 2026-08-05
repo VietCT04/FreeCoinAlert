@@ -1,5 +1,6 @@
 import { AuthPage } from "../pages/auth.page";
 import { expect, test } from "../fixtures/test";
+import { E2E_API_ORIGIN, E2E_WEB_ORIGIN } from "../support/urls";
 
 test.describe("authentication", () => {
   test("redirects anonymous users from every protected dashboard route", async ({ newAnonymousPage }) => {
@@ -91,17 +92,13 @@ test.describe("authentication", () => {
     await expect(newAuthenticatedPage.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
 
     const secondRequest = await playwright.request.newContext({
-      baseURL: "http://api:8000",
-      extraHTTPHeaders: { Origin: "http://web:3000" },
+      baseURL: E2E_API_ORIGIN,
+      extraHTTPHeaders: { Origin: E2E_WEB_ORIGIN },
+      storageState: await authenticatedSession.context.storageState(),
     });
     try {
-      const loginResponse = await secondRequest.post("/auth/login", {
-        data: { email: testUser.email, password: testUser.password },
-      });
-      expect(loginResponse.ok()).toBeTruthy();
-      const loginPayload = (await loginResponse.json()) as { csrfToken: string };
       const logoutResponse = await secondRequest.post("/auth/logout", {
-        headers: { "X-CSRF-Token": loginPayload.csrfToken },
+        headers: { "X-CSRF-Token": authenticatedSession.csrfToken },
       });
       expect(logoutResponse.status()).toBe(204);
     } finally {

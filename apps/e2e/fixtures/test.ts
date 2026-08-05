@@ -12,9 +12,10 @@ import {
   type AccessibilityResult,
 } from "../support/accessibility";
 import { E2EControl } from "../support/e2e-control";
-import { ProviderControl } from "../support/provider-control";
+import { ProviderControl, telegramChatIdForUser } from "../support/provider-control";
 import { createTestUser, type TestUser } from "./users";
 import { waitForBusinessState, waitForPath } from "../support/waits";
+import { E2E_API_ORIGIN, E2E_WEB_ORIGIN } from "../support/urls";
 
 type WaitHelpers = {
   forBusinessState: (text: string) => Promise<void>;
@@ -49,8 +50,8 @@ export const test = base.extend<E2EFixtures>({
   },
   appApi: async ({ playwright }, use) => {
     const request = await playwright.request.newContext({
-      baseURL: "http://api:8000",
-      extraHTTPHeaders: { Origin: "http://web:3000" },
+      baseURL: E2E_API_ORIGIN,
+      extraHTTPHeaders: { Origin: E2E_WEB_ORIGIN },
     });
     await use(new AppApi(request));
     await request.dispose();
@@ -106,7 +107,10 @@ export const test = base.extend<E2EFixtures>({
     await authPage.register(testUser);
     await use(page);
   },
-  connectedTelegramPage: async ({ newAuthenticatedPage, providerSimulator }, use) => {
+  connectedTelegramPage: async (
+    { authenticatedSession, newAuthenticatedPage, providerSimulator },
+    use,
+  ) => {
     await newAuthenticatedPage.goto("/telegram");
 
     const popupPromise = newAuthenticatedPage.waitForEvent("popup");
@@ -116,10 +120,18 @@ export const test = base.extend<E2EFixtures>({
     const popup = await popupPromise;
     await popup.waitForLoadState("domcontentloaded");
     await expect(popup.getByText("E2E Telegram simulator", { exact: true })).toBeVisible();
+    const token = new URL(popup.url()).searchParams.get("start");
+    if (!token) {
+      throw new Error("The E2E Telegram deep link did not contain a start token.");
+    }
     await popup.close();
+    await providerSimulator.queueTelegramStart(
+      token,
+      telegramChatIdForUser(authenticatedSession.userId),
+    );
 
     await expect(
-      newAuthenticatedPage.getByText("Connected", { exact: true }),
+      newAuthenticatedPage.getByText("Connected", { exact: true }).first(),
     ).toBeVisible();
     await use(newAuthenticatedPage);
     await providerSimulator.reset();

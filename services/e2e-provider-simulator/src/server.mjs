@@ -117,7 +117,8 @@ async function routeControl(request, response, requestUrl) {
     state.telegramOutcomes = normalizeOutcomes(body.outcomes || []);
     state.telegramMessages = [];
     state.browserVisits = [];
-    state.nextUpdateId = 1;
+    // Telegram update IDs are monotonic for the lifetime of a bot. Keep the
+    // counter across fixture resets so the real poller's offset remains valid.
     state.nextMessageId = 1;
     state.unavailableSymbols = new Set(normalizeSymbols(body.unavailableSymbols));
     state.workerGates.clear();
@@ -215,7 +216,7 @@ async function routeBinance(request, response, requestUrl) {
     }
     const rows = [];
     for (let openTime = startTime - (startTime % 60_000); openTime < endTime && rows.length < limit; openTime += 60_000) {
-      rows.push(binanceKline(symbol, openTime));
+      rows.push(binanceKlineRow(binanceKline(symbol, openTime)));
     }
     sendJson(response, 200, rows);
     return;
@@ -224,7 +225,7 @@ async function routeBinance(request, response, requestUrl) {
 }
 
 async function routeTelegramApi(request, response, requestUrl) {
-  if (request.method !== "POST") {
+  if (request.method !== "POST" && request.method !== "GET") {
     sendJson(response, 405, { ok: false, description: "method_not_allowed" });
     return;
   }
@@ -236,7 +237,13 @@ async function routeTelegramApi(request, response, requestUrl) {
     });
     return;
   }
-  const body = await readJson(request);
+  if (method === "deleteWebhook") {
+    sendJson(response, 200, { ok: true, result: true });
+    return;
+  }
+  const body = request.method === "GET"
+    ? Object.fromEntries(requestUrl.searchParams)
+    : await readJson(request);
   if (method === "getUpdates") {
     await handleGetUpdates(request, response, body);
     return;
@@ -256,9 +263,6 @@ async function routeTelegramStart(request, response, requestUrl) {
     username,
     token,
   });
-  if (token) {
-    queueTelegramUpdate(createStartUpdate({ token }));
-  }
   const html = "<!doctype html><html><body><p>E2E Telegram simulator</p></body></html>";
   response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
   response.end(html);
@@ -298,7 +302,11 @@ function handleSendMessage(request, response, body) {
     return;
   }
   if (outcome === "temporary_failure") {
-    sendJson(response, 500, { ok: false, error_code: 500, description: "temporary_failure" });
+    sendJson(response, 500, {
+      ok: false,
+      error_code: 500,
+      description: "Internal Server Error (500)",
+    });
     return;
   }
   if (outcome === "permanent_failure") {
@@ -404,6 +412,23 @@ function binanceKline(symbol, openTime, override = {}) {
     lastTradeId: Number.isInteger(override.lastTradeId) ? override.lastTradeId : 1,
     closed: override.closed !== false,
   };
+}
+
+function binanceKlineRow(kline) {
+  return [
+    kline.openTime,
+    kline.openPrice,
+    kline.highPrice,
+    kline.lowPrice,
+    kline.closePrice,
+    kline.baseVolume,
+    kline.closeTime,
+    kline.quoteVolume,
+    kline.tradeCount,
+    kline.firstTradeId,
+    kline.lastTradeId,
+    "0",
+  ];
 }
 
 function klineToEvent(symbol, kline) {
@@ -525,7 +550,10 @@ function simulatorTimeMs() {
 }
 
 function nextEventTime() {
-  state.eventTimeMs += 1;
+  // The API validates live provider events against wall-clock freshness. Keep
+  // the event sequence monotonic while ensuring simulated live events are not
+  // rejected as stale when the E2E scenario clock is intentionally fixed.
+  state.eventTimeMs = Math.max(state.eventTimeMs + 1, Date.now() - 1_000);
   return state.eventTimeMs;
 }
 
@@ -542,8 +570,13 @@ async function readJson(request) {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
   if (!chunks.length) return {};
-  const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-  return parsed && typeof parsed === "object" ? parsed : {};
+  const rawBody = Buffer.concat(chunks).toString("utf8");
+  try {
+    const parsed = JSON.parse(rawBody);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return Object.fromEntries(new URLSearchParams(rawBody));
+  }
 }
 
 function sendJson(response, status, payload) {

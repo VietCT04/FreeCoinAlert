@@ -86,7 +86,9 @@ services:
 
   api:
     networks:
-      - e2e_network
+      e2e_network:
+        aliases:
+          - api.freecoinalert.test
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -94,14 +96,23 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *e2e_api_environment
-      WEB_ORIGIN: http://web:3000
+      WEB_ORIGIN: ${E2E_WEB_ORIGIN}
 
   web:
     networks:
-      - e2e_network
+      e2e_network:
+        aliases:
+          - web.freecoinalert.test
     environment:
       NEXT_TELEMETRY_DISABLED: "1"
-      NEXT_PUBLIC_API_BASE_URL: http://api:8000
+      NEXT_PUBLIC_API_BASE_URL: ${E2E_API_ORIGIN}
+    volumes:
+      - web_next:/workspace/apps/web/.next
+    healthcheck:
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 300s
 
   market-stream:
     networks:
@@ -213,6 +224,8 @@ services:
     environment:
       E2E_CONTROL_TOKEN: ${E2E_CONTROL_TOKEN}
       E2E_RUN_ID: ${E2E_RUN_ID:-compose-run}
+      E2E_API_ORIGIN: ${E2E_API_ORIGIN}
+      E2E_WEB_ORIGIN: ${E2E_WEB_ORIGIN}
       E2E_ARTIFACT_DIR: /artifacts/e2e
     init: true
     ipc: host
@@ -236,6 +249,8 @@ volumes:
     name: freecoinalert-e2e-root-node-modules
   web_node_modules:
     name: freecoinalert-e2e-web-node-modules
+  web_next:
+    name: freecoinalert-e2e-web-next
   api_venv:
     name: freecoinalert-e2e-api-venv
   e2e_state:

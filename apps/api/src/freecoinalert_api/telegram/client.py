@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -106,8 +107,15 @@ class TelegramBotClient:
             return TelegramDeliveryResult(TelegramDeliveryOutcome.PERMANENT_FAILURE)
         except InvalidToken:
             return TelegramDeliveryResult(TelegramDeliveryOutcome.NOT_CONFIGURED)
-        except (NetworkError, TimedOut):
+        except TimedOut:
             return TelegramDeliveryResult(TelegramDeliveryOutcome.UNCERTAIN)
+        except NetworkError as error:
+            outcome = (
+                TelegramDeliveryOutcome.TEMPORARY_FAILURE
+                if _is_http_server_failure(error)
+                else TelegramDeliveryOutcome.UNCERTAIN
+            )
+            return TelegramDeliveryResult(outcome)
         except TelegramError:
             return TelegramDeliveryResult(TelegramDeliveryOutcome.TEMPORARY_FAILURE)
 
@@ -115,3 +123,7 @@ class TelegramBotClient:
             TelegramDeliveryOutcome.SENT,
             provider_message_id=message.message_id,
         )
+
+
+def _is_http_server_failure(error: NetworkError) -> bool:
+    return re.search(r"\(5\d{2}\)", str(error)) is not None

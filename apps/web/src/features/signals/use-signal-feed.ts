@@ -112,7 +112,7 @@ export function useSignalFeed({
     setError(null);
 
     try {
-      const response = await getSignalFeed();
+      const response = await getSignalFeed({ status: "all" });
       replaceEvents(response.events);
       setNextCursor(response.nextCursor);
       setStreamCursor(response.streamCursor);
@@ -143,7 +143,7 @@ export function useSignalFeed({
     setError(null);
 
     try {
-      const response = await getSignalFeed({ cursor: nextCursor });
+      const response = await getSignalFeed({ cursor: nextCursor, status: "all" });
       replaceEvents(response.events);
       setNextCursor(response.nextCursor);
       setIsStale(false);

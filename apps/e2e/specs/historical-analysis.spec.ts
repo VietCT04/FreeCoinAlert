@@ -16,7 +16,7 @@ async function selectScenarioRun(page: import("@playwright/test").Page, symbol: 
   const run = page.getByRole("button").filter({ hasText: symbol }).first();
   await expect(run).toBeVisible();
   await run.click();
-  await expect(page.getByRole("heading", { name: "Run status", exact: true })).toBeVisible();
+  await expect(page.getByText("Run status", { exact: true })).toBeVisible();
 }
 
 async function createScenario(
@@ -48,7 +48,7 @@ test.describe("historical analysis configuration and reports", () => {
     await e2eControl.gateHistoricalWorkerBeforeClaim();
     await newAuthenticatedPage.goto("/historical-analysis");
     await expect(
-      newAuthenticatedPage.getByRole("heading", { name: "Configure analysis", exact: true }),
+      newAuthenticatedPage.getByRole("region", { name: "Configure analysis", exact: true }),
     ).toBeVisible();
     await expect(newAuthenticatedPage.getByText("These values are controlled by the server", { exact: false })).toBeVisible();
     const configuration = await appApi.getHistoricalConfiguration();
@@ -70,12 +70,12 @@ test.describe("historical analysis configuration and reports", () => {
     const review = newAuthenticatedPage.getByRole("button", { name: "Review analysis", exact: true });
 
     await start.fill("2026-07-20");
-    await end.fill("2026-07-19");
+    await end.fill("2026-07-20");
     await review.click();
-    await expect(newAuthenticatedPage.getByText("The UTC start date must be on or before the end date.", { exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByText("Choose at least 7 complete UTC days.", { exact: true })).toBeVisible();
 
     await start.fill("2026-07-01");
-    await end.fill("2026-08-04");
+    await end.fill("2026-08-05");
     await review.click();
     await expect(newAuthenticatedPage.getByText("The UTC end date must be a completed day", { exact: false })).toBeVisible();
 
@@ -165,10 +165,10 @@ test.describe("historical analysis configuration and reports", () => {
       expect((runResponse.run as { status: string }).status).toBe("succeeded");
       expect(normalizeUtc(report.analysisStart)).toBe(manifest.analysisStart);
       expect(normalizeUtc(report.analysisEnd)).toBe(manifest.analysisEnd);
-      expect(normalizeUtc(String(report.coverage.analysis_start))).toBe(
+      expect(normalizeUtc(String(report.coverage.analysisStart))).toBe(
         manifest.analysisStart,
       );
-      expect(normalizeUtc(String(report.coverage.analysis_end))).toBe(
+      expect(normalizeUtc(String(report.coverage.analysisEnd))).toBe(
         manifest.analysisEnd,
       );
       expect(report.summary.initialEquity).toBe(manifest.expected.initialEquity);
@@ -209,14 +209,19 @@ test.describe("historical analysis configuration and reports", () => {
       }
       expect(report.datasetFingerprint).toMatch(/^[a-f0-9]{64}$/);
       expect(report.resultFingerprint).toMatch(/^[a-f0-9]{64}$/);
-      expect(report.assumptions.signal_timing).toBe("confirmed_candle_close");
-      expect(report.assumptions.entry_timing).toBe("next_candle_open");
+      expect(report.assumptions.signalTiming).toBe("confirmed_candle_close");
+      expect(report.assumptions.entryTiming).toBe("next_candle_open");
       expect(report.safetyDisclosures.length).toBeGreaterThan(0);
 
       await newAuthenticatedPage.goto("/historical-analysis");
-      await expect(newAuthenticatedPage.getByRole("heading", { name: "Configure analysis", exact: true })).toBeVisible();
+      await expect(newAuthenticatedPage.getByRole("region", { name: "Configure analysis", exact: true })).toBeVisible();
       await selectScenarioRun(newAuthenticatedPage, manifest.symbol);
-      await expect(newAuthenticatedPage.getByText("Historical hypothetical simulation", { exact: true })).toBeVisible();
+      await expect(
+        newAuthenticatedPage.getByRole("region", {
+          name: "Historical hypothetical simulation",
+          exact: true,
+        }),
+      ).toBeVisible();
       for (const label of [
         "Net return",
         "Maximum drawdown",
@@ -228,9 +233,16 @@ test.describe("historical analysis configuration and reports", () => {
         await expect(newAuthenticatedPage.getByText(label, { exact: true }).first()).toBeVisible();
       }
       await newAuthenticatedPage.getByRole("tab", { name: "Methodology", exact: true }).click();
-      await newAuthenticatedPage.getByText("View stored data coverage", { exact: true }).click();
-      await expect(newAuthenticatedPage.getByText("Dataset fingerprint", { exact: true })).toBeVisible();
-      await expect(newAuthenticatedPage.getByText("UTC", { exact: false }).first()).toBeVisible();
+      const visibleReportPanel = newAuthenticatedPage.locator(
+        '[data-slot="tabs-content"][data-state="active"]',
+      );
+      await visibleReportPanel
+        .getByText("View dataset and result fingerprints", { exact: true })
+        .click();
+      await expect(
+        visibleReportPanel.getByText("Dataset fingerprint", { exact: true }),
+      ).toBeVisible();
+      await expect(visibleReportPanel.getByText("UTC", { exact: false }).first()).toBeVisible();
     });
   }
 
@@ -303,14 +315,24 @@ test.describe("historical analysis configuration and reports", () => {
     await newAuthenticatedPage.goto("/historical-analysis");
     await selectScenarioRun(newAuthenticatedPage, manifest.symbol);
     await newAuthenticatedPage.getByRole("tab", { name: "Hypothetical trades", exact: true }).click();
-    await expect(newAuthenticatedPage.getByText("Immutable hypothetical trades, ordered by sequence.", { exact: false })).toBeVisible();
-    const loadTrades = newAuthenticatedPage.getByRole("button", { name: "Load more trades", exact: true });
+    const activeReportPanel = newAuthenticatedPage.locator(
+      '[data-slot="tabs-content"][data-state="active"]',
+    );
+    await expect(
+      activeReportPanel.getByText("Immutable hypothetical trades, ordered by sequence.", { exact: false }).first(),
+    ).toBeVisible();
+    const loadTrades = activeReportPanel.getByRole("button", { name: "Load more trades", exact: true });
     if (await loadTrades.isVisible()) {
       await loadTrades.click();
     }
     await newAuthenticatedPage.getByRole("tab", { name: "Equity data", exact: true }).click();
-    await expect(newAuthenticatedPage.getByText("Detailed immutable hypothetical equity points", { exact: false })).toBeVisible();
-    const loadEquity = newAuthenticatedPage.getByRole("button", { name: "Load more equity data", exact: true });
+    const activeEquityPanel = newAuthenticatedPage.locator(
+      '[data-slot="tabs-content"][data-state="active"]',
+    );
+    await expect(
+      activeEquityPanel.getByText("Detailed immutable hypothetical equity points", { exact: false }).first(),
+    ).toBeVisible();
+    const loadEquity = activeEquityPanel.getByRole("button", { name: "Load more equity data", exact: true });
     if (await loadEquity.isVisible()) {
       await loadEquity.click();
     }

@@ -2,7 +2,7 @@
 
 ## Current Availability
 
-The authenticated owner-scoped historical-analysis run API, canonical dataset-manifest persistence, bounded worker, immutable report persistence, pure deterministic fixed-preset simulation engine, and authenticated browser request/lifecycle/report flow are Implemented but Unverified. The API stores a bounded request snapshot and lifecycle metadata for queued, running, succeeded, failed, or cancelled work. The separate database worker validates canonical coverage, runs the pure engine from immutable snapshots without contacting Binance, and publishes one immutable report plus trades and equity points per successful run. The browser selects only server-returned markets and fixed preset versions, displays server-controlled assumptions, polls visible selected work, and presents only server-provided report data.
+The authenticated owner-scoped historical-analysis run API, canonical dataset-manifest persistence, bounded worker, immutable report persistence, pure deterministic fixed-preset simulation engine, and authenticated browser request/lifecycle/report flow are Implemented. The covered API, worker, and browser scenarios are Verified through the latest full isolated E2E pass; production-provider and broader runtime behavior remain separately scoped. The API stores a bounded request snapshot and lifecycle metadata for queued, running, succeeded, failed, or cancelled work. The separate database worker validates canonical coverage, runs the pure engine from immutable snapshots without contacting Binance, and publishes one immutable report plus trades and equity points per successful run. The browser selects only server-returned markets and fixed preset versions, displays server-controlled assumptions, polls visible selected work, and presents only server-provided report data.
 
 ## Current Run Contract
 
@@ -58,4 +58,4 @@ The browser formats server-provided decimal strings and timestamps for display, 
 
 ## Explicitly Not Implemented
 
-Optimizers, comparison, exports, public sharing, customer-specific Binance queries, automated trading, and profitability claims are not implemented. The worker, owner-scoped report APIs, and browser presentation are implemented but unverified. Scheduled cleanup, custom strategies/assumptions, and provider-backed historical analysis remain unsupported or out of scope; active runs are never deleted automatically.
+Optimizers, comparison, exports, public sharing, customer-specific Binance queries, automated trading, and profitability claims are not implemented. The worker, owner-scoped report APIs, and covered browser presentation are implemented and verified through the isolated E2E scenarios. Scheduled cleanup, custom strategies/assumptions, and provider-backed historical analysis remain unsupported or out of scope; active runs are never deleted automatically.

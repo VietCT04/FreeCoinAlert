@@ -316,7 +316,7 @@ export class AppApi {
 
   private async read<T>(
     response: { ok(): boolean; status(): number; json(): Promise<unknown> },
-    ...expected: number[],
+    ...expected: number[]
   ): Promise<T> {
     if (!response.ok() || !expected.includes(response.status())) {
       throw new Error("The E2E application API request failed.");

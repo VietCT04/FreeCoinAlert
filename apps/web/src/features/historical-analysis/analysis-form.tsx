@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { InlineError } from "@/components/inline-error";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { createIdempotencyKey } from "@/lib/idempotency";
 import {
   Card,
   CardContent,
@@ -265,7 +266,7 @@ export function AnalysisForm({
       analysis_start: range.analysisStart,
       analysis_end: range.analysisEnd,
     };
-    const key = idempotencyKey.current ?? globalThis.crypto.randomUUID();
+    const key = idempotencyKey.current ?? createIdempotencyKey();
     idempotencyKey.current = key;
     setFormError(null);
 
@@ -381,43 +382,45 @@ export function AnalysisForm({
                 <CardHeader>
                   <CardTitle className="text-sm">Selected preset</CardTitle>
                 </CardHeader>
-                <CardContent className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                  <div>
-                    <dt className="font-medium">Direction</dt>
-                    <dd className="text-muted-foreground">
-                      {formatDirection(selectedPreset.direction)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium">Strategy type</dt>
-                    <dd className="text-muted-foreground">
-                      {formatStrategyType(selectedPreset.strategyType)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium">Timeframe</dt>
-                    <dd className="text-muted-foreground">
-                      {formatTimeframe(selectedPreset.timeframe)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium">Fixed period</dt>
-                    <dd className="text-muted-foreground">
-                      {selectedPreset.parameters.period}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium">Threshold</dt>
-                    <dd className="text-muted-foreground">
-                      {selectedPreset.parameters.threshold ?? "None"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium">Version</dt>
-                    <dd className="text-muted-foreground">
-                      v{selectedPreset.version}
-                    </dd>
-                  </div>
+                <CardContent>
+                  <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                    <div>
+                      <dt className="font-medium">Direction</dt>
+                      <dd className="text-muted-foreground">
+                        {formatDirection(selectedPreset.direction)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium">Strategy type</dt>
+                      <dd className="text-muted-foreground">
+                        {formatStrategyType(selectedPreset.strategyType)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium">Timeframe</dt>
+                      <dd className="text-muted-foreground">
+                        {formatTimeframe(selectedPreset.timeframe)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium">Fixed period</dt>
+                      <dd className="text-muted-foreground">
+                        {selectedPreset.parameters.period}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium">Threshold</dt>
+                      <dd className="text-muted-foreground">
+                        {selectedPreset.parameters.threshold ?? "None"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium">Version</dt>
+                      <dd className="text-muted-foreground">
+                        v{selectedPreset.version}
+                      </dd>
+                    </div>
+                  </dl>
                 </CardContent>
               </Card>
             ) : null}
