@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 import { join } from "node:path";
 
+import { E2E_WEB_ORIGIN } from "./support/urls";
+
 const artifactDirectory = process.env.E2E_ARTIFACT_DIR || "/artifacts/e2e";
 
 export default defineConfig({
@@ -21,7 +23,7 @@ export default defineConfig({
   ],
   outputDir: join(artifactDirectory, "test-results"),
   use: {
-    baseURL: "http://web:3000",
+    baseURL: E2E_WEB_ORIGIN,
     timezoneId: "UTC",
     locale: "en-US",
     screenshot: "only-on-failure",

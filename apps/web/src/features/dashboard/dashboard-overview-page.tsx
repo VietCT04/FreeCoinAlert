@@ -223,7 +223,7 @@ export function DashboardOverviewPage() {
               disabled={overview.isRefreshing}
               onClick={() => void overview.refresh()}
               type="button"
-              variant="ghost"
+              variant="secondary"
             >
               <RefreshCw aria-hidden="true" />
               {overview.isRefreshing ? "Refreshing…" : "Refresh"}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { createIdempotencyKey } from "@/lib/idempotency";
 import type { AuthStatus } from "../auth/types";
 import { getTelegramConnection } from "../telegram/api";
 import type { TelegramConnection } from "../telegram/types";
@@ -172,7 +173,7 @@ export function usePriceAlerts({
       createKey.current = null;
       createRequestFingerprint.current = requestFingerprint;
     }
-    createKey.current ??= crypto.randomUUID();
+    createKey.current ??= createIdempotencyKey();
     try {
       const response = await createPriceAlert(csrfToken, createKey.current, request);
       if (statusFilter === "all" || statusFilter === "active") {

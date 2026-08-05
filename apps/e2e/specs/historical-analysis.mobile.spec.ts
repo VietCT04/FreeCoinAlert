@@ -6,10 +6,13 @@ test.describe.configure({ mode: "serial" });
 test.setTimeout(120_000);
 
 async function selectRun(page: import("@playwright/test").Page, symbol: string) {
-  const run = page.getByRole("button").filter({ hasText: symbol }).first();
+  await page.getByRole("button", { name: "View previous analyses", exact: true }).click();
+  const sheet = page.getByRole("dialog", { name: "Previous analyses", exact: true });
+  await expect(sheet).toBeVisible();
+  const run = sheet.getByRole("button").filter({ hasText: symbol }).first();
   await expect(run).toBeVisible();
   await run.click();
-  await expect(page.getByRole("heading", { name: "Run status", exact: true })).toBeVisible();
+  await expect(page.getByText("Run status", { exact: true })).toBeVisible();
 }
 
 test.describe("mobile historical analysis", () => {
@@ -21,7 +24,7 @@ test.describe("mobile historical analysis", () => {
     newAuthenticatedPage,
   }) => {
     await newAuthenticatedPage.goto("/historical-analysis");
-    await expect(newAuthenticatedPage.getByRole("heading", { name: "Configure analysis", exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByRole("region", { name: "Configure analysis", exact: true })).toBeVisible();
     await newAuthenticatedPage.locator("#historical-analysis-market").click();
     await newAuthenticatedPage.getByRole("option", { name: /BTCUSDT/ }).click();
     await newAuthenticatedPage.locator("#historical-analysis-preset").click();
@@ -86,15 +89,24 @@ test.describe("mobile historical analysis", () => {
     const sheet = newAuthenticatedPage.getByRole("dialog", { name: "Previous analyses" });
     await expect(sheet).toBeVisible();
     await sheet.getByRole("button").filter({ hasText: scenario.symbol }).first().click();
-    await expect(newAuthenticatedPage.getByText("Historical hypothetical simulation", { exact: true })).toBeVisible();
+    await expect(
+      newAuthenticatedPage.getByRole("region", {
+        name: "Historical hypothetical simulation",
+        exact: true,
+      }),
+    ).toBeVisible();
     await newAuthenticatedPage.getByRole("tab", { name: "Hypothetical trades", exact: true }).click();
-    await expect(newAuthenticatedPage.getByText("Immutable hypothetical trades", { exact: false })).toBeVisible();
+    await expect(
+      newAuthenticatedPage.getByRole("table", { name: /Immutable hypothetical trades/ }),
+    ).toBeVisible();
     const trades = newAuthenticatedPage.getByRole("button", { name: "Load more trades", exact: true });
     if (await trades.isVisible()) {
       await trades.click();
     }
     await newAuthenticatedPage.getByRole("tab", { name: "Equity data", exact: true }).click();
-    await expect(newAuthenticatedPage.getByText("Detailed immutable hypothetical equity points", { exact: false })).toBeVisible();
+    await expect(
+      newAuthenticatedPage.getByRole("table", { name: /Detailed immutable hypothetical equity points/ }),
+    ).toBeVisible();
     const equity = newAuthenticatedPage.getByRole("button", { name: "Load more equity data", exact: true });
     if (await equity.isVisible()) {
       await equity.click();

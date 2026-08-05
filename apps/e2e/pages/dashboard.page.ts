@@ -8,7 +8,10 @@ export class DashboardPage {
   }
 
   routeLink(label: string): Locator {
-    return this.page.getByRole("link", { name: label, exact: true });
+    return this.page.locator('[data-sidebar="sidebar"]').getByRole("link", {
+      name: label,
+      exact: true,
+    });
   }
 
   navigationLinks(): Locator {

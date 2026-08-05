@@ -573,7 +573,7 @@ async function startStack() {
       "--detach",
       "--wait",
       "--wait-timeout",
-      "300",
+      "900",
       ...REQUIRED_SERVICES,
     ),
   );

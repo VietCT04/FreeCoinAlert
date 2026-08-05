@@ -47,7 +47,9 @@ test.describe("mobile dashboard shell", () => {
     );
     expect(hasHorizontalOverflow).toBeFalsy();
 
-    const accessibility = await checkAccessibility("mobile-dashboard-shell");
+    await expect(newAuthenticatedPage.getByRole("dialog", { name: "Sidebar", exact: true })).toBeHidden();
+    await expect(newAuthenticatedPage.locator('[data-slot="sheet-overlay"]')).toBeHidden();
+    const accessibility = await checkAccessibility("mobile-dashboard-shell", newAuthenticatedPage);
     expect(accessibility.violations).toEqual([]);
   });
 
@@ -60,7 +62,10 @@ test.describe("mobile dashboard shell", () => {
     const drawer = newAuthenticatedPage.getByRole("dialog", { name: "Sidebar", exact: true });
     await expect(drawer.getByRole("link", { name: "Price Alerts", exact: true })).toHaveAttribute("aria-current", "page");
 
-    await newAuthenticatedPage.locator("main#dashboard-main").click({ position: { x: 8, y: 8 } });
+    const viewportWidth = newAuthenticatedPage.viewportSize()?.width ?? 390;
+    await newAuthenticatedPage.locator('[data-slot="sheet-overlay"]').click({
+      position: { x: viewportWidth - 8, y: 8 },
+    });
     await expect(drawer).toBeHidden();
     await expect(newAuthenticatedPage.getByRole("heading", { name: "Price Alerts", exact: true })).toBeVisible();
   });

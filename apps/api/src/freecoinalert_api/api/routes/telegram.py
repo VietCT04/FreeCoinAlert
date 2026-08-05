@@ -51,7 +51,7 @@ async def create_link_token(
     )
     await telegram_rate_limiter.consume(
         link_creation_ip_key(get_client_ip(request)),
-        limit=10,
+        limit=100 if settings.e2e_test_mode else 10,
     )
     telegram_link = await telegram_connection_service.create_link(
         database_session,

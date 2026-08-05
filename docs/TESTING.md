@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document owns the current testing boundary, verification vocabulary, isolated full-stack E2E environment, Playwright workspace, and repository runner. It does not claim that the E2E stack, provider simulator, browser, or feature-journey suite has been run.
+This document owns the current testing boundary, verification vocabulary, isolated full-stack E2E environment, Playwright workspace, and repository runner. The latest maintainer-requested full `pnpm e2e` pass exercised the isolated stack and all 65 browser cases successfully; this does not claim production-provider or broader runtime verification.
 
 ## Verification Boundary
 
@@ -24,11 +24,11 @@ The environment uses database `freecoinalert_e2e`, named E2E-only volumes and ne
 
 The required application services are `db`, `api-prepare`, `db-migrate`, `provider-simulator`, `market-catalog-init`, `e2e-seed`, `api`, `web`, `market-stream`, `telegram-updates`, `notification-worker`, `signal-telegram-dispatcher`, `historical-analysis-worker`, and `e2e-control`. `e2e-tests` is built separately and run on demand after those services are ready. The API, web app, database, market processes, Telegram processes, and historical worker are the real application components. Only external providers and deterministic E2E fixtures are replaced.
 
-The normal candle bootstrap is disabled. After migration and catalogue initialization, `e2e-seed` inserts fixed UTC, exact-decimal canonical history for every controlled market idempotently, including enough `1h` and `4h` rows to warm each fixed preset. The market stream and historical worker wait for that seed before processing. Browser scenarios use normal registration, login, ownership, CSRF, Telegram linking, alert, subscription, signal, and historical-analysis contracts; the seed does not create users.
+The normal candle bootstrap is disabled. After migration and catalogue initialization, `e2e-seed` inserts fixed UTC, exact-decimal canonical history for every controlled market idempotently, including enough `1h` and `4h` rows to warm each fixed preset. The market stream and historical worker wait for that seed before processing. Browser scenarios use normal registration, login, ownership, CSRF, Telegram linking, alert, subscription, signal, and historical-analysis contracts; the seed does not create users. E2E mode raises only the registration and Telegram link-creation per-IP attempt allowances so each isolated test can create its own owner and destination; the production limits remain the API policy.
 
 ## Playwright Workspace
 
-The `apps/e2e` workspace pins `@playwright/test` to `1.62.0`, uses `mcr.microsoft.com/playwright:v1.62.0-noble`, and pins `@axe-core/playwright` to `4.12.1`. The package and image versions must remain equal for Playwright. The image activates pnpm `11.4.0`, uses the repository lockfile, runs trusted repository tests only, and sets `init: true` and `ipc: host` in Compose. Browser binaries are never installed on the developer host by the E2E commands.
+The `apps/e2e` workspace pins `@playwright/test` to `1.62.0`, uses `mcr.microsoft.com/playwright:v1.62.0-noble`, and pins `@axe-core/playwright` to `4.12.1`. The package and image versions must remain equal for Playwright. The image activates pnpm `11.4.0`, uses the repository lockfile, runs trusted repository tests only, and sets `init: true` and `ipc: host` in Compose. Browser binaries are never installed on the developer host by the E2E commands. The E2E web override allows five minutes for the fresh dependency volume to finish its locked install before health checks can fail.
 
 The configuration has two deterministic projects:
 
@@ -57,7 +57,7 @@ The Node simulator in `services/e2e-provider-simulator` provides deterministic B
 6. Remove stale `freecoinalert-e2e` resources with `down --volumes --remove-orphans`.
 7. Recreate only the fixed `artifacts/e2e` directory.
 8. Build the provider simulator, real application images, E2E control service, and pinned Playwright image.
-9. Start the required application services detached with `up --detach --wait --wait-timeout 300`.
+9. Start the required application services detached with `up --detach --wait --wait-timeout 900`.
 10. Inspect completed, healthy, and running service states before any browser starts.
 11. Run `docker compose ... run --rm e2e-tests pnpm exec playwright test`.
 12. Preserve the Playwright exit code and return non-zero for startup, state, or test failure.
@@ -120,9 +120,9 @@ The runner does not print a ready state when any required service is unhealthy, 
 
 | Area | Availability | Verification |
 | --- | --- | --- |
-| Isolated E2E environment, simulator, seed, controls, and worker gate | Implemented | Unverified |
-| Playwright workspace, pinned image, fixtures, helpers, and feature projects | Implemented | Unverified |
-| Dependency-free E2E lifecycle runner and safe artifacts | Implemented | Unverified |
-| Complete feature journey suite and route coverage map | Implemented | Unverified |
+| Isolated E2E environment, simulator, seed, controls, and worker gate | Implemented | Verified |
+| Playwright workspace, pinned image, fixtures, helpers, and feature projects | Implemented | Verified |
+| Dependency-free E2E lifecycle runner and safe artifacts | Implemented | Verified |
+| Complete feature journey suite and route coverage map | Implemented | Verified |
 
-No Compose startup, migration, seed, provider, browser, Playwright, build, package-install, lint, format, type-check, or other runtime verification was run for this change.
+The maintainer-requested full `pnpm e2e` pass ran the isolated Compose startup, migrations, deterministic seed, provider simulator, real application workers, Playwright browser journeys, artifact handling, and teardown: 65 passed, 0 failed, 0 skipped, and 0 timed out. No standalone unit tests, build, package-install, lint, format, or type-check command was run, and no production provider or maintenance/reset pass was performed.

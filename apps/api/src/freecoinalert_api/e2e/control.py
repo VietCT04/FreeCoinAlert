@@ -493,28 +493,44 @@ async def _create_historical_fixture(
             range_days=request.range_days or _scenario_range_days(request.scenario),
         )
         calculation_version = SUPPORTED_CALCULATION_VERSIONS[preset.strategy_type]
+        market_id = market.id
+        market_exchange = market.exchange
+        market_type = market.market_type
+        market_symbol = market.symbol
+        market_base_asset = market.base_asset
+        market_quote_asset = market.quote_asset
+        preset_id = preset.id
+        preset_code_snapshot = preset.code
+        preset_version_snapshot = preset.version
+        preset_name_snapshot = preset.name
+        preset_strategy_type = preset.strategy_type
+        preset_timeframe = preset.timeframe
+        preset_direction = preset.direction
+        preset_period = preset.period
+        preset_threshold = preset.threshold
+        preset_price_input = preset.price_input
         await session.rollback()
         async with session.begin():
             run = await create_historical_analysis_run(
                 session,
                 user_id=request.user_id,
-                supported_market_id=market.id,
-                signal_preset_id=preset.id,
+                supported_market_id=market_id,
+                signal_preset_id=preset_id,
                 idempotency_key=idempotency_key,
-                exchange_snapshot=market.exchange,
-                market_type_snapshot=market.market_type,
-                symbol_snapshot=market.symbol,
-                base_asset_snapshot=market.base_asset,
-                quote_asset_snapshot=market.quote_asset,
-                preset_code_snapshot=preset.code,
-                preset_version_snapshot=preset.version,
-                preset_name_snapshot=preset.name,
-                strategy_type_snapshot=preset.strategy_type,
-                timeframe_snapshot=preset.timeframe,
-                direction_snapshot=preset.direction,
-                period_snapshot=preset.period,
-                threshold_snapshot=preset.threshold,
-                price_input_snapshot=preset.price_input,
+                exchange_snapshot=market_exchange,
+                market_type_snapshot=market_type,
+                symbol_snapshot=market_symbol,
+                base_asset_snapshot=market_base_asset,
+                quote_asset_snapshot=market_quote_asset,
+                preset_code_snapshot=preset_code_snapshot,
+                preset_version_snapshot=preset_version_snapshot,
+                preset_name_snapshot=preset_name_snapshot,
+                strategy_type_snapshot=preset_strategy_type,
+                timeframe_snapshot=preset_timeframe,
+                direction_snapshot=preset_direction,
+                period_snapshot=preset_period,
+                threshold_snapshot=preset_threshold,
+                price_input_snapshot=preset_price_input,
                 calculation_version_snapshot=calculation_version,
                 simulation_version=ENGINE_VERSION,
                 assumption_version=ASSUMPTION_VERSION,
@@ -542,7 +558,7 @@ async def _create_historical_fixture(
             candles = list(
                 await list_current_candles_for_historical_dataset(
                     session,
-                    supported_market_id=market.id,
+                    supported_market_id=market_id,
                     timeframe=bounds.timeframe,
                     start_open_time=bounds.warmup_start,
                     end_open_time=bounds.analysis_end,
@@ -565,8 +581,8 @@ async def _create_historical_fixture(
             dataset = await create_historical_analysis_dataset(
                 session,
                 run_id=run.id,
-                supported_market_id=market.id,
-                signal_preset_id=preset.id,
+                supported_market_id=market_id,
+                signal_preset_id=preset_id,
                 status="ready",
                 failure_code=None,
                 timeframe=bounds.timeframe,

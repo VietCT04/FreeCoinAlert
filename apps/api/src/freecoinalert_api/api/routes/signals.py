@@ -166,6 +166,7 @@ async def disable_signal_subscription(subscription_id: str, response: Response, 
     await signal_rate_limiter.consume(disable_user_key(str(authenticated_principal.user_id)), limit=30)
     await signal_subscription_service.disable(database_session, user_id=authenticated_principal.user_id, subscription_id=parse_subscription_id(subscription_id))
     response.headers["Cache-Control"] = "no-store"
+    response.status_code = status.HTTP_204_NO_CONTENT
     return response
 
 

@@ -13,6 +13,11 @@ export type TelegramOutcome =
   | "rate_limited"
   | "uncertain";
 
+export function telegramChatIdForUser(userId: string): number {
+  const numericUserId = Number.parseInt(userId.replaceAll("-", "").slice(0, 12), 16);
+  return 700_000_000 + (numericUserId % 9_000_000_000_000);
+}
+
 export class ProviderControl {
   private readonly baseUrl = "http://provider-simulator:9000";
 

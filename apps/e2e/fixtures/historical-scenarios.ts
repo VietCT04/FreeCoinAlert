@@ -37,7 +37,7 @@ export const HISTORICAL_SCENARIOS: Record<
     analysisStart: "2026-07-20T00:00:00Z",
     analysisEnd: "2026-08-03T00:00:00Z",
     expected: {
-      initialEquity: "10000",
+      initialEquity: "10000.000000000000000000",
       netReturn: "positive",
       maximumDrawdown: "positive",
       tradeCount: { minimum: 2 },
@@ -55,7 +55,7 @@ export const HISTORICAL_SCENARIOS: Record<
     analysisStart: "2026-07-20T00:00:00Z",
     analysisEnd: "2026-08-03T00:00:00Z",
     expected: {
-      initialEquity: "10000",
+      initialEquity: "10000.000000000000000000",
       netReturn: "negative",
       maximumDrawdown: "positive",
       tradeCount: { minimum: 2 },
@@ -73,7 +73,7 @@ export const HISTORICAL_SCENARIOS: Record<
     analysisStart: "2026-07-20T00:00:00Z",
     analysisEnd: "2026-08-03T00:00:00Z",
     expected: {
-      initialEquity: "10000",
+      initialEquity: "10000.000000000000000000",
       netReturn: "zero",
       maximumDrawdown: "zero",
       tradeCount: { minimum: 0, exact: 0 },
@@ -92,7 +92,7 @@ export const HISTORICAL_SCENARIOS: Record<
     analysisStart: "2026-05-05T00:00:00Z",
     analysisEnd: "2026-08-03T00:00:00Z",
     expected: {
-      initialEquity: "10000",
+      initialEquity: "10000.000000000000000000",
       netReturn: "positive",
       maximumDrawdown: "zero",
       tradeCount: { minimum: 55 },
@@ -110,7 +110,7 @@ export const HISTORICAL_SCENARIOS: Record<
     analysisStart: "2026-07-20T00:00:00Z",
     analysisEnd: "2026-08-03T00:00:00Z",
     expected: {
-      initialEquity: "10000",
+      initialEquity: "10000.000000000000000000",
       netReturn: "zero",
       maximumDrawdown: "zero",
       tradeCount: { minimum: 0, exact: 0 },

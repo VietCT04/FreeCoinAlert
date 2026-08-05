@@ -156,6 +156,7 @@ class BinanceMarketStream:
         consumer = asyncio.create_task(pipeline.consume(self.stop_event))
         candle_consumer = asyncio.create_task(candle_pipeline.consume(self.stop_event))
         freshness = asyncio.create_task(self._monitor_freshness(markets))
+        catalog_refresh = asyncio.create_task(self._refresh_catalog_during_connection(markets))
         observed_symbols: set[str] = set()
         self._last_accepted_ids.clear()
 
@@ -200,6 +201,7 @@ class BinanceMarketStream:
             candle_pipeline.log_backpressure()
             raise MarketStreamError("backpressure") from error
         finally:
+            catalog_refresh.cancel()
             freshness.cancel()
             if self.stop_event.is_set():
                 await consumer
@@ -215,6 +217,8 @@ class BinanceMarketStream:
                 await candle_consumer
             with contextlib.suppress(asyncio.CancelledError):
                 await freshness
+            with contextlib.suppress(asyncio.CancelledError):
+                await catalog_refresh
 
         raise MarketStreamError("provider_closed")
 
@@ -314,11 +318,36 @@ class BinanceMarketStream:
             logger.error("market.stream.catalog_unavailable ready_symbol_count=0")
         return ready
 
+    async def _refresh_catalog_during_connection(
+        self,
+        markets: dict[str, SupportedMarket],
+    ) -> None:
+        while not self.stop_event.is_set():
+            try:
+                await asyncio.wait_for(
+                    self.stop_event.wait(),
+                    timeout=self.settings.market_catalog_refresh_seconds,
+                )
+            except TimeoutError:
+                try:
+                    refreshed_markets = await self._refresh_catalog()
+                except Exception:
+                    logger.exception("market.catalog.refresh_failed category=connection_refresh")
+                    continue
+
+                if not refreshed_markets:
+                    continue
+
+                if set(refreshed_markets) != set(markets):
+                    self._last_accepted_ids.clear()
+                markets.clear()
+                markets.update(refreshed_markets)
+
     async def _monitor_freshness(self, markets: dict[str, SupportedMarket]) -> None:
         while not self.stop_event.is_set():
             await asyncio.sleep(2)
             now = datetime.now(UTC)
-            for market in markets.values():
+            for market in tuple(markets.values()):
                 event = self._recorder.get_latest_event(market.id)
                 if event is None:
                     continue

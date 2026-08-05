@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import type { AuthStatus } from "../auth/types";
+import { createIdempotencyKey } from "@/lib/idempotency";
 import {
   createTelegramLink,
   disconnectTelegram,
@@ -239,7 +240,7 @@ export function useTelegramConnection({
 
     setIsTestNotificationPending(true);
     setNotificationError(null);
-    const idempotencyKey = testIdempotencyKey.current ?? crypto.randomUUID();
+    const idempotencyKey = testIdempotencyKey.current ?? createIdempotencyKey();
     testIdempotencyKey.current = idempotencyKey;
 
     try {

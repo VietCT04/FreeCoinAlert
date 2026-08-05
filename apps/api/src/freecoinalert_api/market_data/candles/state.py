@@ -1,7 +1,8 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from freecoinalert_api.db.repositories.candle_operations import upsert_candle_symbol_state
 from freecoinalert_api.db.session import get_async_session_factory
+from freecoinalert_api.market_data.catalog import utc_now
 from freecoinalert_api.market_data.events import ConfirmedCandleEvent
 
 
@@ -13,7 +14,7 @@ class CandleStateRecorder:
     async def handle_confirmed_candle(self, event: ConfirmedCandleEvent) -> None:
         timestamps = self._latest.setdefault(event.supported_market_id, {})
         timestamps[event.timeframe] = event.open_time
-        expected = datetime.now(UTC).replace(second=0, microsecond=0) - timedelta(minutes=1)
+        expected = utc_now().replace(second=0, microsecond=0) - timedelta(minutes=1)
         latest = timestamps.get("1m")
         status = "live" if latest is not None and (expected - latest).total_seconds() <= self._max_lag_seconds else "stale"
         async with get_async_session_factory()() as session:

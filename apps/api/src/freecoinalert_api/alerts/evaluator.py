@@ -1,5 +1,4 @@
 import logging
-from datetime import UTC, datetime
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -11,7 +10,7 @@ from freecoinalert_api.db.repositories.price_alerts import (
 )
 from freecoinalert_api.db.repositories.supported_markets import list_product_markets
 from freecoinalert_api.db.session import get_async_session_factory
-from freecoinalert_api.market_data.catalog import is_market_ready
+from freecoinalert_api.market_data.catalog import is_market_ready, utc_now
 from freecoinalert_api.market_data.events import PriceEvent
 
 logger = logging.getLogger(__name__)
@@ -48,7 +47,7 @@ class PriceAlertEvaluator:
             market = markets.get(market_id)
             if market is not None and is_market_ready(
                 market,
-                current_time=datetime.now(UTC),
+                current_time=utc_now(),
                 max_age_seconds=24 * 60 * 60,
             ):
                 continue
@@ -64,7 +63,7 @@ class PriceAlertEvaluator:
                                 await mark_price_alert_disabled(
                                     session,
                                     alert=alert,
-                                    disabled_at=datetime.now(UTC),
+                                    disabled_at=utc_now(),
                                     reason="market_disabled",
                                 )
                 except SQLAlchemyError:

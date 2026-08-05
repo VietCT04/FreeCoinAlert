@@ -29,12 +29,15 @@ test.describe("preset signals and browser history", () => {
     }
 
     await newAuthenticatedPage.getByRole("button", { name: "Subscribe", exact: true }).first().click();
+    await presets.chooseSubscription("Subscribed");
     await expect(newAuthenticatedPage.getByText("Subscribed", { exact: true }).first()).toBeVisible();
     await newAuthenticatedPage.getByRole("button", { name: "Disable", exact: true }).first().click();
     await expect(newAuthenticatedPage.getByRole("alertdialog", { name: "Disable this signal subscription?" })).toBeVisible();
     await newAuthenticatedPage.getByRole("alertdialog").getByRole("button", { name: "Disable signal", exact: true }).click();
+    await presets.chooseSubscription("Not subscribed");
     await expect(newAuthenticatedPage.getByText("Disabled", { exact: true }).first()).toBeVisible();
     await newAuthenticatedPage.getByRole("button", { name: "Subscribe", exact: true }).first().click();
+    await presets.chooseSubscription("Subscribed");
     await expect(newAuthenticatedPage.getByText("Subscribed", { exact: true }).first()).toBeVisible();
   });
 
@@ -96,7 +99,7 @@ test.describe("preset signals and browser history", () => {
     await expect(newAuthenticatedPage.getByRole("button", { name: "Load more", exact: true })).toBeVisible();
 
     await newAuthenticatedPage.locator("#signal-feed-market-filter").click();
-    await newAuthenticatedPage.getByRole("option", { name: "BTCUSDT", exact: true }).click();
+    await newAuthenticatedPage.getByRole("option", { name: /BTCUSDT/ }).click();
     await newAuthenticatedPage.locator("#signal-feed-preset-filter").click();
     await newAuthenticatedPage.getByRole("option", { name: /·/ }).last().click();
     await newAuthenticatedPage.getByRole("button", { name: "Load more", exact: true }).click();
@@ -136,9 +139,18 @@ test.describe("preset signals and browser history", () => {
       startTimeMs: Date.parse(process.env.E2E_CLOCK_NOW ?? "2026-08-04T00:00:00.000Z"),
       count: 60,
       openPrice: "100",
+      closePrice: "100",
+      highPrice: "100",
+      lowPrice: "100",
+    });
+    await providerSimulator.publishClosedKlineRange({
+      symbol: "ETHUSDT",
+      startTimeMs: Date.parse(process.env.E2E_CLOCK_NOW ?? "2026-08-04T00:00:00.000Z") + 60 * 60_000,
+      count: 60,
+      openPrice: "500",
       closePrice: "500",
       highPrice: "500",
-      lowPrice: "100",
+      lowPrice: "500",
     });
     await expect(connectedTelegramPage.getByText("New live signal", { exact: true }).first()).toBeVisible();
     await expect(connectedTelegramPage.getByText("New live signal", { exact: true })).toHaveCount(1);

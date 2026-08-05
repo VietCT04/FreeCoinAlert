@@ -6,8 +6,7 @@ ENV E2E_ARTIFACT_DIR=/artifacts/e2e
 
 WORKDIR /workspace
 
-RUN corepack enable \
-    && corepack prepare pnpm@11.4.0 --activate \
+RUN npm install --global pnpm@11.4.0 \
     && mkdir -p /workspace /artifacts/e2e \
     && chown -R pwuser:pwuser /workspace /artifacts
 

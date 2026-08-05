@@ -22,15 +22,25 @@ test.describe("desktop dashboard shell", () => {
 
     await dashboard.routeLink("Price Alerts").click();
     await expect(newAuthenticatedPage).toHaveURL(/\/price-alerts$/);
-    await expect(newAuthenticatedPage.getByRole("link", { name: "Overview", exact: true })).toBeVisible();
-    await expect(newAuthenticatedPage.getByRole("link", { name: "Price Alerts", exact: true })).toHaveAttribute("aria-current", "page");
+    await expect(
+      newAuthenticatedPage.getByLabel("Primary navigation").getByRole("link", {
+        name: "Overview",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      newAuthenticatedPage.getByLabel("Primary navigation").getByRole("link", {
+        name: "Price Alerts",
+        exact: true,
+      }),
+    ).toHaveAttribute("aria-current", "page");
 
     await dashboard.openNavigation().click();
     await expect(newAuthenticatedPage.locator('[data-slot="sidebar"][data-state="collapsed"]')).toBeVisible();
     await dashboard.openNavigation().click();
     await expect(newAuthenticatedPage.locator('[data-slot="sidebar"][data-state="expanded"]')).toBeVisible();
 
-    const accessibility = await checkAccessibility("desktop-dashboard-shell");
+    const accessibility = await checkAccessibility("desktop-dashboard-shell", newAuthenticatedPage);
     expect(accessibility.violations).toEqual([]);
   });
 
@@ -74,9 +84,36 @@ test.describe("desktop dashboard shell", () => {
 
     await appApi.createPriceAlert({ symbol: "BTCUSDT", targetPrice: "101.000001" });
     await connectedTelegramPage.goto("/price-alerts");
+    await expect
+      .poll(
+        async () => {
+          const result = await providerSimulator.setPrice("BTCUSDT", "100.000000");
+          if (result.published !== true) {
+            return false;
+          }
+          const response = await appApi.listAlerts({ limit: 20 });
+          const alerts = Array.isArray(response.alerts) ? response.alerts : [];
+          return (alerts[0] as { evaluationReady?: boolean } | undefined)?.evaluationReady === true;
+        },
+        { intervals: [250, 500, 1_000], timeout: 30_000 },
+      )
+      .toBe(true);
+    await connectedTelegramPage.getByRole("button", { name: "Refresh", exact: true }).click();
     await expect(connectedTelegramPage.getByText("Monitoring live prices.", { exact: true })).toBeVisible();
-    await providerSimulator.setPrice("BTCUSDT", "100.000000");
-    await providerSimulator.setPrice("BTCUSDT", "102.000000");
+    await expect
+      .poll(
+        async () => {
+          const result = await providerSimulator.setPrice("BTCUSDT", "102.000000");
+          if (result.published !== true) {
+            return false;
+          }
+          const response = await appApi.listAlerts({ limit: 20 });
+          const alerts = Array.isArray(response.alerts) ? response.alerts : [];
+          return (alerts[0] as { status?: string } | undefined)?.status === "triggered";
+        },
+        { intervals: [250, 500, 1_000], timeout: 30_000 },
+      )
+      .toBe(true);
     await connectedTelegramPage.getByRole("button", { name: "Refresh", exact: true }).click();
     await expect(connectedTelegramPage.getByText("Triggered", { exact: true })).toBeVisible();
 
