@@ -688,6 +688,8 @@ async function runReport() {
       "playwright",
       "show-report",
       "/artifacts/e2e/playwright-report",
+      "--host",
+      "0.0.0.0",
     ),
   );
   return result.code;
