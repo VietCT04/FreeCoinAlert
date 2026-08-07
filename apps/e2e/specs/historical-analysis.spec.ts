@@ -22,7 +22,7 @@ async function selectScenarioRun(page: import("@playwright/test").Page, symbol: 
   const run = page.getByRole("button").filter({ hasText: symbol }).first();
   await expect(run).toBeVisible();
   await run.click();
-  await expect(page.getByText("Run status", { exact: true })).toBeVisible();
+  await expect(page.getByText("Status", { exact: true })).toBeVisible();
 }
 
 async function createScenario(
@@ -54,9 +54,14 @@ test.describe("historical analysis configuration and reports", () => {
     await e2eControl.gateHistoricalWorkerBeforeClaim();
     await newAuthenticatedPage.goto("/historical-analysis");
     await expect(
-      newAuthenticatedPage.getByRole("region", { name: "Configure analysis", exact: true }),
+      newAuthenticatedPage.getByRole("region", { name: "Start an analysis", exact: true }),
     ).toBeVisible();
-    await expect(newAuthenticatedPage.getByText("These values are controlled by the server", { exact: false })).toBeVisible();
+    await newAuthenticatedPage
+      .getByRole("button", { name: "More information about historical analysis", exact: true })
+      .click();
+    const infoDialog = newAuthenticatedPage.getByRole("dialog", { name: "About this analysis" });
+    await expect(infoDialog.getByText("Signals use confirmed candle closes.", { exact: true })).toBeVisible();
+    await infoDialog.getByRole("button", { name: "Close", exact: true }).click();
     const configuration = await appApi.getHistoricalConfiguration();
     expect(configuration.minimumRangeDays).toBe(7);
     expect(configuration.maximumRangeDays).toBe(90);
@@ -73,7 +78,7 @@ test.describe("historical analysis configuration and reports", () => {
 
     const start = newAuthenticatedPage.locator("#historical-analysis-start");
     const end = newAuthenticatedPage.locator("#historical-analysis-end");
-    const review = newAuthenticatedPage.getByRole("button", { name: "Review analysis", exact: true });
+    const review = newAuthenticatedPage.getByRole("button", { name: "Review and run", exact: true });
 
     await start.fill("2026-07-20");
     await end.fill("2026-07-20");
@@ -100,13 +105,13 @@ test.describe("historical analysis configuration and reports", () => {
     await review.click();
     const dialog = newAuthenticatedPage.getByRole("dialog", { name: "Review analysis" });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("No live side effects", { exact: true })).toBeVisible();
-    await expect(dialog.getByText("2026-07-20 00:00 through 2026-08-02 24:00 UTC", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("No live actions", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("2026-07-20 to 2026-08-02 (UTC)", { exact: true })).toBeVisible();
     await dialog.getByRole("button", { name: "Back", exact: true }).click();
     await review.click();
-    await dialog.getByRole("button", { name: "Confirm and queue analysis", exact: true }).click();
+    await dialog.getByRole("button", { name: "Start analysis", exact: true }).click();
 
-    await expect(newAuthenticatedPage.getByText("The analysis is queued for the bounded worker.", { exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByText("Queued.", { exact: true })).toBeVisible();
     const listResponse = await appApi.listHistoricalAnalyses();
     const firstRun = (listResponse.runs as Array<{ id: string }> | undefined)?.[0];
     if (!firstRun) {
@@ -220,7 +225,7 @@ test.describe("historical analysis configuration and reports", () => {
       expect(report.safetyDisclosures.length).toBeGreaterThan(0);
 
       await newAuthenticatedPage.goto("/historical-analysis");
-      await expect(newAuthenticatedPage.getByRole("region", { name: "Configure analysis", exact: true })).toBeVisible();
+      await expect(newAuthenticatedPage.getByRole("region", { name: "Start an analysis", exact: true })).toBeVisible();
       await selectScenarioRun(newAuthenticatedPage, manifest.symbol);
       await expect(
         newAuthenticatedPage.getByRole("region", {
