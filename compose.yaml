@@ -9,6 +9,42 @@ x-api-common: &api-common
     - ./apps/api:/app
     - api_venv:/app/.venv
 
+x-watch-api-core: &watch-api-core
+  action: restart
+  path: ./apps/api/src/freecoinalert_api/core
+
+x-watch-api-db: &watch-api-db
+  action: restart
+  path: ./apps/api/src/freecoinalert_api/db
+
+x-watch-api-alerts: &watch-api-alerts
+  action: restart
+  path: ./apps/api/src/freecoinalert_api/alerts
+
+x-watch-api-market-data: &watch-api-market-data
+  action: restart
+  path: ./apps/api/src/freecoinalert_api/market_data
+
+x-watch-api-notifications: &watch-api-notifications
+  action: restart
+  path: ./apps/api/src/freecoinalert_api/notifications
+
+x-watch-api-signals: &watch-api-signals
+  action: restart
+  path: ./apps/api/src/freecoinalert_api/signals
+
+x-watch-api-telegram: &watch-api-telegram
+  action: restart
+  path: ./apps/api/src/freecoinalert_api/telegram
+
+x-watch-api-historical-analysis: &watch-api-historical-analysis
+  action: restart
+  path: ./apps/api/src/freecoinalert_api/historical_analysis
+
+x-watch-api-dockerfile: &watch-api-dockerfile
+  action: rebuild
+  path: ./apps/api/Dockerfile.dev
+
 services:
   web:
     build:
@@ -37,6 +73,18 @@ services:
       - root_node_modules:/workspace/node_modules
       - web_node_modules:/workspace/apps/web/node_modules
       - pnpm_store:/pnpm/store
+    develop:
+      watch:
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./pnpm-lock.yaml
+        - action: rebuild
+          path: ./pnpm-workspace.yaml
+        - action: rebuild
+          path: ./apps/web/package.json
+        - action: rebuild
+          path: ./apps/web/Dockerfile.dev
 
   api-prepare:
     <<: *api-common
@@ -90,6 +138,12 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       TELEGRAM_UPDATE_RETENTION_DAYS: ${TELEGRAM_UPDATE_RETENTION_DAYS:-30}
+    develop:
+      watch:
+        - *watch-api-core
+        - *watch-api-db
+        - *watch-api-telegram
+        - *watch-api-dockerfile
 
   notification-worker:
     profiles: ["telegram"]
@@ -101,6 +155,13 @@ services:
     environment:
       <<: *api-environment
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+    develop:
+      watch:
+        - *watch-api-core
+        - *watch-api-db
+        - *watch-api-notifications
+        - *watch-api-telegram
+        - *watch-api-dockerfile
 
   signal-telegram-dispatcher:
     profiles: ["telegram"]
@@ -115,6 +176,13 @@ services:
       SIGNAL_TELEGRAM_FANOUT_CLAIM_LIMIT: ${SIGNAL_TELEGRAM_FANOUT_CLAIM_LIMIT:-10}
       SIGNAL_TELEGRAM_FANOUT_POLL_SECONDS: ${SIGNAL_TELEGRAM_FANOUT_POLL_SECONDS:-2}
       SIGNAL_TELEGRAM_FANOUT_MAX_AGE_SECONDS: ${SIGNAL_TELEGRAM_FANOUT_MAX_AGE_SECONDS:-900}
+    develop:
+      watch:
+        - *watch-api-core
+        - *watch-api-db
+        - *watch-api-notifications
+        - *watch-api-signals
+        - *watch-api-dockerfile
 
   historical-analysis-worker:
     profiles: ["historical-analysis"]
@@ -130,6 +198,13 @@ services:
       HISTORICAL_ANALYSIS_WORKER_STALE_SECONDS: ${HISTORICAL_ANALYSIS_WORKER_STALE_SECONDS:-600}
       HISTORICAL_ANALYSIS_RETENTION_DAYS: ${HISTORICAL_ANALYSIS_RETENTION_DAYS:-30}
       HISTORICAL_ANALYSIS_CLEANUP_BATCH_SIZE: ${HISTORICAL_ANALYSIS_CLEANUP_BATCH_SIZE:-100}
+    develop:
+      watch:
+        - *watch-api-core
+        - *watch-api-db
+        - *watch-api-historical-analysis
+        - *watch-api-market-data
+        - *watch-api-dockerfile
 
   market-catalog-init:
     profiles: ["market"]
@@ -177,6 +252,14 @@ services:
       CANDLE_DATA_MAX_LAG_SECONDS: ${CANDLE_DATA_MAX_LAG_SECONDS:-180}
       CANDLE_RECENT_RECONCILIATION_SECONDS: ${CANDLE_RECENT_RECONCILIATION_SECONDS:-900}
       CANDLE_RECENT_RECONCILIATION_HOURS: ${CANDLE_RECENT_RECONCILIATION_HOURS:-6}
+    develop:
+      watch:
+        - *watch-api-core
+        - *watch-api-db
+        - *watch-api-alerts
+        - *watch-api-market-data
+        - *watch-api-signals
+        - *watch-api-dockerfile
 
   db:
     image: postgres:18.4-bookworm

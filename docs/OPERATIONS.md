@@ -12,7 +12,7 @@ The web app, FastAPI API, and PostgreSQL run in the default Compose stack. The A
 
 ## Default Local Stack
 
-`pnpm dev:all` is the primary full-local command. It runs preflight, resolves the enabled profiles, starts the Compose topology detached with `--wait` and the configured timeout, inspects readiness, prints the usable URLs and subsystem states, and follows logs. `pnpm dev:all:detached` performs the same startup and readiness checks without following logs. `pnpm dev` remains a narrower core-stack debugging command; `pnpm dev:detached` and `pnpm dev:logs` remain its direct Compose helpers. The full-stack status, logs, shutdown, and reset controls are documented below.
+`pnpm dev:all` is the primary full-local command. It runs preflight, resolves the enabled profiles, starts the Compose topology detached with `--wait` and the configured timeout, inspects readiness, prints the usable URLs and subsystem states, and then attaches Compose Watch with the application logs. `pnpm dev:all:detached` performs the same startup and readiness checks without attaching Watch. `pnpm dev` remains a narrower core-stack debugging command; `pnpm dev:detached` and `pnpm dev:logs` remain its direct Compose helpers. The full-stack status, logs, shutdown, reset, and live-reload controls are documented below.
 
 ## Isolated E2E Stack
 
@@ -38,7 +38,7 @@ The workspace explicitly permits the native installation scripts required by `sh
 
 The parser ignores blank lines and comments, accepts `KEY=VALUE` with optional matching single or double quotes, rejects malformed non-comment lines, performs no shell expansion or file execution, and lets process-environment values override the corresponding `.env` values. Required local setup keys are `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `WEB_PORT`, `API_PORT`, `POSTGRES_PORT`, `NEXT_PUBLIC_API_BASE_URL`, `WEB_ORIGIN`, `SESSION_COOKIE_SECURE`, `BINANCE_SPOT_BASE_URL`, `BINANCE_SPOT_WS_BASE_URL`, `LOCAL_ENABLE_TELEGRAM`, `LOCAL_CANDLE_BOOTSTRAP_DAYS`, and `LOCAL_STARTUP_TIMEOUT_SECONDS`. Ports must be distinct integers from 1 through 65535; HTTP URLs use `http` or `https`; the Binance WebSocket URL uses `ws` or `wss`; booleans are exact lowercase `true` or `false`; candle bootstrap is 35 through 180 days; and startup timeout is 60 through 7,200 seconds.
 
-Docker availability is checked with `docker version`, `docker compose version`, and `docker compose config --quiet`. Compose v2 is required for completed-service dependencies, `up --wait`, and JSON service inspection. The preflight inspects currently running Compose services before trying to bind each unused exposed port on `127.0.0.1`, so an existing matching `web`, `api`, or `db` service does not produce a false port conflict. It does not start the stack or claim readiness. Every full-stack command resolves the Compose profile list: `market` is always enabled, `telegram` is enabled only when `LOCAL_ENABLE_TELEGRAM=true` and its username/token are valid, and `historical-analysis` is enabled when `docker compose config --profiles` provides it; otherwise the historical worker is reported as `unavailable`. Telegram is disabled by default, and a disabled configuration must not retain a bot token.
+Docker availability is checked with `docker version`, `docker compose version`, and `docker compose config --quiet`. Docker Compose 2.22 or newer is required for completed-service dependencies, `up --wait`, JSON service inspection, and Compose Watch. The preflight inspects currently running Compose services before trying to bind each unused exposed port on `127.0.0.1`, so an existing matching `web`, `api`, or `db` service does not produce a false port conflict. It does not start the stack or claim readiness. Every full-stack command resolves the Compose profile list: `market` is always enabled, `telegram` is enabled only when `LOCAL_ENABLE_TELEGRAM=true` and its username/token are valid, and `historical-analysis` is enabled when `docker compose config --profiles` provides it; otherwise the historical worker is reported as `unavailable`. Telegram is disabled by default, and a disabled configuration must not retain a bot token.
 
 ## Optional Compose Profiles
 
@@ -72,8 +72,8 @@ db (healthy)
 | --- | --- | --- | --- |
 | `pnpm dev:setup` | Create `.env` only if absent and run local setup/preflight validation. | None | One-shot |
 | `pnpm dev:preflight` | Validate existing `.env`, Docker/Compose, configuration, and ports without startup. | None | One-shot |
-| `pnpm dev:all` | Run preflight, start all enabled local profiles, wait for readiness, print the summary, and follow logs. | Binance; Telegram when enabled | Foreground |
-| `pnpm dev:all:detached` | Run the same preflight, startup, wait, and readiness flow without following logs. | Binance; Telegram when enabled | Detached |
+| `pnpm dev:all` | Run preflight, start all enabled local profiles, wait for readiness, print the summary, and attach Compose Watch with logs. | Binance; Telegram when enabled | Foreground |
+| `pnpm dev:all:detached` | Run the same preflight, startup, wait, and readiness flow without attaching Compose Watch. | Binance; Telegram when enabled | Detached |
 | `pnpm dev:all:logs` | Follow logs for all enabled full-stack profiles. | None by itself | Long-running |
 | `pnpm dev:status` | Inspect all expected services with JSON Compose state and normalized statuses; ports need not be free. | None | One-shot |
 | `pnpm dev:down` | Stop the full local Compose project and remove orphans without deleting volumes. | None | One-shot |
@@ -99,17 +99,33 @@ Formatting, lint, typecheck, build, and verification scripts exist for developme
 
 ## Full Local Startup and Readiness
 
-`pnpm dev:all` runs `docker compose <profiles> up --build --detach --wait --wait-timeout <LOCAL_STARTUP_TIMEOUT_SECONDS>`, then reads `docker compose <profiles> ps --all --format json`. It requires `api-prepare`, `db-migrate`, `market-catalog-init`, and `candle-bootstrap-init` to have exited with code 0. It requires healthy `db`, `api`, and `web` services plus a running `market-stream`. Enabled Telegram services (`telegram-updates`, `notification-worker`, and `signal-telegram-dispatcher`) must be running. An available historical-analysis profile is enabled automatically and its worker must be running; when that profile is absent, the summary reports the worker as `unavailable`.
+`pnpm dev:all` first runs `docker compose <profiles> up --build --detach --wait --wait-timeout <LOCAL_STARTUP_TIMEOUT_SECONDS>`, then reads `docker compose <profiles> ps --all --format json`. It requires `api-prepare`, `db-migrate`, `market-catalog-init`, and `candle-bootstrap-init` to have exited with code 0. It requires healthy `db`, `api`, and `web` services plus a running `market-stream`. Enabled Telegram services (`telegram-updates`, `notification-worker`, and `signal-telegram-dispatcher`) must be running. An available historical-analysis profile is enabled automatically and its worker must be running; when that profile is absent, the summary reports the worker as `unavailable`. After readiness succeeds, foreground mode runs `docker compose <profiles> up --watch` against the already-started project. Detached mode stops after the readiness summary and does not start a watcher.
 
 The local web healthcheck allows five minutes for a fresh dependency volume to finish its locked workspace install before Next.js must become healthy.
 
 The readiness summary prints only non-secret local web/API URLs and normalized states. It distinguishes `healthy`, `running`, `completed`, `starting`, `disabled`, `unavailable`, `failed`, and `stopped`; a required failed or non-ready service prevents the ready banner and exits non-zero. Startup failures remain concise and direct the operator to `pnpm dev:status` and `pnpm dev:all:logs` rather than dumping large logs automatically.
 
+## Local Code Reloading and Compose Watch
+
+The web and API services retain their existing bind mounts and development commands. Changes under `apps/web` are picked up by Next.js hot reload, and changes under `apps/api/src` are picked up by `fastapi dev`. Foreground `pnpm dev:all` also enables targeted Compose Watch rules for plain-Python background processes; it does not watch or restart the one-shot preparation, migration, catalog, or candle-bootstrap services for ordinary source edits.
+
+| Changed path | Local development action |
+| --- | --- |
+| `apps/web` TypeScript, CSS, and other source files | Next.js hot reload; no Compose restart. |
+| `apps/api/src/freecoinalert_api` API/auth and other API source | FastAPI development reload; no Compose restart. |
+| `apps/api/src/freecoinalert_api/market_data` (and its market dependencies) | Restart `market-stream`. |
+| `apps/api/src/freecoinalert_api/notifications` | Restart `notification-worker` and `signal-telegram-dispatcher`. |
+| `apps/api/src/freecoinalert_api/telegram` | Restart `telegram-updates` and `notification-worker`. |
+| `apps/api/src/freecoinalert_api/historical_analysis` | Restart `historical-analysis-worker`. |
+| `apps/api/src/freecoinalert_api/core` or `db` | Restart every watched Python worker; FastAPI reloads the API from its source mount. |
+
+Compose Watch is enabled only by foreground `pnpm dev:all`; `pnpm dev:all:logs` follows logs without enabling it. Changes to dependency manifests or locks (`package.json`, `pnpm-lock.yaml`, `pyproject.toml`, `uv.lock`), Dockerfiles, `compose.yaml`, or database migrations require an explicit startup/dependency-sync or migration step as appropriate. The web manifest and Dockerfile paths have rebuild watch rules; Python dependency changes still require rerunning the API preparation flow so the shared `api_venv` volume is synchronized.
+
 ## Status, Logs, Shutdown, and Reset
 
 `pnpm dev:status` loads the validated environment, resolves enabled profiles, reads JSON Compose state including completed containers, and reports one status for each expected service. It does not require ports to be free and exits non-zero only when a required enabled component is in `failed` state. `pnpm dev:all:logs` follows the same enabled profiles and preserves the narrower market, Telegram, and individual-worker log commands.
 
-`pnpm dev:down` runs `docker compose <profiles> down --remove-orphans` and preserves all volumes. Ctrl+C or normal termination of foreground `pnpm dev:all` stops log following and runs the same volume-preserving shutdown. `pnpm dev:reset` warns that the local PostgreSQL database and dependency volumes will be permanently deleted, continues only for exact `RESET`, and requires `--force` in a non-interactive terminal. It runs `docker compose <profiles> down --volumes --remove-orphans` only after that explicit confirmation.
+`pnpm dev:down` runs `docker compose <profiles> down --remove-orphans` and preserves all volumes. Ctrl+C or normal termination of foreground `pnpm dev:all` stops Compose Watch/log following and runs the same volume-preserving shutdown. `pnpm dev:reset` warns that the local PostgreSQL database and dependency volumes will be permanently deleted, continues only for exact `RESET`, and requires `--force` in a non-interactive terminal. It runs `docker compose <profiles> down --volumes --remove-orphans` only after that explicit confirmation.
 
 ## API Module Entry Points
 
@@ -167,7 +183,7 @@ The code has candle-revision cleanup bounded by `CANDLE_RETENTION_DAYS`, process
 
 ## Startup and Shutdown Expectations
 
-Use `pnpm dev:setup` once, then use `pnpm dev:all` for normal local startup. API startup itself does not contact providers or write `market_candles`; the enabled market profile does so through the separate catalog, bootstrap, stream, and reconciliation paths. Foreground `pnpm dev:all` follows logs and shuts down the Compose project without deleting volumes on Ctrl+C or normal termination. Restarting market processing relies on persisted current state and idempotent repositories rather than replaying raw trade history.
+Use `pnpm dev:setup` once, then use `pnpm dev:all` for normal local startup. API startup itself does not contact providers or write `market_candles`; the enabled market profile does so through the separate catalog, bootstrap, stream, and reconciliation paths. Foreground `pnpm dev:all` attaches Compose Watch with application logs and shuts down the Compose project without deleting volumes on Ctrl+C or normal termination. Restarting market processing relies on persisted current state and idempotent repositories rather than replaying raw trade history.
 
 ## Recovery Runbooks
 
