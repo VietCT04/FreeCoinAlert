@@ -141,9 +141,11 @@ Apply migrations manually through the release/development workflow with `pnpm db
 
 Run one `market-stream` owner only. The Compose `market` profile starts it only after successful catalog and candle initialization. It owns advisory lock `freecoinalert:market-stream:binance:spot`, refreshes catalog, reconnects with bounded backoff, and performs its implemented recent reconciliation. Two processes do not horizontally share stream ownership.
 
+The stream's live candle write path is a closed-kline path: each accepted Binance `@kline_1m` event with `x=true` is sent to the candle ingestion service, while open kline updates and aggregate trades are not written to `market_candles`. The service performs an idempotent `1m` upsert, retains a new revision when confirmed values change, and rebuilds the affected `1h`/`4h` windows from current `1m` rows. See [MARKET_DATA.md](MARKET_DATA.md) for the persistence and derived-window contract.
+
 ## Candle Bootstrap and Reconciliation
 
-Use bootstrap for a new/empty bounded history and reconciliation for missing recent data. The Compose `candle-bootstrap-init` service reuses the existing gap-based bootstrap, requests the bounded `LOCAL_CANDLE_BOOTSTRAP_DAYS` range (35 days by default, maximum 180), and runs after catalog initialization. `market:candles-bootstrap` remains the direct command and reads `CANDLE_BOOTSTRAP_DAYS` (default 150 for direct-host use). Reconciliation maximum is 168 hours. Both modes acquire the market singleton lock, page at 1,000 minutes, and must not run concurrently with the stream owner.
+Use bootstrap for a new/empty bounded history and reconciliation for missing recent data. The Compose `candle-bootstrap-init` service is a separate one-shot initialization step: it runs after catalog initialization and before `market-stream`, requests the bounded `LOCAL_CANDLE_BOOTSTRAP_DAYS` range (35 days by default, maximum 180), and writes through the same candle ingestion service. `market:candles-bootstrap` remains the direct command and reads `CANDLE_BOOTSTRAP_DAYS` (default 150 for direct-host use). The running stream also requests a six-hour recent reconciliation during initial setup before its first WebSocket connection, then schedules it no more frequently than `CANDLE_RECENT_RECONCILIATION_SECONDS` (900 seconds by default). `market:candles-reconcile` is the explicit bounded command with a maximum of 168 hours. All paths page REST requests at 1,000 minutes; direct commands acquire the market singleton lock, while the stream uses the lock it already owns.
 
 ## Signal Backfill
 
@@ -165,7 +167,7 @@ The code has candle-revision cleanup bounded by `CANDLE_RETENTION_DAYS`, process
 
 ## Startup and Shutdown Expectations
 
-Use `pnpm dev:setup` once, then use `pnpm dev:all` for normal local startup. API startup itself does not contact providers, but the enabled market and Telegram profiles do. Foreground `pnpm dev:all` follows logs and shuts down the Compose project without deleting volumes on Ctrl+C or normal termination. Restarting market processing relies on persisted current state and idempotent repositories rather than replaying raw trade history.
+Use `pnpm dev:setup` once, then use `pnpm dev:all` for normal local startup. API startup itself does not contact providers or write `market_candles`; the enabled market profile does so through the separate catalog, bootstrap, stream, and reconciliation paths. Foreground `pnpm dev:all` follows logs and shuts down the Compose project without deleting volumes on Ctrl+C or normal termination. Restarting market processing relies on persisted current state and idempotent repositories rather than replaying raw trade history.
 
 ## Recovery Runbooks
 
