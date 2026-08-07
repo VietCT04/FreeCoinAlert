@@ -81,9 +81,9 @@ test.describe("stable browser accessibility states", () => {
 
   test("scans historical configure and review dialog states", async ({ checkAccessibility, newAuthenticatedPage }) => {
     await newAuthenticatedPage.goto("/historical-analysis");
-    await expect(newAuthenticatedPage.getByRole("region", { name: "Configure analysis", exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByRole("region", { name: "Start an analysis", exact: true })).toBeVisible();
     await expectStableAccessibility(checkAccessibility, newAuthenticatedPage, "historical-configure");
-    await newAuthenticatedPage.getByRole("button", { name: "Review analysis", exact: true }).click();
+    await newAuthenticatedPage.getByRole("button", { name: "Review and run", exact: true }).click();
     await expect(newAuthenticatedPage.getByRole("dialog", { name: "Review analysis" })).toBeVisible();
     await expectStableAccessibility(checkAccessibility, newAuthenticatedPage, "historical-review");
   });
@@ -107,7 +107,7 @@ test.describe("stable browser accessibility states", () => {
     await newAuthenticatedPage.goto("/historical-analysis");
     await expect(newAuthenticatedPage.getByRole("button").filter({ hasText: scenario.symbol }).first()).toBeVisible();
     await newAuthenticatedPage.getByRole("button").filter({ hasText: scenario.symbol }).first().click();
-    await expect(newAuthenticatedPage.getByText("The analysis is queued for the bounded worker.", { exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByText("Queued.", { exact: true })).toBeVisible();
     await expectStableAccessibility(checkAccessibility, newAuthenticatedPage, "historical-processing");
     await e2eControl.releaseHistoricalWorkerBeforeClaim();
     await waitForHistoricalStatus(appApi, String(fixture.runId), "succeeded");
@@ -163,7 +163,7 @@ test.describe("stable browser accessibility states", () => {
   }) => {
     await newAuthenticatedPage.emulateMedia({ reducedMotion: "reduce" });
     await newAuthenticatedPage.goto("/historical-analysis");
-    const review = newAuthenticatedPage.getByRole("button", { name: "Review analysis", exact: true });
+    const review = newAuthenticatedPage.getByRole("button", { name: "Review and run", exact: true });
     await review.focus();
     await expect(review).toBeFocused();
     await review.click();

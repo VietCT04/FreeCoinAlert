@@ -17,7 +17,7 @@ test.describe("session, provider, and live-feed recovery", () => {
     newAuthenticatedPage,
   }) => {
     await newAuthenticatedPage.goto("/historical-analysis");
-    await expect(newAuthenticatedPage.getByRole("region", { name: "Configure analysis", exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByRole("region", { name: "Start an analysis", exact: true })).toBeVisible();
     const revokingRequest = await playwright.request.newContext({
       baseURL: E2E_API_ORIGIN,
       extraHTTPHeaders: { Origin: E2E_WEB_ORIGIN },
@@ -156,7 +156,7 @@ test.describe("session, provider, and live-feed recovery", () => {
       .toBe("unavailable");
 
     await newAuthenticatedPage.goto("/historical-analysis");
-    await expect(newAuthenticatedPage.getByRole("region", { name: "Configure analysis", exact: true })).toBeVisible();
+    await expect(newAuthenticatedPage.getByRole("region", { name: "Start an analysis", exact: true })).toBeVisible();
     await newAuthenticatedPage.locator("#historical-analysis-market").click();
     await expect(newAuthenticatedPage.getByRole("option", { name: /SOLUSDT/ })).toHaveCount(0);
   });

@@ -32,10 +32,10 @@ import {
 } from "@/components/ui/select";
 
 import type { SupportedMarket } from "../markets/types";
+import { AnalysisInfoDialog } from "./analysis-info-dialog";
 import { HistoricalAnalysisApiError } from "./api";
 import { historicalAnalysisErrorMessage } from "./errors";
 import {
-  formatBasisPoints,
   formatDirection,
   formatStrategyType,
   formatTimeframe,
@@ -63,66 +63,6 @@ type AnalysisFormProps = {
 
 function presetKey(preset: AvailableHistoricalPreset): string {
   return `${preset.code}:${preset.version}`;
-}
-
-function AssumptionsCard({
-  configuration,
-}: {
-  configuration: HistoricalAnalysisConfiguration;
-}) {
-  const assumptions = configuration.assumptions;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Assumptions</CardTitle>
-        <CardDescription>
-          These values are controlled by the server and apply to the entire
-          hypothetical simulation.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 text-sm">
-        <ul className="grid gap-2 sm:grid-cols-2">
-          <li>Signal known at confirmed candle close</li>
-          <li>Entry at the next candle open</li>
-          <li>
-            Close exit after {assumptions.holdingPeriodCandles} held candles
-          </li>
-          <li>Cross-above is long; cross-below is synthetic short</li>
-          <li>Full hypothetical-equity sizing</li>
-          <li>One position at a time</li>
-          <li>Fees: {formatBasisPoints(assumptions.feeBpsPerSide)} per side</li>
-          <li>
-            Slippage: {formatBasisPoints(assumptions.slippageBpsPerSide)} per
-            side
-          </li>
-          <li>Overlapping signals are ignored</li>
-          <li>Incomplete forward windows are not opened</li>
-        </ul>
-        <p className="leading-6 text-muted-foreground">
-          The server validates complete stored candle coverage and the required
-          warm-up before running the fixed preset. Historical analysis does not
-          contact Binance or create live work.
-        </p>
-        <Alert className="border-warning/50 bg-warning/10" variant="warning">
-          <AlertTitle>Historical simulation safety boundary</AlertTitle>
-          <AlertDescription className="space-y-2">
-            <p>
-              Synthetic-short results are analytical inverse exposure. They are
-              not executable Binance Spot trades and do not model borrowing,
-              margin, leverage, liquidation, or derivatives.
-            </p>
-            <p>
-              This is a historical hypothetical simulation using stored candle
-              data and fixed assumptions. It is not financial advice, a
-              prediction, or a guarantee of future results. Real execution,
-              liquidity, fees, slippage, and market behavior may differ.
-            </p>
-          </AlertDescription>
-        </Alert>
-      </CardContent>
-    </Card>
-  );
 }
 
 function validateDateRange(
@@ -229,7 +169,7 @@ export function AnalysisForm({
     setFormError(null);
 
     if (!selectedMarket || !selectedPreset) {
-      setFormError("Choose a supported market and fixed preset version.");
+      setFormError("Choose a market and signal.");
       return;
     }
 
@@ -295,9 +235,8 @@ export function AnalysisForm({
         <CardContent className="space-y-4 p-6">
           <p>
             Historical analysis is unavailable until a supported market and
-            fixed preset are available from the server.
+            signal are available.
           </p>
-          <AssumptionsCard configuration={configuration} />
         </CardContent>
       </Card>
     );
@@ -305,23 +244,23 @@ export function AnalysisForm({
 
   return (
     <div className="space-y-6">
-      <AssumptionsCard configuration={configuration} />
-
       <Card>
         <CardHeader>
-          <CardTitle>Configuration</CardTitle>
-          <CardDescription>
-            Choose a supported market, fixed preset version, and completed UTC
-            date range. The server owns the calculation and simulation meaning.
-          </CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1.5">
+              <CardTitle>Start an analysis</CardTitle>
+              <CardDescription>
+                Choose a market, signal, and completed UTC date range.
+              </CardDescription>
+            </div>
+            <AnalysisInfoDialog configuration={configuration} />
+          </div>
         </CardHeader>
         <CardContent>
           <form className="space-y-6" onSubmit={handleBeginSubmit}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="historical-analysis-market">
-                  Supported market
-                </Label>
+                <Label htmlFor="historical-analysis-market">Market</Label>
                 <Select
                   disabled={isSubmitting || isReviewOpen}
                   onValueChange={(value) => {
@@ -331,7 +270,7 @@ export function AnalysisForm({
                   value={selectedSymbol}
                 >
                   <SelectTrigger
-                    aria-label="Supported market"
+                    aria-label="Market"
                     className="w-full"
                     id="historical-analysis-market"
                   >
@@ -347,9 +286,7 @@ export function AnalysisForm({
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="historical-analysis-preset">
-                  Fixed preset version
-                </Label>
+                <Label htmlFor="historical-analysis-preset">Signal</Label>
                 <Select
                   disabled={isSubmitting || isReviewOpen}
                   onValueChange={(value) => {
@@ -359,16 +296,16 @@ export function AnalysisForm({
                   value={selectedPresetKey}
                 >
                   <SelectTrigger
-                    aria-label="Fixed preset version"
+                    aria-label="Signal"
                     className="w-full"
                     id="historical-analysis-preset"
                   >
-                    <SelectValue placeholder="Choose a preset" />
+                    <SelectValue placeholder="Choose a signal" />
                   </SelectTrigger>
                   <SelectContent>
                     {availablePresets.map((preset) => (
                       <SelectItem key={presetKey(preset)} value={presetKey(preset)}>
-                        {preset.name} · {formatTimeframe(preset.timeframe)} · v
+                        {preset.name} ({formatTimeframe(preset.timeframe)}) - v
                         {preset.version}
                       </SelectItem>
                     ))}
@@ -379,48 +316,21 @@ export function AnalysisForm({
 
             {selectedPreset ? (
               <Card className="bg-muted/30" size="sm">
-                <CardHeader>
-                  <CardTitle className="text-sm">Selected preset</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Selected signal</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                    <div>
-                      <dt className="font-medium">Direction</dt>
-                      <dd className="text-muted-foreground">
-                        {formatDirection(selectedPreset.direction)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium">Strategy type</dt>
-                      <dd className="text-muted-foreground">
-                        {formatStrategyType(selectedPreset.strategyType)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium">Timeframe</dt>
-                      <dd className="text-muted-foreground">
-                        {formatTimeframe(selectedPreset.timeframe)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium">Fixed period</dt>
-                      <dd className="text-muted-foreground">
-                        {selectedPreset.parameters.period}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium">Threshold</dt>
-                      <dd className="text-muted-foreground">
-                        {selectedPreset.parameters.threshold ?? "None"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium">Version</dt>
-                      <dd className="text-muted-foreground">
-                        v{selectedPreset.version}
-                      </dd>
-                    </div>
-                  </dl>
+                <CardContent className="space-y-1">
+                  <p className="font-medium">
+                    {selectedPreset.name}{" "}
+                    <span>({formatTimeframe(selectedPreset.timeframe)})</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatDirection(selectedPreset.direction)} -{" "}
+                    {formatStrategyType(selectedPreset.strategyType)} - period{" "}
+                    {selectedPreset.parameters.period} - threshold{" "}
+                    {selectedPreset.parameters.threshold ?? "none"} - v
+                    {selectedPreset.version}
+                  </p>
                 </CardContent>
               </Card>
             ) : null}
@@ -441,9 +351,7 @@ export function AnalysisForm({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="historical-analysis-end">
-                  End date (UTC, inclusive)
-                </Label>
+                <Label htmlFor="historical-analysis-end">End date (UTC)</Label>
                 <Input
                   disabled={isSubmitting || isReviewOpen}
                   id="historical-analysis-end"
@@ -458,16 +366,17 @@ export function AnalysisForm({
               </div>
             </div>
 
-            <p className="text-sm leading-6 text-muted-foreground">
-              The server receives a start-inclusive, end-exclusive UTC range of{" "}
-              {configuration.minimumRangeDays}–{configuration.maximumRangeDays} days.
-              Boundaries are aligned for the selected preset timeframe.
+            <p className="text-sm text-muted-foreground">
+              Choose {configuration.minimumRangeDays}-{configuration.maximumRangeDays}{" "}
+              completed UTC days.
             </p>
 
-            {formError ? <InlineError message={formError} title="Review the analysis request" /> : null}
+            {formError ? (
+              <InlineError message={formError} title="Check your choices" />
+            ) : null}
 
             <Button disabled={isSubmitting} type="submit">
-              Review analysis
+              Review and run
             </Button>
           </form>
         </CardContent>
@@ -475,91 +384,84 @@ export function AnalysisForm({
 
       {selectedMarket && selectedPreset ? (
         <Dialog onOpenChange={handleReviewOpenChange} open={isReviewOpen}>
-        <DialogContent
-          className="max-h-[min(90svh,44rem)] max-w-2xl overflow-y-auto"
-          onEscapeKeyDown={(event) => {
-            if (isSubmitting) {
-              event.preventDefault();
-            }
-          }}
-          onPointerDownOutside={(event) => {
-            if (isSubmitting) {
-              event.preventDefault();
-            }
-          }}
-          showCloseButton={!isSubmitting}
-        >
-          <DialogHeader>
-            <DialogTitle>Review analysis</DialogTitle>
-            <DialogDescription>
-              Confirm the exact server-controlled request before it is queued.
-            </DialogDescription>
-          </DialogHeader>
-          <dl className="grid gap-4 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="font-medium">Market</dt>
-              <dd className="text-muted-foreground">{selectedMarket.symbol}</dd>
-            </div>
-            <div>
-              <dt className="font-medium">Preset</dt>
-              <dd className="text-muted-foreground">
-                {selectedPreset.name} · v{selectedPreset.version}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium">Timeframe</dt>
-              <dd className="text-muted-foreground">
-                {formatTimeframe(selectedPreset.timeframe)}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium">UTC range</dt>
-              <dd className="text-muted-foreground">
-                {startDate} 00:00 through {endDate} 24:00 UTC
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium">Simulation version</dt>
-              <dd className="text-muted-foreground">
-                {configuration.simulationVersion}
-              </dd>
-            </div>
-            <div>
-              <dt className="font-medium">Assumption version</dt>
-              <dd className="text-muted-foreground">
-                {configuration.assumptionVersion}
-              </dd>
-            </div>
-          </dl>
-          <Alert>
-            <AlertTitle>No live side effects</AlertTitle>
-            <AlertDescription>
-              Queueing this request does not create a live signal, alert,
-              Telegram message, provider request, or trading action.
-            </AlertDescription>
-          </Alert>
-          {formError ? (
-            <InlineError message={formError} title="Analysis request failed" />
-          ) : null}
-          <DialogFooter>
-            <Button
-              disabled={isSubmitting}
-              onClick={() => setIsReviewOpen(false)}
-              type="button"
-              variant="outline"
-            >
-              Back
-            </Button>
-            <Button
-              aria-busy={isSubmitting}
-              disabled={isSubmitting}
-              onClick={() => void handleConfirmSubmit()}
-              type="button"
-            >
-              {isSubmitting ? "Queueing analysis…" : "Confirm and queue analysis"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
+          <DialogContent
+            className="max-h-[min(90svh,44rem)] max-w-2xl overflow-y-auto"
+            onEscapeKeyDown={(event) => {
+              if (isSubmitting) {
+                event.preventDefault();
+              }
+            }}
+            onPointerDownOutside={(event) => {
+              if (isSubmitting) {
+                event.preventDefault();
+              }
+            }}
+            showCloseButton={!isSubmitting}
+          >
+            <DialogHeader>
+              <DialogTitle>Review analysis</DialogTitle>
+              <DialogDescription>
+                Check your choices, then start the simulation.
+              </DialogDescription>
+            </DialogHeader>
+            <dl className="grid gap-4 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="font-medium">Market</dt>
+                <dd className="text-muted-foreground">
+                  {selectedMarket.symbol}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium">Signal</dt>
+                <dd className="text-muted-foreground">
+                  {selectedPreset.name} (v{selectedPreset.version})
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium">Timeframe</dt>
+                <dd className="text-muted-foreground">
+                  {formatTimeframe(selectedPreset.timeframe)}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium">Date range</dt>
+                <dd className="text-muted-foreground">
+                  {startDate} to {endDate} (UTC)
+                </dd>
+              </div>
+            </dl>
+            <Alert>
+              <AlertTitle>No live actions</AlertTitle>
+              <AlertDescription>
+                This uses stored data only. It will not create alerts, send
+                Telegram messages, or trade.
+              </AlertDescription>
+            </Alert>
+            {formError ? (
+              <InlineError
+                message={formError}
+                title="Could not start analysis"
+              />
+            ) : null}
+            <DialogFooter>
+              <Button
+                disabled={isSubmitting}
+                onClick={() => setIsReviewOpen(false)}
+                type="button"
+                variant="outline"
+              >
+                Back
+              </Button>
+              <Button
+                aria-busy={isSubmitting}
+                disabled={isSubmitting}
+                onClick={() => void handleConfirmSubmit()}
+                type="button"
+              >
+                {isSubmitting ? "Starting analysis..." : "Start analysis"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
         </Dialog>
       ) : null}
     </div>

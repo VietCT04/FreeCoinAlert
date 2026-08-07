@@ -5,7 +5,7 @@ export default function HistoricalAnalysisPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        description="Configure a bounded historical simulation, follow its server-owned lifecycle, and review the immutable hypothetical report."
+        description="Choose a market, signal, and date range to see a historical simulation."
         title="Historical Analysis"
       />
       <HistoricalAnalysisPanel />

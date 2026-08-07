@@ -7,13 +7,7 @@ import { ConfirmActionDialog } from "@/components/confirm-action-dialog";
 import { InlineError, InlineErrorRetryButton } from "@/components/inline-error";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Sheet,
   SheetContent,
@@ -40,8 +34,8 @@ import { useHistoricalAnalyses } from "./use-historical-analyses";
 type AnalysisStep = "configure" | "processing" | "results";
 
 const steps: Array<{ label: string; value: AnalysisStep }> = [
-  { label: "Configure", value: "configure" },
-  { label: "Processing", value: "processing" },
+  { label: "Choose inputs", value: "configure" },
+  { label: "Run analysis", value: "processing" },
   { label: "Results", value: "results" },
 ];
 
@@ -222,11 +216,9 @@ export function HistoricalAnalysisPanel() {
   return (
     <div className="space-y-6">
       <Alert className="border-warning/50 bg-warning/10" variant="warning">
-        <AlertTitle>Historical hypothetical simulation</AlertTitle>
+        <AlertTitle>Start here</AlertTitle>
         <AlertDescription>
-          Historical analysis is not financial advice, not a prediction, and no
-          guarantee. It does not create live signals, alerts, Telegram messages,
-          provider requests, or trading actions.
+          Choose a market, signal, and date range. Results are hypothetical.
         </AlertDescription>
       </Alert>
 
@@ -238,26 +230,16 @@ export function HistoricalAnalysisPanel() {
           type="button"
           variant="outline"
         >
-          View previous analyses
+          View analysis history
         </Button>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-6">
-          <section aria-labelledby="historical-analysis-configure-heading">
-            <Card>
-              <CardHeader>
-                <CardTitle id="historical-analysis-configure-heading">
-                  Configure analysis
-                </CardTitle>
-                <CardDescription>
-                  Use a fixed server-controlled preset over a bounded UTC range
-                  of stored historical candles.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+          <section aria-label="Start an analysis">
+            <div className="space-y-4">
                 {analysis.isConfigurationLoading ? (
-                  <p aria-live="polite">Loading server-controlled analysis settings…</p>
+                  <p aria-live="polite">Loading analysis settings...</p>
                 ) : null}
                 {analysis.configurationError ? (
                   <InlineError
@@ -273,7 +255,7 @@ export function HistoricalAnalysisPanel() {
                 {currentConfiguration && !analysis.isConfigurationLoading ? (
                   <>
                     {markets.isLoading ? (
-                      <p aria-live="polite">Loading supported markets…</p>
+                      <p aria-live="polite">Loading markets...</p>
                     ) : null}
                     {markets.error ? (
                       <InlineError
@@ -298,14 +280,13 @@ export function HistoricalAnalysisPanel() {
                       />
                     ) : null}
                     {isPresetsLoading ? (
-                      <p aria-live="polite">Loading fixed preset versions…</p>
+                      <p aria-live="polite">Loading signals...</p>
                     ) : null}
                     {!markets.error && !markets.isLoading && marketUnavailable ? (
                       <Alert>
                         <AlertTitle>No supported market is ready</AlertTitle>
                         <AlertDescription>
-                          Historical analysis is temporarily unavailable until a
-                          supported market is ready.
+                          Try again when a supported market is available.
                         </AlertDescription>
                       </Alert>
                     ) : null}
@@ -313,8 +294,7 @@ export function HistoricalAnalysisPanel() {
                       <Alert>
                         <AlertTitle>No fixed preset is available</AlertTitle>
                         <AlertDescription>
-                          Historical analysis is temporarily unavailable until a
-                          fixed preset is available.
+                          Try again when a signal is available.
                         </AlertDescription>
                       </Alert>
                     ) : null}
@@ -338,12 +318,11 @@ export function HistoricalAnalysisPanel() {
                   <Alert>
                     <AlertTitle>Analysis settings unavailable</AlertTitle>
                     <AlertDescription>
-                      Historical-analysis settings are temporarily unavailable.
+                      Analysis settings are temporarily unavailable.
                     </AlertDescription>
                   </Alert>
                 ) : null}
-              </CardContent>
-            </Card>
+            </div>
           </section>
 
           {analysis.error ? (
@@ -464,9 +443,9 @@ export function HistoricalAnalysisPanel() {
       <Sheet onOpenChange={setIsRunsSheetOpen} open={isRunsSheetOpen}>
         <SheetContent className="w-full overflow-y-auto sm:max-w-md" side="right">
           <SheetHeader>
-            <SheetTitle>Previous analyses</SheetTitle>
+            <SheetTitle>Analysis history</SheetTitle>
             <SheetDescription>
-              Select a run to close this panel and inspect it in the main workflow.
+              Select an analysis to view its status or results.
             </SheetDescription>
           </SheetHeader>
           <div className="overflow-y-auto px-4 pb-6">

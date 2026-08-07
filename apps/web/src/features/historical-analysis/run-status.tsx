@@ -4,7 +4,6 @@ import { StatusBadge } from "@/components/status-badge";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -41,11 +40,8 @@ export function RunStatus({ run }: { run: HistoricalAnalysisRun }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <CardTitle id="historical-analysis-run-status-heading" tabIndex={-1}>
-              Run status
+              Status
             </CardTitle>
-            <CardDescription>
-              Server-owned lifecycle state for the selected analysis.
-            </CardDescription>
           </div>
           <StatusBadge status={label} />
         </div>
@@ -54,19 +50,16 @@ export function RunStatus({ run }: { run: HistoricalAnalysisRun }) {
         {isActive ? (
           <div className="space-y-1 text-sm">
             <p>
-              {run.status === "queued"
-                ? "The analysis is queued for the bounded worker."
-                : "The analysis is running in the bounded worker."}
+              {run.status === "queued" ? "Queued." : "Running."}
             </p>
             {hasServerProgress ? (
               <p className="text-muted-foreground">
-                Server-reported progress: {run.progressPercent}%
+                Progress: {run.progressPercent}%
               </p>
             ) : null}
             {run.cancellationRequested ? (
               <p className="text-muted-foreground">
-                Cancellation was requested. Running work stops at its next safe
-                checkpoint.
+                Cancellation requested. Work will stop at a safe checkpoint.
               </p>
             ) : null}
           </div>
@@ -79,13 +72,18 @@ export function RunStatus({ run }: { run: HistoricalAnalysisRun }) {
             No report was created for this cancelled analysis.
           </p>
         ) : null}
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          {timestampLabel("Created", run.createdAt)}
-          {timestampLabel("Started", run.startedAt)}
-          {timestampLabel("Completed", run.completedAt)}
-          {timestampLabel("Failed", run.failedAt)}
-          {timestampLabel("Cancelled", run.cancelledAt)}
-        </dl>
+        <details className="rounded-xl border p-3 text-sm">
+          <summary className="cursor-pointer font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+            View timestamps
+          </summary>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+            {timestampLabel("Created", run.createdAt)}
+            {timestampLabel("Started", run.startedAt)}
+            {timestampLabel("Completed", run.completedAt)}
+            {timestampLabel("Failed", run.failedAt)}
+            {timestampLabel("Cancelled", run.cancelledAt)}
+          </dl>
+        </details>
       </CardContent>
     </Card>
   );

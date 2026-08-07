@@ -37,13 +37,13 @@ export function RunList({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <h3 className="text-lg font-semibold" id={headingId}>
-            Previous analyses
+            Your analyses
           </h3>
           <p className="text-sm text-muted-foreground">
-            Select an owner-scoped run to inspect its current lifecycle or report.
+            Select an analysis to view its status or results.
           </p>
         </div>
-        {isLoading ? <span className="text-sm text-muted-foreground">Loading…</span> : null}
+        {isLoading ? <span className="text-sm text-muted-foreground">Loading...</span> : null}
       </div>
 
       {isLoading ? (
@@ -62,7 +62,7 @@ export function RunList({
 
       {!isLoading && !runs.length ? (
         <EmptyState
-          description="Create a historical analysis to see its lifecycle and report here."
+          description="Start an analysis to see results here."
           title="No previous analyses"
         />
       ) : null}
@@ -97,15 +97,12 @@ export function RunList({
                           {formatUtcDateTime(run.analysisStart)} →{" "}
                           {formatUtcDateTime(run.analysisEnd)}
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          Created {formatUtcDateTime(run.createdAt)}
-                        </p>
                       </div>
                       <div className="flex items-start gap-2 sm:flex-col sm:items-end">
                         <StatusBadge status={statusLabel} />
                         {isActive && Number.isFinite(run.progressPercent) ? (
                           <span className="text-xs text-muted-foreground">
-                            {run.progressPercent}% server-reported
+                            Progress {run.progressPercent}%
                           </span>
                         ) : null}
                       </div>
@@ -125,7 +122,7 @@ export function RunList({
           type="button"
           variant="outline"
         >
-          {isLoadingMore ? "Loading more…" : "Load more analyses"}
+          {isLoadingMore ? "Loading..." : "Load more"}
         </Button>
       ) : null}
     </section>
