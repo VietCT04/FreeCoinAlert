@@ -22,6 +22,20 @@ Aggregate trades are normalized to exact `Decimal` price events only when wrappe
 
 Only Binance `x=true` one-minute klines enter canonical persistence; open updates are ignored. Provider close time remains the provider's inclusive millisecond while stored candle `close_time` is exclusive (`open_time + 1 minute`). REST kline requests also accept only consecutive, valid one-minute rows with possible OHLC and non-negative numeric values. Binance REST klines provide trade count but not first/last trade IDs, so those IDs remain null for REST-reconciled rows; closed WebSocket kline events populate them when supplied by the provider.
 
+## `market_candles` Persistence Path
+
+The `market_candles` table is not populated by FastAPI startup or by aggregate-trade events. Candle writes enter through `CandleIngestionService` from these paths:
+
+| Trigger | Provider input | Persistence action |
+| --- | --- | --- |
+| Normal local initialization | Binance REST klines | The one-shot `candle-bootstrap-init` service runs after catalog synchronization and before `market-stream`; it fills missing rows in the configured bounded history. |
+| Live market stream | A validated closed (`x=true`) Binance `@kline_1m` event | `market-stream` persists that one closed `1m` candle immediately. Open kline updates do not reach the persistence service. |
+| Recent reconciliation | Binance REST klines for detected missing ranges | The stream requests a bounded recent repair during initial setup and on its maintenance interval; `market:candles-reconcile` and `market:candles-bootstrap` invoke the same gap-based writer explicitly. |
+
+For each accepted closed `1m` candle, the service opens a database transaction and locks the current row for that market, timeframe, and UTC open time. If no current row exists, it inserts complete revision `1`. If all canonical values match the current row, the event is an idempotent no-op. If confirmed values differ, the current row is marked superseded and a new current revision is inserted; the earlier revision is retained. The source upsert never stores an unfinished candle.
+
+After a changed `1m` source row, the service rebuilds the containing UTC `1h` and `4h` windows from current `1m` rows. A derived window becomes complete only when it has exactly 60 or 240 consecutive source rows. Missing or nonconsecutive sources produce a current incomplete row with no OHLCV values; no synthetic candle is created. A later complete rebuild can complete an existing incomplete derived row, while a changed complete derived result creates a new revision. Live changed source and complete derived rows are then sent to the confirmed-candle pipeline for candle state and preset evaluation.
+
 ## Canonical Candle Semantics
 
 Current candle identity is supported market, timeframe, and UTC open time. Values use `Decimal`/`NUMERIC(38,18)`. Identical confirmed input is idempotent. Changed confirmed input creates a new current revision and supersedes the earlier complete revision; it is never overwritten. Incomplete and invalid rows have no OHLCV values. Source fingerprints digest the ordered current source candle ID/revision pairs.
@@ -42,13 +56,15 @@ The browser preset and historical-analysis surfaces consume only server-provided
 
 ## Bootstrap
 
-`market:candles-bootstrap` is an explicit one-shot, singleton-locked operator command. It reconciles up to `CANDLE_BOOTSTRAP_DAYS` (default 150 for direct-host use; 35–180) using chronological pages of at most 1,000 minutes. The Compose `market` profile runs this same gap-based module through `candle-bootstrap-init`, maps `LOCAL_CANDLE_BOOTSTRAP_DAYS` to `CANDLE_BOOTSTRAP_DAYS`, and defaults the local bounded range to 35 days. It contacts Binance's public `/api/v3/klines` endpoint and writes through the same closed-candle boundary.
+The normal local startup path invokes this as a separate one-shot service; it is not a FastAPI startup hook. Existing rows are used by the gap check, so initialization does not replay the full history on every restart.
+
+`market:candles-bootstrap` is an explicit one-shot, singleton-locked operator command. It fills missing rows for up to `CANDLE_BOOTSTRAP_DAYS` (default 150 for direct-host use; 35–180) using chronological pages of at most 1,000 minutes. The Compose `market` profile runs this same gap-based module through `candle-bootstrap-init`, maps `LOCAL_CANDLE_BOOTSTRAP_DAYS` to `CANDLE_BOOTSTRAP_DAYS`, and defaults the local bounded range to 35 days. It contacts Binance's public `/api/v3/klines` endpoint and writes through the same closed-candle boundary.
 
 The isolated E2E overlay disables `candle-bootstrap-init`. After migration and catalogue initialization, the guarded `e2e-seed` module inserts deterministic fixed-UTC, exact-decimal canonical history and derived `1h`/`4h` rows idempotently. The market stream and historical-analysis worker wait for seed completion so live and historical paths consume the same stored canonical data. No synthetic missing candle is created and no production provider is contacted.
 
 ## Reconciliation and Gap Repair
 
-`market:candles-reconcile` is an explicit one-shot command for a bounded lookback (default 24 hours; maximum 168). The stream additionally requests a six-hour recent reconciliation at startup and then no more frequently than every 900 seconds by default. Reconciliation finds missing current complete `1m` ranges, requests only those pages, and persists returned closed rows. It does not invent gaps. Bootstrap allows a maximum 180-day range. All these modes share the stream singleton lock.
+`market:candles-reconcile` is an explicit one-shot command for a bounded lookback (default 24 hours; maximum 168). The running stream calls the same function during its initial setup for a six-hour lookback before opening its first WebSocket connection, then its maintenance loop schedules another request no more frequently than `CANDLE_RECENT_RECONCILIATION_SECONDS` (900 seconds by default). Reconciliation finds only missing current complete `1m` ranges, requests those REST pages, and passes the returned closed rows through the same persistence and aggregation logic. It does not rewrite every existing candle or invent gaps. Bootstrap allows a maximum 180-day range. Direct maintenance acquires the market singleton lock; the running stream reuses the lock it already owns.
 
 ## Corrections and Revisions
 
