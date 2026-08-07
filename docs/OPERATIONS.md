@@ -101,6 +101,8 @@ Formatting, lint, typecheck, build, and verification scripts exist for developme
 
 `pnpm dev:all` runs `docker compose <profiles> up --build --detach --wait --wait-timeout <LOCAL_STARTUP_TIMEOUT_SECONDS>`, then reads `docker compose <profiles> ps --all --format json`. It requires `api-prepare`, `db-migrate`, `market-catalog-init`, and `candle-bootstrap-init` to have exited with code 0. It requires healthy `db`, `api`, and `web` services plus a running `market-stream`. Enabled Telegram services (`telegram-updates`, `notification-worker`, and `signal-telegram-dispatcher`) must be running. An available historical-analysis profile is enabled automatically and its worker must be running; when that profile is absent, the summary reports the worker as `unavailable`.
 
+The local web healthcheck allows five minutes for a fresh dependency volume to finish its locked workspace install before Next.js must become healthy.
+
 The readiness summary prints only non-secret local web/API URLs and normalized states. It distinguishes `healthy`, `running`, `completed`, `starting`, `disabled`, `unavailable`, `failed`, and `stopped`; a required failed or non-ready service prevents the ready banner and exits non-zero. Startup failures remain concise and direct the operator to `pnpm dev:status` and `pnpm dev:all:logs` rather than dumping large logs automatically.
 
 ## Status, Logs, Shutdown, and Reset
