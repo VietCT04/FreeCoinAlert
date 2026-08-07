@@ -679,6 +679,7 @@ async function runReport() {
     composeArgs(
       "run",
       "--rm",
+      "--service-ports",
       "--no-deps",
       "--build",
       "e2e-tests",

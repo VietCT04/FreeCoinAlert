@@ -66,7 +66,7 @@ The Node simulator in `services/e2e-provider-simulator` provides deterministic B
 15. Always run `down --volumes --remove-orphans`, including failure and interruption paths.
 16. Keep cleanup idempotent and attempt it after both normal and forced child termination.
 
-`pnpm e2e:ui` uses the same safety checks and stack, runs `playwright test --ui --ui-host=0.0.0.0 --ui-port=9323`, and exposes only `127.0.0.1:9323`. It keeps the stack alive until the UI process exits or receives Ctrl+C. `pnpm e2e:report` serves an existing HTML report only and does not start application services; it fails clearly when no report exists.
+`pnpm e2e:ui` uses the same safety checks and stack, runs `playwright test --ui --ui-host=0.0.0.0 --ui-port=9323`, and exposes only `127.0.0.1:9323`. It keeps the stack alive until the UI process exits or receives Ctrl+C. `pnpm e2e:report` serves an existing HTML report at `http://localhost:9323` only and does not start application services; it fails clearly when no report exists.
 
 ## Artifacts and Redaction
 
