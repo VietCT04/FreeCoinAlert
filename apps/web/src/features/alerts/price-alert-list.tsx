@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { formatExactDecimal } from "@/lib/decimal";
 import {
   Card,
   CardContent,
@@ -134,12 +135,13 @@ export function PriceAlertList({
               <CardContent className="space-y-3">
                 <p className="font-medium">
                   Crosses {alert.direction === "cross_above" ? "above" : "below"}{" "}
-                  {alert.targetPrice} {alert.market.quoteAsset}
+                  {formatExactDecimal(alert.targetPrice)} {alert.market.quoteAsset}
                 </p>
                 {monitoring ? <p className="text-sm">{monitoring}</p> : null}
                 {alert.lastObservedPrice ? (
                   <p className="text-sm text-muted-foreground">
-                    Last observed price: {alert.lastObservedPrice} {alert.market.quoteAsset}
+                    Last observed price: {formatExactDecimal(alert.lastObservedPrice)}{" "}
+                    {alert.market.quoteAsset}
                   </p>
                 ) : null}
                 <p className="text-sm text-muted-foreground">
@@ -147,7 +149,8 @@ export function PriceAlertList({
                 </p>
                 {alert.trigger ? (
                   <p className="text-sm">
-                    Triggered at {alert.trigger.price} {alert.market.quoteAsset} on{" "}
+                    Triggered at {formatExactDecimal(alert.trigger.price)}{" "}
+                    {alert.market.quoteAsset} on{" "}
                     {formatDate(alert.trigger.occurredAt)}
                   </p>
                 ) : null}
