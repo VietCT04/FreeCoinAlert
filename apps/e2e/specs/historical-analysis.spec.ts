@@ -171,6 +171,8 @@ test.describe("historical analysis configuration and reports", () => {
         assumptions: Record<string, unknown>;
         safetyDisclosures: string[];
         summary: Record<string, string | number | null>;
+        candlePreview: Array<Record<string, string | number>>;
+        tradeMarkers: Array<Record<string, string | number>>;
       };
 
       expect((runResponse.run as { status: string }).status).toBe("succeeded");
@@ -223,6 +225,16 @@ test.describe("historical analysis configuration and reports", () => {
       expect(report.assumptions.signalTiming).toBe("confirmed_candle_close");
       expect(report.assumptions.entryTiming).toBe("next_candle_open");
       expect(report.safetyDisclosures.length).toBeGreaterThan(0);
+      expect(report.candlePreview.length).toBeGreaterThan(0);
+      expect(report.candlePreview.length).toBeLessThanOrEqual(400);
+      expect(report.candlePreview[0].openPrice).toEqual(expect.any(String));
+      expect(report.candlePreview[0].highPrice).toEqual(expect.any(String));
+      expect(report.candlePreview[0].lowPrice).toEqual(expect.any(String));
+      expect(report.candlePreview[0].closePrice).toEqual(expect.any(String));
+      expect(report.tradeMarkers.length).toBeLessThanOrEqual(200);
+      if (Number(report.summary.tradeCount) > 0) {
+        expect(report.tradeMarkers.length).toBeGreaterThan(0);
+      }
 
       await newAuthenticatedPage.goto("/historical-analysis");
       await expect(newAuthenticatedPage.getByRole("region", { name: "Start an analysis", exact: true })).toBeVisible();
@@ -248,10 +260,16 @@ test.describe("historical analysis configuration and reports", () => {
         "Win rate",
         "Profit factor",
         "Executed trades",
+        "Price action",
         "Equity progression",
       ]) {
         await expect(newAuthenticatedPage.getByText(label, { exact: true }).first()).toBeVisible();
       }
+      await expect(
+        newAuthenticatedPage.getByRole("img", {
+          name: /Candlestick chart with .* hypothetical trades and buy and sell markers/,
+        }),
+      ).toBeVisible();
       await newAuthenticatedPage.getByRole("tab", { name: "Methodology", exact: true }).click();
       const visibleReportPanel = newAuthenticatedPage.locator(
         '[data-slot="tabs-content"][data-state="active"]',

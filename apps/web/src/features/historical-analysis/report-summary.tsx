@@ -36,6 +36,7 @@ import type {
   HistoricalAnalysisRun,
   HistoricalAnalysisTrade,
 } from "./types";
+import { CandleChart } from "./candle-chart";
 import { EquityChart } from "./equity-chart";
 import { TradeTable } from "./trade-table";
 
@@ -375,6 +376,17 @@ export function ReportSummary({
           <ReportContext report={report} />
           <PrimaryMetrics report={report} />
           <SecondaryMetrics report={report} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Price action</CardTitle>
+              <CardDescription>
+                Candles and hypothetical buy/sell markers for the selected range.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CandleChart candles={report.candlePreview} markers={report.tradeMarkers} />
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Equity progression</CardTitle>

@@ -188,6 +188,31 @@ class HistoricalAnalysisEquityPointResponse(BaseModel):
     active_trade_sequence: int | None
 
 
+class HistoricalAnalysisCandlePreviewResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    sequence: int
+    candle_id: uuid.UUID
+    candle_revision: int
+    candle_open_time: datetime
+    candle_close_time: datetime
+    open_price: str
+    high_price: str
+    low_price: str
+    close_price: str
+
+
+class HistoricalAnalysisTradeMarkerResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    sequence: int
+    marker_type: Literal["entry", "exit"]
+    side: Literal["buy", "sell"]
+    position_direction: Literal["long", "synthetic_short"]
+    candle_open_time: datetime
+    price: str
+
+
 class HistoricalAnalysisReportResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
 
@@ -208,6 +233,8 @@ class HistoricalAnalysisReportResponse(BaseModel):
     summary: HistoricalAnalysisReportSummaryResponse
     safety_disclosures: list[str]
     equity_preview: list[HistoricalAnalysisEquityPointResponse]
+    candle_preview: list[HistoricalAnalysisCandlePreviewResponse]
+    trade_markers: list[HistoricalAnalysisTradeMarkerResponse]
     trades_available: bool
     equity_available: bool
     trades_path: str

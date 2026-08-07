@@ -123,6 +123,27 @@ export type HistoricalAnalysisEquityPoint = {
   activeTradeSequence: number | null;
 };
 
+export type HistoricalAnalysisCandlePreview = {
+  sequence: number;
+  candleId: string;
+  candleRevision: number;
+  candleOpenTime: string;
+  candleCloseTime: string;
+  openPrice: string;
+  highPrice: string;
+  lowPrice: string;
+  closePrice: string;
+};
+
+export type HistoricalAnalysisTradeMarker = {
+  sequence: number;
+  markerType: "entry" | "exit";
+  side: "buy" | "sell";
+  positionDirection: "long" | "synthetic_short";
+  candleOpenTime: string;
+  price: string;
+};
+
 export type HistoricalAnalysisTrade = {
   sequence: number;
   signalCandleId: string;
@@ -171,6 +192,8 @@ export type HistoricalAnalysisReport = {
   summary: HistoricalAnalysisReportSummary;
   safetyDisclosures: string[];
   equityPreview: HistoricalAnalysisEquityPoint[];
+  candlePreview: HistoricalAnalysisCandlePreview[];
+  tradeMarkers: HistoricalAnalysisTradeMarker[];
   tradesAvailable: boolean;
   equityAvailable: boolean;
   tradesPath: string;

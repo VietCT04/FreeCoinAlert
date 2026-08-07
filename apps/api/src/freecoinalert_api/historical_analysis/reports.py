@@ -12,11 +12,17 @@ from typing import Any
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from freecoinalert_api.db.models.historical_analysis_dataset_candle import (
+    HistoricalAnalysisDatasetCandle,
+)
 from freecoinalert_api.db.models.historical_analysis_equity_point import (
     HistoricalAnalysisEquityPoint,
 )
 from freecoinalert_api.db.models.historical_analysis_report import HistoricalAnalysisReport
 from freecoinalert_api.db.models.historical_analysis_trade import HistoricalAnalysisTrade
+from freecoinalert_api.db.repositories.historical_analysis_datasets import (
+    list_historical_analysis_dataset_candles,
+)
 from freecoinalert_api.db.repositories.historical_analysis_reports import (
     get_historical_analysis_report_by_run_id,
     list_historical_analysis_equity_page,
@@ -32,6 +38,7 @@ from freecoinalert_api.historical_analysis.errors import (
     unavailable_error,
 )
 from freecoinalert_api.schemas.historical_analysis import (
+    HistoricalAnalysisCandlePreviewResponse,
     HistoricalAnalysisEquityEnvelope,
     HistoricalAnalysisEquityPointResponse,
     HistoricalAnalysisMarketSnapshotResponse,
@@ -40,6 +47,7 @@ from freecoinalert_api.schemas.historical_analysis import (
     HistoricalAnalysisReportEnvelope,
     HistoricalAnalysisReportResponse,
     HistoricalAnalysisReportSummaryResponse,
+    HistoricalAnalysisTradeMarkerResponse,
     HistoricalAnalysisTradeResponse,
     HistoricalAnalysisTradesEnvelope,
 )
@@ -50,6 +58,8 @@ MAX_TRADES_LIMIT = 100
 DEFAULT_EQUITY_LIMIT = 200
 MAX_EQUITY_LIMIT = 500
 EQUITY_PREVIEW_LIMIT = 200
+CANDLE_PREVIEW_LIMIT = 200
+TRADE_MARKER_TRADE_LIMIT = 100
 
 
 class HistoricalAnalysisReportService:
@@ -72,11 +82,25 @@ class HistoricalAnalysisReportService:
                 limit=2_501,
                 after_sequence=None,
             )
+            dataset_candles = await list_historical_analysis_dataset_candles(
+                session,
+                dataset_id=report.dataset_id,
+            )
+            trades = await list_historical_analysis_trades_page(
+                session,
+                report_id=report.id,
+                limit=2_501,
+                after_sequence=None,
+            )
             return HistoricalAnalysisReportEnvelope(
                 report=_report_response(
                     run_id=run.id,
                     report=report,
                     equity_points=_downsample_equity_points(points),
+                    dataset_candles=tuple(
+                        candle for candle in dataset_candles if not candle.is_warmup
+                    ),
+                    trades=_downsample_trades(trades),
                 )
             )
         except HistoricalAnalysisError:
@@ -245,6 +269,8 @@ def _report_response(
     run_id: uuid.UUID,
     report: HistoricalAnalysisReport,
     equity_points: Sequence[HistoricalAnalysisEquityPoint],
+    dataset_candles: Sequence[HistoricalAnalysisDatasetCandle],
+    trades: Sequence[HistoricalAnalysisTrade],
 ) -> HistoricalAnalysisReportResponse:
     market = report.market_snapshot
     preset = report.preset_snapshot
@@ -307,6 +333,11 @@ def _report_response(
         ),
         safety_disclosures=list(_safety_disclosures(report.assumptions_snapshot)),
         equity_preview=[_equity_response(point) for point in equity_points],
+        candle_preview=[
+            _candle_preview_response(candle)
+            for candle in _chart_candle_preview(dataset_candles, trades)
+        ],
+        trade_markers=_trade_marker_responses(trades, dataset_candles),
         trades_available=True,
         equity_available=True,
         trades_path=f"/historical-analyses/{run_id}/trades",
@@ -360,6 +391,58 @@ def _equity_response(row: HistoricalAnalysisEquityPoint) -> HistoricalAnalysisEq
     )
 
 
+def _candle_preview_response(
+    row: HistoricalAnalysisDatasetCandle,
+) -> HistoricalAnalysisCandlePreviewResponse:
+    return HistoricalAnalysisCandlePreviewResponse(
+        sequence=row.position,
+        candle_id=row.candle_id,
+        candle_revision=row.candle_revision,
+        candle_open_time=row.open_time,
+        candle_close_time=row.close_time,
+        open_price=_decimal(row.open_price),
+        high_price=_decimal(row.high_price),
+        low_price=_decimal(row.low_price),
+        close_price=_decimal(row.close_price),
+    )
+
+
+def _trade_marker_responses(
+    trades: Sequence[HistoricalAnalysisTrade],
+    dataset_candles: Sequence[HistoricalAnalysisDatasetCandle],
+) -> Sequence[HistoricalAnalysisTradeMarkerResponse]:
+    candle_open_times = {candle.candle_id: candle.open_time for candle in dataset_candles}
+    markers: list[HistoricalAnalysisTradeMarkerResponse] = []
+    for trade in trades:
+        entry_open_time = candle_open_times.get(trade.entry_candle_id)
+        exit_open_time = candle_open_times.get(trade.exit_candle_id)
+        if entry_open_time is None or exit_open_time is None:
+            continue
+        entry_side = "buy" if trade.position_direction == "long" else "sell"
+        exit_side = "sell" if trade.position_direction == "long" else "buy"
+        markers.extend(
+            (
+                HistoricalAnalysisTradeMarkerResponse(
+                    sequence=trade.sequence,
+                    marker_type="entry",
+                    side=entry_side,
+                    position_direction=trade.position_direction,
+                    candle_open_time=entry_open_time,
+                    price=_decimal(trade.entry_fill_price),
+                ),
+                HistoricalAnalysisTradeMarkerResponse(
+                    sequence=trade.sequence,
+                    marker_type="exit",
+                    side=exit_side,
+                    position_direction=trade.position_direction,
+                    candle_open_time=exit_open_time,
+                    price=_decimal(trade.exit_fill_price),
+                ),
+            )
+        )
+    return markers
+
+
 def _downsample_equity_points(
     points: Sequence[HistoricalAnalysisEquityPoint],
 ) -> Sequence[HistoricalAnalysisEquityPoint]:
@@ -369,6 +452,44 @@ def _downsample_equity_points(
     return tuple(
         points[(slot * last_index) // (EQUITY_PREVIEW_LIMIT - 1)]
         for slot in range(EQUITY_PREVIEW_LIMIT)
+    )
+
+
+def _downsample_candles(
+    candles: Sequence[HistoricalAnalysisDatasetCandle],
+) -> Sequence[HistoricalAnalysisDatasetCandle]:
+    if len(candles) <= CANDLE_PREVIEW_LIMIT:
+        return candles
+    last_index = len(candles) - 1
+    return tuple(
+        candles[(slot * last_index) // (CANDLE_PREVIEW_LIMIT - 1)]
+        for slot in range(CANDLE_PREVIEW_LIMIT)
+    )
+
+
+def _chart_candle_preview(
+    candles: Sequence[HistoricalAnalysisDatasetCandle],
+    trades: Sequence[HistoricalAnalysisTrade],
+) -> Sequence[HistoricalAnalysisDatasetCandle]:
+    preview = {candle.candle_id: candle for candle in _downsample_candles(candles)}
+    candles_by_id = {candle.candle_id: candle for candle in candles}
+    for trade in trades:
+        for candle_id in (trade.entry_candle_id, trade.exit_candle_id):
+            candle = candles_by_id.get(candle_id)
+            if candle is not None:
+                preview[candle.candle_id] = candle
+    return tuple(sorted(preview.values(), key=lambda candle: candle.position))
+
+
+def _downsample_trades(
+    trades: Sequence[HistoricalAnalysisTrade],
+) -> Sequence[HistoricalAnalysisTrade]:
+    if len(trades) <= TRADE_MARKER_TRADE_LIMIT:
+        return trades
+    last_index = len(trades) - 1
+    return tuple(
+        trades[(slot * last_index) // (TRADE_MARKER_TRADE_LIMIT - 1)]
+        for slot in range(TRADE_MARKER_TRADE_LIMIT)
     )
 
 
