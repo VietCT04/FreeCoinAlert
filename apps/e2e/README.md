@@ -14,7 +14,7 @@ pnpm e2e:ui
 pnpm e2e:report
 ```
 
-`pnpm e2e` validates the fixed E2E configuration, removes only the `freecoinalert-e2e` project and its volumes, builds the pinned images, starts the isolated stack, runs the desktop and mobile journeys, saves safe artifacts, and tears the stack down. `pnpm e2e:ui` keeps the same stack alive for Playwright UI mode and exposes only `127.0.0.1:9323`. `pnpm e2e:report` serves an existing HTML report without starting application services.
+`pnpm e2e` validates the fixed E2E configuration, removes only the `freecoinalert-e2e` project and its volumes, builds the pinned images, starts the isolated stack, runs the desktop and mobile journeys, saves safe artifacts, and tears the stack down. `pnpm e2e:ui` keeps the same stack alive for Playwright UI mode and exposes only `127.0.0.1:9323`. `pnpm e2e:report` serves an existing HTML report at `http://localhost:9323` without starting application services.
 
 The normal runner does not install host browser binaries, read `.env`, accept an alternate Compose project or environment file, contact real providers, or require the normal local stack to be running.
 
