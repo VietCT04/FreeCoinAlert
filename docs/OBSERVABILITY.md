@@ -43,7 +43,7 @@ The authentication, dashboard, Telegram, price-alert, preset-signal, historical-
 
 The exact field set is implementation detail; logs use IDs and safe categories rather than credentials or provider payloads. The browser price-alert, preset-signal, Telegram, signal, and historical-analysis panels do not log event/report payloads, subscription or run IDs, cursors, authentication values, CSRF values, Telegram readiness, fingerprints, trades, equity, destination identifiers, or sound state; connection status, card presentation, report presentation, and sound activation are visual client state only. Preference, usage-summary, and historical-analysis controls use safe announcements without logging provider details. A successful mutation toast or a `sent` test-notification result does not imply device receipt, a signal notification job, a Telegram provider request for another feature, or a live occurrence was created.
 
-The historical-analysis guided flow, report tabs, Recharts preview, accessible tables, recovery states, and authentication cards add no browser-side operational events or health signals. Lifecycle and report availability remain defined by the server-owned API and worker states documented above. Axe scans attach only bounded violation summaries and do not become production observability.
+The historical-analysis guided flow, focused report tabs, Recharts preview, recovery states, and authentication cards add no browser-side operational events or health signals. Lifecycle and report availability remain defined by the server-owned API and worker states documented above. Axe scans attach only bounded violation summaries and do not become production observability.
 
 ## Status and Freshness Semantics
 

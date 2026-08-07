@@ -1,5 +1,4 @@
 import type {
-  HistoricalAnalysisEquityPoint,
   HistoricalAnalysisStatus,
   HistoricalAnalysisTrade,
 } from "./types";
@@ -264,6 +263,49 @@ export function formatDecimal(value: string, maximumFractionDigits = 8): string 
   return roundDecimal(value, maximumFractionDigits) ?? "Not available";
 }
 
+export function formatFixedDecimal(value: string, fractionDigits = 2): string {
+  const rounded = roundDecimal(value, fractionDigits);
+  if (!rounded) {
+    return "Not available";
+  }
+
+  const normalized = normalizeDecimal(rounded) ?? rounded;
+  const [integerPart, fractionPart = ""] = normalized.split(".");
+  return `${integerPart}.${fractionPart.padEnd(fractionDigits, "0")}`;
+}
+
+export function formatFixedPercent(
+  value: string | null,
+  undefinedReason?: string | null,
+  fractionDigits = 2,
+): string {
+  if (value === null) {
+    return formatUndefinedMetric(undefinedReason);
+  }
+
+  const percentage = shiftDecimal(value, 2);
+  if (!percentage) {
+    return "Not available";
+  }
+
+  return `${formatFixedDecimal(percentage, fractionDigits)}%`;
+}
+
+export function formatFixedSignedPercent(
+  value: string | null,
+  undefinedReason?: string | null,
+  fractionDigits = 2,
+): string {
+  const formatted = formatFixedPercent(value, undefinedReason, fractionDigits);
+  if (!formatted.endsWith("%") || formatted.startsWith("-")) {
+    return formatted;
+  }
+  if (/^0\.0+%$/.test(formatted)) {
+    return formatted;
+  }
+  return `+${formatted}`;
+}
+
 export function formatPercent(value: string | null, undefinedReason?: string | null): string {
   if (value === null) {
     return formatUndefinedMetric(undefinedReason);
@@ -387,8 +429,4 @@ export function formatAssumptionValue(key: string, value: unknown): string {
 
 export function formatTradeTime(trade: HistoricalAnalysisTrade): string {
   return `${formatUtcDateTime(trade.signalCloseTime)} → ${formatUtcDateTime(trade.exitCloseTime)}`;
-}
-
-export function formatEquityPointTime(point: HistoricalAnalysisEquityPoint): string {
-  return formatUtcDateTime(point.candleCloseTime);
 }
