@@ -28,7 +28,7 @@ The normal candle bootstrap is disabled. After migration and catalogue initializ
 
 ## Playwright Workspace
 
-The `apps/e2e` workspace pins `@playwright/test` to `1.62.0`, uses `mcr.microsoft.com/playwright:v1.62.0-noble`, and pins `@axe-core/playwright` to `4.12.1`. The package and image versions must remain equal for Playwright. The image activates pnpm `11.4.0`, uses the repository lockfile, runs trusted repository tests only, and sets `init: true` and `ipc: host` in Compose. Browser binaries are never installed on the developer host by the E2E commands. The E2E web override allows five minutes for the fresh dependency volume to finish its locked install before health checks can fail.
+The `apps/e2e` workspace pins `@playwright/test` to `1.62.0`, uses `mcr.microsoft.com/playwright:v1.62.0-noble`, and pins `@axe-core/playwright` to `4.12.1`. The package and image versions must remain equal for Playwright. The image activates pnpm `11.4.0`, uses the repository lockfile, runs trusted repository tests only, and sets `init: true` and `ipc: host` in Compose. Browser binaries are never installed on the developer host by the E2E commands. The web service installs only the web workspace and its workspace dependencies, and the E2E web override allows five minutes for the fresh dependency volume to finish that locked install before health checks can fail.
 
 The configuration has two deterministic projects:
 

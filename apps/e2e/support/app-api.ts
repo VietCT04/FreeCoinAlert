@@ -12,6 +12,19 @@ type RequestOptions = {
   headers?: Record<string, string>;
 };
 
+function hasIdempotencyKey(headers: Record<string, string> | undefined): boolean {
+  return Object.keys(headers ?? {}).some(
+    (key) => key.toLowerCase() === "idempotency-key",
+  );
+}
+
+function isTransientConnectionError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    /socket hang up|connection reset|ECONNRESET|EPIPE/i.test(error.message)
+  );
+}
+
 export class AppApi {
   private csrfToken: string | null = null;
   private userId: string | null = null;
@@ -301,8 +314,16 @@ export class AppApi {
     data?: Record<string, unknown>,
     headers?: Record<string, string>,
   ): Promise<T> {
-    const response = await this.request.post(path, { data, headers });
-    return this.read<T>(response, 200, 201);
+    try {
+      const response = await this.request.post(path, { data, headers });
+      return this.read<T>(response, 200, 201);
+    } catch (error) {
+      if (!hasIdempotencyKey(headers) || !isTransientConnectionError(error)) {
+        throw error;
+      }
+      const response = await this.request.post(path, { data, headers });
+      return this.read<T>(response, 200, 201);
+    }
   }
 
   private async put<T>(
