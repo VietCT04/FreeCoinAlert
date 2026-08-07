@@ -23,35 +23,26 @@ import {
 import {
   formatAssumptionKey,
   formatAssumptionValue,
-  formatDirection,
+  formatFixedDecimal,
+  formatFixedPercent,
+  formatFixedSignedPercent,
   formatFingerprint,
-  formatPercent,
-  formatSignedPercent,
-  formatStrategyType,
   formatTimeframe,
   formatUndefinedMetric,
   formatUtcDateTime,
 } from "./format";
 import type {
-  HistoricalAnalysisEquityPoint,
   HistoricalAnalysisReport,
   HistoricalAnalysisRun,
   HistoricalAnalysisTrade,
 } from "./types";
 import { EquityChart } from "./equity-chart";
-import { EquityTable } from "./equity-table";
 import { TradeTable } from "./trade-table";
 
 type ReportSummaryProps = {
-  equity: HistoricalAnalysisEquityPoint[];
-  equityError: string | null;
-  equityNextCursor: string | null;
-  hasLoadedEquity: boolean;
   hasLoadedTrades: boolean;
-  isEquityLoading: boolean;
   isReportLoading: boolean;
   isTradesLoading: boolean;
-  onLoadEquity: () => void;
   onLoadTrades: () => void;
   report: HistoricalAnalysisReport | null;
   reportError: string | null;
@@ -157,7 +148,7 @@ function FingerprintDetail({
 }
 
 function signedMetric(value: string | null, undefinedReason?: string | null) {
-  const formatted = formatSignedPercent(value, undefinedReason);
+  const formatted = formatFixedSignedPercent(value, undefinedReason);
   const tone =
     value?.startsWith("-")
       ? "text-destructive"
@@ -170,37 +161,16 @@ function signedMetric(value: string | null, undefinedReason?: string | null) {
 
 function ReportContext({ report }: { report: HistoricalAnalysisReport }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          {report.preset.name} on {report.market.symbol}
-        </CardTitle>
-        <CardDescription>
-          {formatUtcDateTime(report.analysisStart)} →{" "}
-          {formatUtcDateTime(report.analysisEnd)} · {formatTimeframe(report.preset.timeframe)}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <MetricCard
-          label="Market"
-          value={`${report.market.baseAsset}/${report.market.quoteAsset} (${report.market.symbol})`}
-        />
-        <MetricCard
-          label="Preset code / version"
-          value={`${report.preset.code} · v${report.preset.version}`}
-        />
-        <MetricCard
-          label="Strategy type"
-          value={formatStrategyType(report.preset.strategyType)}
-        />
-        <MetricCard label="Direction" value={formatDirection(report.preset.direction)} />
-        <MetricCard label="Calculation version" value={report.calculationVersion} />
-        <MetricCard label="Engine version" value={report.engineVersion} />
-        <MetricCard label="Assumption version" value={report.assumptionVersion} />
-        <MetricCard label="Dataset snapshot ID" value={report.datasetId} />
-        <MetricCard label="Report ID" value={report.reportId} />
-      </CardContent>
-    </Card>
+    <div className="space-y-1">
+      <h3 className="text-xl font-semibold tracking-tight">
+        {report.preset.name} on {report.market.symbol}
+      </h3>
+      <p className="text-sm text-muted-foreground">
+        {formatUtcDateTime(report.analysisStart)} →{" "}
+        {formatUtcDateTime(report.analysisEnd)} ·{" "}
+        {formatTimeframe(report.preset.timeframe)}
+      </p>
+    </div>
   );
 }
 
@@ -216,14 +186,17 @@ function PrimaryMetrics({ report }: { report: HistoricalAnalysisReport }) {
       />
       <MetricCard
         label="Win rate"
-        value={formatPercent(summary.winRate, summary.winRateUndefinedReason)}
+        value={formatFixedPercent(
+          summary.winRate,
+          summary.winRateUndefinedReason,
+        )}
       />
       <MetricCard
         label="Profit factor"
         value={
           summary.profitFactor === null
             ? formatUndefinedMetric(summary.profitFactorUndefinedReason)
-            : summary.profitFactor
+            : formatFixedDecimal(summary.profitFactor)
         }
       />
       <MetricCard label="Executed trades" value={summary.tradeCount} />
@@ -250,8 +223,14 @@ function SecondaryMetrics({ report }: { report: HistoricalAnalysisReport }) {
           label="Wins / losses / flat"
           value={`${summary.winningTradeCount} / ${summary.losingTradeCount} / ${summary.flatTradeCount}`}
         />
-        <MetricCard label="Initial equity" value={summary.initialEquity} />
-        <MetricCard label="Final equity" value={summary.finalEquity} />
+        <MetricCard
+          label="Initial equity"
+          value={formatFixedDecimal(summary.initialEquity)}
+        />
+        <MetricCard
+          label="Final equity"
+          value={formatFixedDecimal(summary.finalEquity)}
+        />
         <MetricCard
           label="Overlapping signals ignored"
           value={summary.overlappingSignalCount}
@@ -335,15 +314,9 @@ function Methodology({ report }: { report: HistoricalAnalysisReport }) {
 }
 
 export function ReportSummary({
-  equity,
-  equityError,
-  equityNextCursor,
-  hasLoadedEquity,
   hasLoadedTrades,
-  isEquityLoading,
   isReportLoading,
   isTradesLoading,
-  onLoadEquity,
   onLoadTrades,
   report,
   reportError,
@@ -373,9 +346,6 @@ export function ReportSummary({
     if (value === "trades" && report.tradesAvailable && !hasLoadedTrades) {
       onLoadTrades();
     }
-    if (value === "equity" && report.equityAvailable && !hasLoadedEquity) {
-      onLoadEquity();
-    }
   }
 
   return (
@@ -398,7 +368,6 @@ export function ReportSummary({
         <TabsList aria-label="Historical analysis report sections" className="w-full flex-wrap justify-start sm:w-auto" variant="line">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="trades">Hypothetical trades</TabsTrigger>
-          <TabsTrigger value="equity">Equity data</TabsTrigger>
           <TabsTrigger value="methodology">Methodology</TabsTrigger>
         </TabsList>
 
@@ -410,7 +379,7 @@ export function ReportSummary({
             <CardHeader>
               <CardTitle>Equity progression</CardTitle>
               <CardDescription>
-                The chart uses only the server-provided at-most-200-point preview.
+                Two-decimal equity preview for the selected range.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -440,33 +409,6 @@ export function ReportSummary({
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Detailed hypothetical trades are not available for this report.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent className="space-y-4" forceMount value="equity">
-          <Card>
-            <CardHeader>
-              <CardTitle>Equity data</CardTitle>
-              <CardDescription>
-                Immutable equity points retain exact server strings, candle
-                identity, drawdown, and position state.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {report.equityAvailable ? (
-                <EquityTable
-                  error={equityError}
-                  isLoading={isEquityLoading}
-                  nextCursor={equityNextCursor}
-                  onLoadMore={onLoadEquity}
-                  points={equity}
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Detailed equity data is not available for this report.
                 </p>
               )}
             </CardContent>

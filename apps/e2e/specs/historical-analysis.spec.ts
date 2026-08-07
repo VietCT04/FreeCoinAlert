@@ -233,6 +233,15 @@ test.describe("historical analysis configuration and reports", () => {
           exact: true,
         }),
       ).toBeVisible();
+      await expect(
+        newAuthenticatedPage.getByRole("tab", {
+          name: "Equity data",
+          exact: true,
+        }),
+      ).toHaveCount(0);
+      await expect(
+        newAuthenticatedPage.getByText("Preset code / version", { exact: true }),
+      ).toHaveCount(0);
       for (const label of [
         "Net return",
         "Maximum drawdown",
@@ -335,17 +344,6 @@ test.describe("historical analysis configuration and reports", () => {
     const loadTrades = activeReportPanel.getByRole("button", { name: "Load more trades", exact: true });
     if (await loadTrades.isVisible()) {
       await loadTrades.click();
-    }
-    await newAuthenticatedPage.getByRole("tab", { name: "Equity data", exact: true }).click();
-    const activeEquityPanel = newAuthenticatedPage.locator(
-      '[data-slot="tabs-content"][data-state="active"]',
-    );
-    await expect(
-      activeEquityPanel.getByText("Detailed immutable hypothetical equity points", { exact: false }).first(),
-    ).toBeVisible();
-    const loadEquity = activeEquityPanel.getByRole("button", { name: "Load more equity data", exact: true });
-    if (await loadEquity.isVisible()) {
-      await loadEquity.click();
     }
   });
 });

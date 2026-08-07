@@ -8,7 +8,6 @@ import {
   YAxis,
 } from "recharts";
 
-import { ResponsiveTable } from "@/components/responsive-table";
 import {
   ChartContainer,
   ChartTooltip,
@@ -16,18 +15,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableCaption,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-
-import {
-  formatDecimal,
-  formatEquityPointTime,
+  formatFixedDecimal,
   formatPositionState,
   formatUtcDateTime,
 } from "./format";
@@ -67,37 +55,6 @@ function formatUtcTick(value: string): string {
   });
 }
 
-function PreviewTable({ points }: { points: HistoricalAnalysisEquityPoint[] }) {
-  return (
-    <ResponsiveTable caption="Server-provided hypothetical equity preview data.">
-      <Table>
-        <TableCaption className="sr-only">
-          Server-provided equity preview points with exact values and UTC candle
-          closes.
-        </TableCaption>
-        <TableHeader>
-          <TableRow>
-            <TableHead scope="col">UTC candle close</TableHead>
-            <TableHead scope="col">Hypothetical equity</TableHead>
-            <TableHead scope="col">Drawdown</TableHead>
-            <TableHead scope="col">Position</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {points.map((point) => (
-            <TableRow key={point.sequence}>
-              <TableCell>{formatEquityPointTime(point)}</TableCell>
-              <TableCell>{point.equity}</TableCell>
-              <TableCell>{point.drawdown}</TableCell>
-              <TableCell>{formatPositionState(point.positionState)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </ResponsiveTable>
-  );
-}
-
 export function EquityChart({
   points,
 }: {
@@ -121,17 +78,15 @@ export function EquityChart({
   const canDraw = points.length > 0 && plotPoints.length === points.length;
 
   return (
-    <div className="space-y-4">
+    <>
       {canDraw ? (
         <figure aria-labelledby="historical-analysis-equity-chart-title" className="space-y-3">
           <div className="min-h-[260px] w-full rounded-xl border bg-card p-2 sm:p-4">
             <ChartContainer
-              aria-hidden="true"
-              className="min-h-[260px] w-full aspect-auto"
+              className="h-[300px] min-h-0 w-full aspect-auto sm:h-[340px]"
               config={chartConfig}
             >
               <LineChart
-                accessibilityLayer={false}
                 data={plotPoints}
                 margin={{ bottom: 8, left: 4, right: 12, top: 8 }}
               >
@@ -151,7 +106,7 @@ export function EquityChart({
                 <YAxis
                   axisLine={false}
                   domain={["auto", "auto"]}
-                  tickFormatter={(value) => formatDecimal(String(value))}
+                  tickFormatter={(value) => formatFixedDecimal(String(value))}
                   tickLine={false}
                   width={72}
                 />
@@ -167,10 +122,11 @@ export function EquityChart({
                               {formatUtcDateTime(point.closeTime)}
                             </span>
                             <span className="font-mono font-medium text-foreground">
-                              Equity {point.equityExact}
+                              Equity {formatFixedDecimal(point.equityExact)}
                             </span>
                             <span className="text-muted-foreground">
-                              Drawdown {point.drawdownExact} · {formatPositionState(point.positionState)}
+                              Drawdown {formatFixedDecimal(point.drawdownExact)} ·{" "}
+                              {formatPositionState(point.positionState)}
                             </span>
                           </div>
                         );
@@ -190,10 +146,7 @@ export function EquityChart({
             </ChartContainer>
           </div>
           <figcaption className="text-sm text-muted-foreground" id="historical-analysis-equity-chart-title">
-            Server-provided equity preview. The API may downsample the full
-            series to at most 200 points while preserving the first and last
-            points; the browser only converts exact values to plotting
-            coordinates.
+            Server-provided equity preview for the selected range.
           </figcaption>
         </figure>
       ) : (
@@ -201,7 +154,6 @@ export function EquityChart({
           The equity preview is not available as a drawable numeric series.
         </p>
       )}
-      <PreviewTable points={points} />
-    </div>
+    </>
   );
 }

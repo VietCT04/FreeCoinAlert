@@ -401,15 +401,9 @@ export function HistoricalAnalysisPanel() {
               ) : null}
 
               <ReportSummary
-                equity={analysis.equity}
-                equityError={analysis.equityError}
-                equityNextCursor={analysis.equityNextCursor}
-                hasLoadedEquity={analysis.hasLoadedEquity}
                 hasLoadedTrades={analysis.hasLoadedTrades}
-                isEquityLoading={analysis.isEquityLoading}
                 isReportLoading={analysis.isReportLoading}
                 isTradesLoading={analysis.isTradesLoading}
-                onLoadEquity={() => void analysis.loadEquity()}
                 onLoadTrades={() => void analysis.loadMoreTrades()}
                 report={analysis.report}
                 reportError={analysis.reportError}

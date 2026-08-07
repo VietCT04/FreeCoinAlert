@@ -67,7 +67,7 @@ test.describe("mobile historical analysis", () => {
     await expectNoPageOverflow(newAuthenticatedPage);
   });
 
-  test("opens previous analyses and keeps chart, table, tabs, and pagination usable", async ({
+  test("opens previous analyses and keeps chart, tabs, and pagination usable", async ({
     authenticatedSession,
     e2eControl,
     newAuthenticatedPage,
@@ -102,14 +102,6 @@ test.describe("mobile historical analysis", () => {
     const trades = newAuthenticatedPage.getByRole("button", { name: "Load more trades", exact: true });
     if (await trades.isVisible()) {
       await trades.click();
-    }
-    await newAuthenticatedPage.getByRole("tab", { name: "Equity data", exact: true }).click();
-    await expect(
-      newAuthenticatedPage.getByRole("table", { name: /Detailed immutable hypothetical equity points/ }),
-    ).toBeVisible();
-    const equity = newAuthenticatedPage.getByRole("button", { name: "Load more equity data", exact: true });
-    if (await equity.isVisible()) {
-      await equity.click();
     }
     await newAuthenticatedPage.getByRole("tab", { name: "Methodology", exact: true }).click();
     await newAuthenticatedPage.getByText("View dataset and result fingerprints", { exact: true }).click();

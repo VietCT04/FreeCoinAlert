@@ -14,9 +14,10 @@ import { ResponsiveTable } from "@/components/responsive-table";
 
 import {
   formatDirection,
+  formatFixedDecimal,
+  formatFixedSignedPercent,
   formatOutcome,
   formatPositionState,
-  formatSignedRate,
   formatUtcDateTime,
 } from "./format";
 import type { HistoricalAnalysisTrade } from "./types";
@@ -101,9 +102,13 @@ export function TradeTable({
                     {trade.exitFillPrice}
                   </TableCell>
                   <TableCell>{trade.holdingCandleCount}</TableCell>
-                  <TableCell>{formatSignedRate(trade.grossReturn)}</TableCell>
-                  <TableCell>{formatSignedRate(trade.netReturn)}</TableCell>
-                  <TableCell>{trade.netPnl}</TableCell>
+                  <TableCell>
+                    {formatFixedSignedPercent(trade.grossReturn)}
+                  </TableCell>
+                  <TableCell>
+                    {formatFixedSignedPercent(trade.netReturn)}
+                  </TableCell>
+                  <TableCell>{formatFixedDecimal(trade.netPnl)}</TableCell>
                   <TableCell>{formatOutcome(trade.outcome)}</TableCell>
                 </TableRow>
               ))}
