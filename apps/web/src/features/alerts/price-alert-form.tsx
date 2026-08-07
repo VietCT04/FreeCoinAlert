@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatExactDecimal } from "@/lib/decimal";
 import {
   Select,
   SelectContent,
@@ -79,6 +80,7 @@ export function PriceAlertForm({
     [availableMarkets, marketSymbol],
   );
   const targetError = validateTarget(targetPrice);
+  const displayTargetPrice = formatExactDecimal(targetPrice);
   const telegramReady = connection?.status === "connected";
   const canSubmit = Boolean(
     selectedMarket &&
@@ -161,8 +163,9 @@ export function PriceAlertForm({
         />
         {selectedMarket?.priceRules ? (
           <p className="text-sm text-muted-foreground" id="price-alert-target-help">
-            Minimum: {selectedMarket.priceRules.min} · Maximum: {selectedMarket.priceRules.max} ·
-            Price step: {selectedMarket.priceRules.tick}
+            Minimum: {formatExactDecimal(selectedMarket.priceRules.min)} · Maximum: {" "}
+            {formatExactDecimal(selectedMarket.priceRules.max)} · Price step: {" "}
+            {formatExactDecimal(selectedMarket.priceRules.tick)}
           </p>
         ) : null}
         {submitted && targetError ? (
@@ -200,7 +203,7 @@ export function PriceAlertForm({
           <AlertTitle>Request preview</AlertTitle>
           <AlertDescription>
             Notify me in Telegram when {selectedMarket.symbol} crosses{" "}
-            {direction === "cross_above" ? "above" : "below"} {targetPrice}{" "}
+            {direction === "cross_above" ? "above" : "below"} {displayTargetPrice}{" "}
             {selectedMarket.quoteAsset}.
           </AlertDescription>
         </Alert>

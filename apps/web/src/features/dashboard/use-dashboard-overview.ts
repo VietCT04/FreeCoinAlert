@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { formatExactDecimal } from "@/lib/decimal";
+
 import type { AuthStatus } from "../auth/types";
 import { listPriceAlerts } from "../alerts/api";
 import type { PriceAlert } from "../alerts/types";
@@ -100,7 +102,7 @@ function toPriceAlertActivity(alert: PriceAlert): DashboardActivityItem | null {
     id: `price-alert:${alert.id}`,
     kind: "price_alert_triggered",
     title: "Price alert triggered",
-    description: `${alert.market.symbol} crossed ${formatDirection(alert.direction)} ${alert.targetPrice} ${alert.market.quoteAsset}.`,
+    description: `${alert.market.symbol} crossed ${formatDirection(alert.direction)} ${formatExactDecimal(alert.targetPrice)} ${alert.market.quoteAsset}.`,
     occurredAt: alert.trigger.occurredAt,
     href: "/price-alerts",
     statusLabel: "Triggered",
