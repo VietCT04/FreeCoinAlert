@@ -29,7 +29,7 @@ See the authoritative [product overview](docs/PRODUCT.md) for capabilities, limi
 
 ## Local Development
 
-Use Node.js `24.18.0`, pnpm `11.4.0`, Docker Compose, CPython `3.14`, and uv. Install dependencies, create or validate the ignored local `.env`, and start the complete local MVP from the repository root:
+Use Node.js `24.18.0`, pnpm `11.4.0`, Docker Compose `2.22+`, CPython `3.14`, and uv. Install dependencies, create or validate the ignored local `.env`, and start the complete local MVP from the repository root:
 
 ```bash
 pnpm install
@@ -61,7 +61,7 @@ pnpm dev:signal-telegram-dispatcher
 pnpm db:migrate
 ```
 
-`pnpm dev:setup` copies [`.env.example`](.env.example) only when `.env` is absent, never overwrites an existing file, and runs the local preflight. `pnpm dev:preflight` validates an existing configuration, Docker/Compose prerequisites, and local port availability without starting or stopping containers or contacting Binance or Telegram. `pnpm dev:all` reuses that preflight, starts the complete Compose topology, waits for initialization and health, prints the web/API readiness summary, and follows logs. `pnpm dev:all:detached` performs the same startup and readiness checks without following logs; `pnpm dev:all:logs` follows enabled full-stack logs. Telegram is disabled by default; enabling it requires the local username and token settings. The wrapper always selects `market`, conditionally selects `telegram`, and enables `historical-analysis` when the Compose model provides that profile.
+`pnpm dev:setup` copies [`.env.example`](.env.example) only when `.env` is absent, never overwrites an existing file, and runs the local preflight. `pnpm dev:preflight` validates an existing configuration, Docker/Compose prerequisites, and local port availability without starting or stopping containers or contacting Binance or Telegram. `pnpm dev:all` reuses that preflight, starts the complete Compose topology, waits for initialization and health, prints the web/API readiness summary, and attaches Compose Watch with the application logs. Next.js and FastAPI reload from the existing source mounts; targeted Compose Watch rules restart only affected background workers. `pnpm dev:all:detached` performs the same startup and readiness checks without attaching Watch; `pnpm dev:all:logs` follows enabled full-stack logs without starting Watch. Telegram is disabled by default; enabling it requires the local username and token settings. The wrapper always selects `market`, conditionally selects `telegram`, and enables `historical-analysis` when the Compose model provides that profile.
 
 ## Isolated E2E Environment
 

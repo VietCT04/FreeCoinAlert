@@ -382,9 +382,18 @@ function composeCommand(profiles, args) {
   ];
 }
 
-function composeVersionMajor(output) {
-  const match = output.match(/version\s+v?(\d+)\.\d+/i);
-  return match === null ? null : Number(match[1]);
+function parseComposeVersion(output) {
+  const match = output.match(/version\s+v?(\d+)\.(\d+)(?:\.(\d+))?/i);
+
+  if (match === null) {
+    return null;
+  }
+
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: match[3] === undefined ? 0 : Number(match[3]),
+  };
 }
 
 function parseComposeProfiles(output) {
@@ -443,11 +452,15 @@ function runDockerChecks() {
       "Docker Compose is unavailable; install Compose v2 and rerun the local command.",
     );
   } else {
-    const major = composeVersionMajor(`${composeVersion.stdout}\n${composeVersion.stderr}`);
+    const version = parseComposeVersion(`${composeVersion.stdout}\n${composeVersion.stderr}`);
 
-    if (major === null || major < 2) {
+    if (
+      version === null ||
+      version.major < 2 ||
+      (version.major === 2 && version.minor < 22)
+    ) {
       errors.push(
-        "Docker Compose v2 is required for completed-service dependencies, --wait, and JSON service inspection.",
+        "Docker Compose 2.22 or newer is required for completed-service dependencies, --wait, JSON service inspection, and Compose Watch.",
       );
     }
   }
@@ -1074,12 +1087,12 @@ async function runUp(args) {
     return 0;
   }
 
-  const logs = await runChildProcess(
-    composeCommand(context.profiles, ["logs", "--follow"]),
+  const watch = await runChildProcess(
+    composeCommand(context.profiles, ["up", "--watch"]),
     { handleSignals: true, inherit: true },
   );
 
-  if (logs.interrupted) {
+  if (watch.interrupted) {
     const stopped = runComposeDown(context.profiles);
 
     if (!stopped) {
@@ -1090,7 +1103,7 @@ async function runUp(args) {
     return 0;
   }
 
-  return logs.ok ? 0 : 1;
+  return watch.ok ? 0 : 1;
 }
 
 async function runStatus() {
