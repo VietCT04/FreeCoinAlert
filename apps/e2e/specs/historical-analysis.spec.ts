@@ -12,6 +12,12 @@ function normalizeUtc(value: string): string {
   return value.replace("+00:00", "Z");
 }
 
+function utcDateOffset(days: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 async function selectScenarioRun(page: import("@playwright/test").Page, symbol: string) {
   const run = page.getByRole("button").filter({ hasText: symbol }).first();
   await expect(run).toBeVisible();
@@ -75,7 +81,7 @@ test.describe("historical analysis configuration and reports", () => {
     await expect(newAuthenticatedPage.getByText("Choose at least 7 complete UTC days.", { exact: true })).toBeVisible();
 
     await start.fill("2026-07-01");
-    await end.fill("2026-08-05");
+    await end.fill(utcDateOffset(1));
     await review.click();
     await expect(newAuthenticatedPage.getByText("The UTC end date must be a completed day", { exact: false })).toBeVisible();
 

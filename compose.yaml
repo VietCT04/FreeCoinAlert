@@ -15,7 +15,7 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile.dev
     command:
-      ["sh", "-c", "pnpm install --frozen-lockfile && pnpm --filter @freecoinalert/web dev --hostname 0.0.0.0"]
+      ["sh", "-c", "pnpm install --frozen-lockfile --filter @freecoinalert/web... && pnpm --filter @freecoinalert/web dev --hostname 0.0.0.0"]
     depends_on:
       api:
         condition: service_healthy
