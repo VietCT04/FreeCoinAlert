@@ -1,11 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Maximize2 } from "lucide-react";
 import type {
   CandlestickData,
   SeriesMarker,
   UTCTimestamp,
 } from "lightweight-charts";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import type {
   HistoricalAnalysisCandlePreview,
@@ -14,7 +24,11 @@ import type {
 
 type CandleChartProps = {
   candles: HistoricalAnalysisCandlePreview[];
+  exchange: string;
+  marketType: string;
   markers: HistoricalAnalysisTradeMarker[];
+  symbol: string;
+  timeframe: string;
 };
 
 const MAX_CHART_PRICE_SCALE_DIGITS = 8;
@@ -63,8 +77,12 @@ function buildPlotData(
     candle.closePrice,
   ]);
   const fractionDigits = Math.min(
-    18,
-    Math.max(2, ...values.map(decimalPlaces), ...markers.map((marker) => decimalPlaces(marker.price))),
+    MAX_CHART_PRICE_SCALE_DIGITS,
+    Math.max(
+      2,
+      ...values.map(decimalPlaces),
+      ...markers.map((marker) => decimalPlaces(marker.price)),
+    ),
   );
   const plottedCandles = candles.flatMap((candle) => {
     const time = utcTimestamp(candle.candleOpenTime);
@@ -72,7 +90,13 @@ function buildPlotData(
     const high = numericPrice(candle.highPrice);
     const low = numericPrice(candle.lowPrice);
     const close = numericPrice(candle.closePrice);
-    if (time === null || open === null || high === null || low === null || close === null) {
+    if (
+      time === null ||
+      open === null ||
+      high === null ||
+      low === null ||
+      close === null
+    ) {
       return [];
     }
 
@@ -106,9 +130,33 @@ function buildPlotData(
   };
 }
 
-export function CandleChart({ candles, markers }: CandleChartProps) {
+function ChartLegend({ tradeCount }: { tradeCount: number }) {
+  return (
+    <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
+      <span>
+        <span className="font-semibold text-green-600">Buy</span> · long entry or
+        synthetic-short exit
+      </span>
+      <span>
+        <span className="font-semibold text-red-600">Sell</span> · long exit or
+        synthetic-short entry
+      </span>
+      <span>{tradeCount} hypothetical trades shown</span>
+    </div>
+  );
+}
+
+export function CandleChart({
+  candles,
+  exchange,
+  marketType,
+  markers,
+  symbol,
+  timeframe,
+}: CandleChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [chartError, setChartError] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const plotData = useMemo(() => buildPlotData(candles, markers), [candles, markers]);
 
   useEffect(() => {
@@ -122,6 +170,7 @@ export function CandleChart({ candles, markers }: CandleChartProps) {
     let chart: { remove: () => void } | null = null;
     let seriesMarkers: { detach: () => void } | null = null;
     let resizeObserver: ResizeObserver | null = null;
+    const initialHeight = isExpanded ? 560 : 360;
 
     void import("lightweight-charts")
       .then(({ CandlestickSeries, createChart, createSeriesMarkers }) => {
@@ -130,8 +179,8 @@ export function CandleChart({ candles, markers }: CandleChartProps) {
         }
 
         const nextChart = createChart(container, {
-          width: container.clientWidth,
-          height: 360,
+          width: Math.max(container.clientWidth, 320),
+          height: Math.max(container.clientHeight, initialHeight),
           layout: {
             background: { type: "solid", color: "transparent" },
             attributionLogo: true,
@@ -168,7 +217,8 @@ export function CandleChart({ candles, markers }: CandleChartProps) {
             minMove:
               10 **
               -Math.min(plotData.fractionDigits, MAX_CHART_PRICE_SCALE_DIGITS),
-            formatter: (price: number) => formatPrice(price, plotData.fractionDigits),
+            formatter: (price: number) =>
+              formatPrice(price, plotData.fractionDigits),
           },
         });
         series.setData(plotData.candles);
@@ -176,9 +226,13 @@ export function CandleChart({ candles, markers }: CandleChartProps) {
         nextChart.timeScale().fitContent();
 
         resizeObserver = new ResizeObserver((entries) => {
-          const width = entries[0]?.contentRect.width ?? container.clientWidth;
+          const width = Math.max(
+            entries[0]?.contentRect.width ?? container.clientWidth,
+            320,
+          );
+          const height = Math.max(entries[0]?.contentRect.height ?? 0, 320);
           if (width > 0) {
-            nextChart.applyOptions({ width });
+            nextChart.applyOptions({ width, height });
           }
         });
         resizeObserver.observe(container);
@@ -195,7 +249,7 @@ export function CandleChart({ candles, markers }: CandleChartProps) {
       seriesMarkers?.detach();
       chart?.remove();
     };
-  }, [plotData]);
+  }, [isExpanded, plotData]);
 
   if (plotData.candles.length === 0) {
     return (
@@ -206,32 +260,66 @@ export function CandleChart({ candles, markers }: CandleChartProps) {
   }
 
   const tradeCount = Math.floor(plotData.markers.length / 2);
+  const chartLabel = `Candlestick chart for ${symbol} with ${tradeCount} hypothetical trades and buy and sell markers`;
+  const chartCanvas = (
+    <div
+      aria-label={chartLabel}
+      className={
+        isExpanded
+          ? "h-full min-h-[320px] w-full overflow-hidden rounded-xl border bg-card p-2 sm:p-4"
+          : "min-h-[360px] w-full overflow-hidden rounded-xl border bg-card p-2 sm:p-4"
+      }
+      ref={chartContainerRef}
+      role="img"
+    >
+      {chartError ? (
+        <p className="p-4 text-sm text-muted-foreground">
+          The price chart is temporarily unavailable.
+        </p>
+      ) : null}
+    </div>
+  );
 
   return (
     <figure aria-labelledby="historical-analysis-candle-chart-title" className="space-y-3">
-      <div
-        aria-label={`Candlestick chart with ${tradeCount} hypothetical trades and buy and sell markers`}
-        className="min-h-[360px] w-full overflow-hidden rounded-xl border bg-card p-2 sm:p-4"
-        ref={chartContainerRef}
-        role="img"
-      >
-        {chartError ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            The price chart is temporarily unavailable.
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-semibold tracking-tight">{symbol}</h3>
+          <p className="text-xs text-muted-foreground">
+            {exchange} {marketType} · {timeframe}
           </p>
-        ) : null}
+        </div>
+        <Button
+          aria-expanded={isExpanded}
+          aria-label={`Expand ${symbol} chart`}
+          onClick={() => setIsExpanded(true)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <Maximize2 aria-hidden="true" />
+          <span>Expand chart</span>
+        </Button>
       </div>
-      <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
-        <span>
-          <span className="font-semibold text-green-600">Buy</span> · long entry or
-          synthetic-short exit
-        </span>
-        <span>
-          <span className="font-semibold text-red-600">Sell</span> · long exit or
-          synthetic-short entry
-        </span>
-        <span>{tradeCount} hypothetical trades shown</span>
-      </div>
+      {isExpanded ? (
+        <Dialog open={isExpanded} onOpenChange={setIsExpanded}>
+          <DialogContent className="h-[90vh] w-[calc(100%-2rem)] max-w-[1600px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-4 sm:max-w-[1600px]">
+            <DialogHeader className="pr-8">
+              <DialogTitle>{symbol} · {timeframe}</DialogTitle>
+              <DialogDescription>
+                {exchange} {marketType} · stored candles and hypothetical trade markers
+              </DialogDescription>
+            </DialogHeader>
+            <div className="h-full min-h-0">{chartCanvas}</div>
+            <ChartLegend tradeCount={tradeCount} />
+          </DialogContent>
+        </Dialog>
+      ) : (
+        <>
+          {chartCanvas}
+          <ChartLegend tradeCount={tradeCount} />
+        </>
+      )}
       <figcaption className="text-sm text-muted-foreground" id="historical-analysis-candle-chart-title">
         Stored candles with hypothetical order markers. Drag or scroll to inspect
         the selected range; no live orders are placed.
