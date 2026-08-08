@@ -17,6 +17,8 @@ type CandleChartProps = {
   markers: HistoricalAnalysisTradeMarker[];
 };
 
+const MAX_CHART_PRICE_SCALE_DIGITS = 8;
+
 type PlotData = {
   candles: CandlestickData<UTCTimestamp>[];
   markers: SeriesMarker<UTCTimestamp>[];
@@ -160,7 +162,12 @@ export function CandleChart({ candles, markers }: CandleChartProps) {
           wickDownColor: "#dc2626",
           priceFormat: {
             type: "custom",
-            minMove: 10 ** -plotData.fractionDigits,
+            // API decimals may preserve storage scale (up to 18 places). A
+            // smaller tick makes Lightweight Charts derive an invalid base;
+            // the formatter below still preserves meaningful small prices.
+            minMove:
+              10 **
+              -Math.min(plotData.fractionDigits, MAX_CHART_PRICE_SCALE_DIGITS),
             formatter: (price: number) => formatPrice(price, plotData.fractionDigits),
           },
         });
