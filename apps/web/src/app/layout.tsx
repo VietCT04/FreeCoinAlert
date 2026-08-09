@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { AppProviders } from "../components/providers/app-providers";
+import { createRootMetadata } from "../lib/seo/metadata";
 
 import "./globals.css";
 
@@ -15,10 +15,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "FreeCoinAlert",
-  description: "Configurable cryptocurrency alerts delivered through Telegram.",
-};
+export const metadata = createRootMetadata();
 
 export default function RootLayout({
   children,

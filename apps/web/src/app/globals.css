@@ -159,6 +159,56 @@
   }
 }
 
+@layer components {
+  .prose-freecoin > section + section {
+    margin-top: 3.5rem;
+  }
+
+  .prose-freecoin .guide-heading {
+    scroll-margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    font-size: 1.75rem;
+    font-weight: 650;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+  }
+
+  .prose-freecoin p + p {
+    margin-top: 1.25rem;
+  }
+
+  .prose-freecoin ul,
+  .prose-freecoin ol {
+    margin: 1.25rem 0;
+    padding-left: 1.5rem;
+  }
+
+  .prose-freecoin ul {
+    list-style: disc;
+  }
+
+  .prose-freecoin ol {
+    list-style: decimal;
+  }
+
+  .prose-freecoin li + li {
+    margin-top: 0.65rem;
+  }
+
+  .prose-freecoin a {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .prose-freecoin code {
+    border-radius: 0.25rem;
+    background: var(--muted);
+    padding: 0.1rem 0.3rem;
+    font-family: var(--font-geist-mono);
+    font-size: 0.9em;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

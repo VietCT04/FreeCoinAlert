@@ -393,6 +393,330 @@ test.describe("historical analysis configuration and reports", () => {
     }
   });
 
+  test("converts a completed report into the exact entry subscription", async ({
+    appApi,
+    authenticatedSession,
+    e2eControl,
+    newAuthenticatedPage,
+  }) => {
+    const manifest = HISTORICAL_SCENARIOS["analysis-positive"];
+    const fixture = await createScenario(
+      e2eControl,
+      authenticatedSession.userId,
+      "analysis-positive",
+    );
+    const runId = String(fixture.runId);
+    await waitForHistoricalStatus(appApi, runId, "succeeded");
+
+    await newAuthenticatedPage.goto("/historical-analysis");
+    await selectScenarioRun(newAuthenticatedPage, manifest.symbol);
+    const reportRegion = newAuthenticatedPage.getByRole("region", {
+      name: "Historical hypothetical simulation",
+      exact: true,
+    });
+    await expect(
+      reportRegion.getByRole("heading", { name: "Monitor this entry", exact: true }),
+    ).toBeVisible();
+    await expect(
+      reportRegion.getByText(
+        "Your historical TP, SL, RSI exit, maximum holding period, hypothetical position, and PnL are not live-tracked by this alert.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+
+    await reportRegion
+      .getByRole("button", { name: "Monitor this entry", exact: true })
+      .click();
+    const confirmation = newAuthenticatedPage.getByRole("alertdialog", {
+      name: "Monitor entry signal",
+    });
+    await expect(
+      confirmation.getByText("entry condition only", { exact: false }),
+    ).toBeVisible();
+    await confirmation
+      .getByRole("button", { name: "Start monitoring", exact: true })
+      .click();
+
+    await expect(
+      reportRegion.getByText("Entry monitoring is active", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      reportRegion.getByText(
+        "Connect Telegram to receive push alerts for future entry signals.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    const subscriptions = await appApi.getSignalSubscriptions();
+    const subscription = (
+      subscriptions.subscriptions as Array<Record<string, unknown>>
+    ).find(
+      (item) =>
+        (item.market as Record<string, unknown>).symbol === manifest.symbol &&
+        (item.preset as Record<string, unknown>).code === manifest.presetCode &&
+        (item.preset as Record<string, unknown>).version === manifest.presetVersion,
+    );
+    expect(subscription).toMatchObject({ status: "active" });
+    expect(
+      (subscription?.telegramDelivery as Record<string, unknown> | undefined)?.enabled,
+    ).toBe(false);
+  });
+
+  test("does not duplicate an already active exact entry subscription", async ({
+    appApi,
+    authenticatedSession,
+    e2eControl,
+    newAuthenticatedPage,
+  }) => {
+    const manifest = HISTORICAL_SCENARIOS["analysis-positive"];
+    const created = await appApi.subscribe({
+      symbol: manifest.symbol,
+      presetCode: manifest.presetCode,
+      presetVersion: manifest.presetVersion,
+    });
+    const originalId = String((created.subscription as { id: string }).id);
+    const fixture = await createScenario(
+      e2eControl,
+      authenticatedSession.userId,
+      "analysis-positive",
+    );
+    await waitForHistoricalStatus(appApi, String(fixture.runId), "succeeded");
+
+    await newAuthenticatedPage.goto("/historical-analysis");
+    await selectScenarioRun(newAuthenticatedPage, manifest.symbol);
+    const reportRegion = newAuthenticatedPage.getByRole("region", {
+      name: "Historical hypothetical simulation",
+      exact: true,
+    });
+    await expect(
+      reportRegion.getByRole("button", { name: "Monitor this entry", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      reportRegion.getByRole("link", { name: "Manage in Preset Signals", exact: true }),
+    ).toBeVisible();
+    const subscriptions = await appApi.getSignalSubscriptions();
+    expect(
+      (subscriptions.subscriptions as Array<Record<string, unknown>>).filter(
+        (item) => String(item.id) === originalId,
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("reactivates a disabled exact entry subscription without substitution", async ({
+    appApi,
+    authenticatedSession,
+    e2eControl,
+    newAuthenticatedPage,
+  }) => {
+    const manifest = HISTORICAL_SCENARIOS["analysis-positive"];
+    const created = await appApi.subscribe({
+      symbol: manifest.symbol,
+      presetCode: manifest.presetCode,
+      presetVersion: manifest.presetVersion,
+    });
+    const originalId = String((created.subscription as { id: string }).id);
+    await appApi.disableSubscription(originalId);
+    const fixture = await createScenario(
+      e2eControl,
+      authenticatedSession.userId,
+      "analysis-positive",
+    );
+    await waitForHistoricalStatus(appApi, String(fixture.runId), "succeeded");
+
+    await newAuthenticatedPage.goto("/historical-analysis");
+    await selectScenarioRun(newAuthenticatedPage, manifest.symbol);
+    const reportRegion = newAuthenticatedPage.getByRole("region", {
+      name: "Historical hypothetical simulation",
+      exact: true,
+    });
+    await expect(
+      reportRegion.getByText("Entry monitoring is off", { exact: true }),
+    ).toBeVisible();
+    await reportRegion
+      .getByRole("button", { name: "Reactivate entry monitoring", exact: true })
+      .click();
+    await newAuthenticatedPage
+      .getByRole("alertdialog", { name: "Monitor entry signal" })
+      .getByRole("button", { name: "Start monitoring", exact: true })
+      .click();
+    await expect(
+      reportRegion.getByText("Entry monitoring is active", { exact: true }),
+    ).toBeVisible();
+
+    const subscriptions = await appApi.getSignalSubscriptions();
+    const subscription = (
+      subscriptions.subscriptions as Array<Record<string, unknown>>
+    ).find((item) => String(item.id) === originalId);
+    expect(subscription).toMatchObject({ id: originalId, status: "active" });
+  });
+
+  test("keeps monitoring inactive when the report market becomes unavailable", async ({
+    appApi,
+    authenticatedSession,
+    e2eControl,
+    newAuthenticatedPage,
+    providerSimulator,
+  }) => {
+    const manifest = HISTORICAL_SCENARIOS["analysis-positive"];
+    const fixture = await createScenario(
+      e2eControl,
+      authenticatedSession.userId,
+      "analysis-positive",
+    );
+    await waitForHistoricalStatus(appApi, String(fixture.runId), "succeeded");
+
+    await providerSimulator.reset({ unavailableSymbols: [manifest.symbol] });
+    await expect
+      .poll(
+        async () => {
+          const response = await appApi.getMarkets();
+          const market = (response.markets as Array<{ symbol?: string; status?: string }>).find(
+            (item) => item.symbol === manifest.symbol,
+          );
+          return market?.status;
+        },
+        { intervals: [1_000, 2_000, 5_000], timeout: 90_000 },
+      )
+      .toBe("unavailable");
+
+    await newAuthenticatedPage.goto("/historical-analysis");
+    await selectScenarioRun(newAuthenticatedPage, manifest.symbol);
+    const reportRegion = newAuthenticatedPage.getByRole("region", {
+      name: "Historical hypothetical simulation",
+      exact: true,
+    });
+    await reportRegion
+      .getByRole("button", { name: "Monitor this entry", exact: true })
+      .click();
+    await newAuthenticatedPage
+      .getByRole("alertdialog", { name: "Monitor entry signal" })
+      .getByRole("button", { name: "Start monitoring", exact: true })
+      .click();
+    await expect(
+      reportRegion.getByText("This market is not available for preset signals.", { exact: true }),
+    ).toBeVisible();
+
+    const subscriptions = await appApi.getSignalSubscriptions();
+    expect(subscriptions.subscriptions).toEqual([]);
+  });
+
+  test("keeps the active-subscription limit error safe", async ({
+    appApi,
+    authenticatedSession,
+    e2eControl,
+    newAuthenticatedPage,
+  }) => {
+    const manifest = HISTORICAL_SCENARIOS["analysis-positive"];
+    const presetsResponse = await appApi.getPresets();
+    const presets = presetsResponse.presets as Array<{ code: string; version: number }>;
+    let created = 0;
+
+    for (const symbol of ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"]) {
+      for (const preset of presets) {
+        if (
+          symbol === manifest.symbol &&
+          preset.code === manifest.presetCode &&
+          preset.version === manifest.presetVersion
+        ) {
+          continue;
+        }
+
+        await appApi.subscribe({
+          symbol,
+          presetCode: preset.code,
+          presetVersion: preset.version,
+        });
+        created += 1;
+        if (created === 20) {
+          break;
+        }
+      }
+      if (created === 20) {
+        break;
+      }
+    }
+    expect(created).toBe(20);
+
+    const fixture = await createScenario(
+      e2eControl,
+      authenticatedSession.userId,
+      "analysis-positive",
+    );
+    await waitForHistoricalStatus(appApi, String(fixture.runId), "succeeded");
+
+    await newAuthenticatedPage.goto("/historical-analysis");
+    await selectScenarioRun(newAuthenticatedPage, manifest.symbol);
+    const reportRegion = newAuthenticatedPage.getByRole("region", {
+      name: "Historical hypothetical simulation",
+      exact: true,
+    });
+    await reportRegion
+      .getByRole("button", { name: "Monitor this entry", exact: true })
+      .click();
+    await newAuthenticatedPage
+      .getByRole("alertdialog", { name: "Monitor entry signal" })
+      .getByRole("button", { name: "Start monitoring", exact: true })
+      .click();
+    await expect(
+      reportRegion.getByText("You already have the maximum of 20 active signal subscriptions.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+  });
+
+  test("requires explicit Telegram enablement after entry monitoring starts", async ({
+    appApi,
+    authenticatedSession,
+    connectedTelegramPage,
+    e2eControl,
+  }) => {
+    const manifest = HISTORICAL_SCENARIOS["analysis-positive"];
+    const fixture = await createScenario(
+      e2eControl,
+      authenticatedSession.userId,
+      "analysis-positive",
+    );
+    await waitForHistoricalStatus(appApi, String(fixture.runId), "succeeded");
+
+    await connectedTelegramPage.goto("/historical-analysis");
+    await selectScenarioRun(connectedTelegramPage, manifest.symbol);
+    const reportRegion = connectedTelegramPage.getByRole("region", {
+      name: "Historical hypothetical simulation",
+      exact: true,
+    });
+    await reportRegion
+      .getByRole("button", { name: "Monitor this entry", exact: true })
+      .click();
+    await connectedTelegramPage
+      .getByRole("alertdialog", { name: "Monitor entry signal" })
+      .getByRole("button", { name: "Start monitoring", exact: true })
+      .click();
+    await expect(
+      reportRegion.getByText("Telegram delivery is off", { exact: true }),
+    ).toBeVisible();
+    await reportRegion
+      .getByRole("button", { name: "Enable Telegram alerts", exact: true })
+      .click();
+    await connectedTelegramPage
+      .getByRole("alertdialog", { name: "Enable Telegram alerts?" })
+      .getByRole("button", { name: "Enable Telegram alerts", exact: true })
+      .click();
+    await expect(
+      reportRegion.getByText("Telegram alerts enabled", { exact: true }),
+    ).toBeVisible();
+
+    const subscriptions = await appApi.getSignalSubscriptions();
+    const subscription = (
+      subscriptions.subscriptions as Array<Record<string, unknown>>
+    ).find(
+      (item) =>
+        (item.market as Record<string, unknown>).symbol === manifest.symbol &&
+        (item.preset as Record<string, unknown>).code === manifest.presetCode,
+    );
+    expect(
+      (subscription?.telegramDelivery as Record<string, unknown> | undefined)?.enabled,
+    ).toBe(true);
+  });
+
   test("analysis-missing-coverage fails through the worker without a report", async ({
     appApi,
     authenticatedSession,

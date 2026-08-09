@@ -106,6 +106,8 @@ services:
     environment:
       NEXT_TELEMETRY_DISABLED: "1"
       NEXT_PUBLIC_API_BASE_URL: ${E2E_API_ORIGIN}
+      SITE_URL: ${E2E_WEB_ORIGIN}
+      SEO_INDEXING_ENABLED: "true"
     volumes:
       - web_next:/workspace/apps/web/.next
     healthcheck:

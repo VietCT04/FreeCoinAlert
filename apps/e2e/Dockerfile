@@ -16,6 +16,7 @@ COPY apps/e2e/package.json ./apps/e2e/package.json
 RUN pnpm install --frozen-lockfile --filter @freecoinalert/e2e...
 
 COPY apps/e2e ./apps/e2e
+COPY apps/web/src/lib/seo/routes.ts ./apps/web/src/lib/seo/routes.ts
 
 RUN chown -R pwuser:pwuser /workspace /artifacts
 
