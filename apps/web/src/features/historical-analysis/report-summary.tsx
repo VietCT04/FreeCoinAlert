@@ -44,6 +44,7 @@ import type {
 } from "./types";
 import { CandleChart } from "./candle-chart";
 import { EquityChart } from "./equity-chart";
+import { MonitorEntryCard } from "./monitor-entry-card";
 import { TradeTable } from "./trade-table";
 
 type ReportSummaryProps = {
@@ -502,6 +503,7 @@ export function ReportSummary({
         <TabsContent className="space-y-6" forceMount value="overview">
           <ReportContext report={report} />
           <StrategySummary report={report} />
+          <MonitorEntryCard report={report} runStatus={selectedRun.status} />
           <PrimaryMetrics report={report} />
           <ExitReasonBreakdown report={report} />
           <SecondaryMetrics report={report} />
