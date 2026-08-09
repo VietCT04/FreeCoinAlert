@@ -23,6 +23,7 @@ from freecoinalert_api.market_data.binance_websocket import (
     build_combined_stream_url,
     parse_closed_one_minute_candle,
     parse_aggregate_trade,
+    read_event_type,
 )
 from freecoinalert_api.market_data.catalog import is_market_ready, utc_now
 from freecoinalert_api.market_data.catalog_sync import synchronize_catalog
@@ -64,6 +65,7 @@ class BinanceMarketStream:
             max_lag_seconds=self.settings.candle_data_max_lag_seconds,
         )
         self._signal_evaluator = PresetSignalEvaluator()
+        self._stale_symbols_logged: set[str] = set()
 
     async def run(self) -> int:
         logger.info("market.stream.starting exchange=binance market_type=spot")
@@ -235,16 +237,12 @@ class BinanceMarketStream:
             if self.stop_event.is_set():
                 return
             try:
-                event = parse_aggregate_trade(
-                    raw_message,
-                    markets=markets,
-                    received_at=datetime.now(UTC),
-                    connection_generation=generation,
-                    observed_after_reconnect=False,
-                    max_age_seconds=self.settings.market_event_max_age_seconds,
-                    future_tolerance_seconds=self.settings.market_event_future_tolerance_seconds,
-                )
-            except BinanceWebSocketEventError:
+                event_type = read_event_type(raw_message)
+            except BinanceWebSocketEventError as error:
+                logger.warning("market.event.invalid category=%s", error.category)
+                continue
+
+            if event_type == "kline":
                 try:
                     candle_event = parse_closed_one_minute_candle(
                         raw_message,
@@ -262,6 +260,24 @@ class BinanceMarketStream:
                     continue
                 for confirmed in await self._candle_ingestion.persist_closed_candle(candle_event):
                     candle_pipeline.enqueue(confirmed)
+                continue
+
+            if event_type != "aggTrade":
+                logger.warning("market.event.invalid category=unsupported_event")
+                continue
+
+            try:
+                event = parse_aggregate_trade(
+                    raw_message,
+                    markets=markets,
+                    received_at=datetime.now(UTC),
+                    connection_generation=generation,
+                    observed_after_reconnect=False,
+                    max_age_seconds=self.settings.market_event_max_age_seconds,
+                    future_tolerance_seconds=self.settings.market_event_future_tolerance_seconds,
+                )
+            except BinanceWebSocketEventError as error:
+                logger.warning("market.event.invalid category=%s", error.category)
                 continue
 
             previous_id = self._last_accepted_ids.get(event.symbol)
@@ -291,6 +307,7 @@ class BinanceMarketStream:
                     observed_after_reconnect=True,
                 )
                 observed_symbols.add(event.symbol)
+            self._stale_symbols_logged.discard(event.symbol)
             pipeline.enqueue(event)
             logger.info(
                 "market.event.accepted symbol=%s provider_event_id=%s connection_generation=%s",
@@ -352,12 +369,14 @@ class BinanceMarketStream:
                 if event is None:
                     continue
                 if (now - event.received_at).total_seconds() > self.settings.market_event_max_age_seconds:
-                    logger.warning("market.symbol.stale symbol=%s", market.symbol)
-                    await self._recorder.mark_status(
-                        supported_market_id=market.id,
-                        status="stale",
-                        status_reason="freshness_timeout",
-                    )
+                    if market.symbol not in self._stale_symbols_logged:
+                        logger.warning("market.symbol.stale symbol=%s", market.symbol)
+                        self._stale_symbols_logged.add(market.symbol)
+                        await self._recorder.mark_status(
+                            supported_market_id=market.id,
+                            status="stale",
+                            status_reason="freshness_timeout",
+                        )
 
     async def _maintain_alert_registry(self) -> None:
         while not self.stop_event.is_set():

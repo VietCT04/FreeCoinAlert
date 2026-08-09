@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { createElement, type ReactNode } from "react";
 
 import { ROOT_DESCRIPTION } from "./metadata";
 import { SITE_URL } from "./site";
@@ -30,10 +30,8 @@ export function createWebSiteStructuredData({
 }
 
 export function JsonLd({ data }: { data: unknown }): ReactNode {
-  return (
-    <script
-      dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }}
-      type="application/ld+json"
-    />
-  );
+  return createElement("script", {
+    dangerouslySetInnerHTML: { __html: serializeJsonLd(data) },
+    type: "application/ld+json",
+  });
 }

@@ -72,7 +72,7 @@ A changed confirmed candle revision rebuilds affected derived windows. Signal ev
 
 ## Freshness and Safety States
 
-Price events older than the configured maximum, too far in the future, malformed, unsupported, duplicate, or out of order are rejected. Stream disconnection or stale market state pauses price-alert evaluation without changing an active alert. Candle-symbol state becomes unsafe for stale, gapped, or error data, suspending preset signal creation. `CANDLE_WS_MAX_AGE_SECONDS` and `CANDLE_DATA_MAX_LAG_SECONDS` both default to 180 seconds.
+The stream reads the combined-message `data.e` event type before dispatching. `aggTrade` messages go only to the aggregate-trade parser, and `kline` messages go only to the closed-candle parser. Unknown event types are rejected as `unsupported_event`; malformed wrappers or missing event types are rejected before either domain parser runs. Parser failures retain their own categories, so `invalid_candle_event` means a message identified as `kline` did not have the required candle shape. Price events older than the configured maximum, too far in the future, malformed, unsupported, duplicate, or out of order are rejected. Stream disconnection or stale market state pauses price-alert evaluation without changing an active alert. Candle-symbol state becomes unsafe for stale, gapped, or error data, suspending preset signal creation. `CANDLE_WS_MAX_AGE_SECONDS` and `CANDLE_DATA_MAX_LAG_SECONDS` both default to 180 seconds.
 
 ## Retention and Cleanup
 
