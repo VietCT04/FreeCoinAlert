@@ -64,6 +64,7 @@ class BinanceMarketStream:
             max_lag_seconds=self.settings.candle_data_max_lag_seconds,
         )
         self._signal_evaluator = PresetSignalEvaluator()
+        self._stale_symbols_logged: set[str] = set()
 
     async def run(self) -> int:
         logger.info("market.stream.starting exchange=binance market_type=spot")
@@ -244,7 +245,13 @@ class BinanceMarketStream:
                     max_age_seconds=self.settings.market_event_max_age_seconds,
                     future_tolerance_seconds=self.settings.market_event_future_tolerance_seconds,
                 )
-            except BinanceWebSocketEventError:
+            except BinanceWebSocketEventError as aggregate_error:
+                if aggregate_error.category != "invalid_event":
+                    logger.warning(
+                        "market.event.invalid category=%s",
+                        aggregate_error.category,
+                    )
+                    continue
                 try:
                     candle_event = parse_closed_one_minute_candle(
                         raw_message,
@@ -291,6 +298,7 @@ class BinanceMarketStream:
                     observed_after_reconnect=True,
                 )
                 observed_symbols.add(event.symbol)
+            self._stale_symbols_logged.discard(event.symbol)
             pipeline.enqueue(event)
             logger.info(
                 "market.event.accepted symbol=%s provider_event_id=%s connection_generation=%s",
@@ -352,12 +360,14 @@ class BinanceMarketStream:
                 if event is None:
                     continue
                 if (now - event.received_at).total_seconds() > self.settings.market_event_max_age_seconds:
-                    logger.warning("market.symbol.stale symbol=%s", market.symbol)
-                    await self._recorder.mark_status(
-                        supported_market_id=market.id,
-                        status="stale",
-                        status_reason="freshness_timeout",
-                    )
+                    if market.symbol not in self._stale_symbols_logged:
+                        logger.warning("market.symbol.stale symbol=%s", market.symbol)
+                        self._stale_symbols_logged.add(market.symbol)
+                        await self._recorder.mark_status(
+                            supported_market_id=market.id,
+                            status="stale",
+                            status_reason="freshness_timeout",
+                        )
 
     async def _maintain_alert_registry(self) -> None:
         while not self.stop_event.is_set():
