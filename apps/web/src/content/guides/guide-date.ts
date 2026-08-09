@@ -1,0 +1,1 @@
+export const GUIDE_FIRST_PUBLISHED = "2026-08-10";

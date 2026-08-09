@@ -45,6 +45,7 @@ Implemented does not imply Verified. Planned is absent, not Unverified. Do not u
 | [`OPERATIONS.md`](OPERATIONS.md) | Current commands, processes, profiles, configuration, maintenance, recovery, and production gaps. |
 | [`OBSERVABILITY.md`](OBSERVABILITY.md) | Current health, persistent states, structured logs, measurements, freshness, redaction, and incident indicators. |
 | [`BACKTESTING.md`](BACKTESTING.md) | Current availability and future historical-analysis semantic requirements. |
+| [`SEO.md`](SEO.md) | Current public route discoverability, metadata, sitemap, Search Console workflow, and SEO regression contract. |
 | [`TESTING.md`](TESTING.md) | Current verification boundary and isolated E2E environment contract. |
 | [`CONCERNS.md`](CONCERNS.md) | Genuinely unresolved current risks, assumptions, limitations, and decisions. |
 | [`CONTINUITY.md`](CONTINUITY.md) | Current handoff only: snapshot, active work, blockers, verification state, and next actions. |

@@ -64,6 +64,10 @@ The isolated E2E environment is a separate trust boundary. `.env.e2e` uses a ded
 
 The tracked root `.env.example` contains only safe local placeholders, and `.env` is ignored. `pnpm dev:setup` copies the example only when `.env` is absent and never overwrites an existing file. The setup/preflight parser reads names and values only to validate them, does not expand or execute file content, allows process-environment overrides, uses argument arrays with `shell: false` for Docker checks, and emits only variable names and corrective actions. It never prints secret values, passes secrets as command-line arguments, writes Telegram settings to `NEXT_PUBLIC_*`, or contacts a provider. Telegram is disabled by default; enabling it requires the accepted username format and a non-empty bot token.
 
+## Public SEO Configuration
+
+`SITE_URL` and `SEO_INDEXING_ENABLED` are server-owned deployment settings, not browser trust inputs. Production validation rejects non-HTTPS or private development origins before they can become canonical/indexable metadata. The optional `GOOGLE_SITE_VERIFICATION` value is a URL-prefix verification token rather than an authentication credential; it is never hard-coded, logged, persisted in browser storage, or required for application startup. The public SEO surface contains only bounded server-rendered content and truthful structured data; it does not expose owner records, authenticated API responses, provider credentials, or user-specific URLs.
+
 ## Logging and Error Redaction
 
 Structured logs may contain lifecycle identifiers and safe failure codes. They must not include passwords, session or CSRF tokens, Telegram bot/link tokens, database URLs, raw provider payloads, or unnecessary personal data. API errors return stable safe codes/messages rather than internal exceptions. E2E failure logs are bounded per service and the runner redacts configured secret values before writing them to `artifacts/e2e/`.

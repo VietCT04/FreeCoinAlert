@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document owns the current testing boundary, verification vocabulary, isolated full-stack E2E environment, Playwright workspace, and repository runner. The latest maintainer-requested full `pnpm e2e` pass exercised the isolated stack and all 65 browser cases successfully; this does not claim production-provider or broader runtime verification.
+This document owns the current testing boundary, verification vocabulary, isolated full-stack E2E environment, Playwright workspace, and repository runner. A previous maintainer-requested full `pnpm e2e` pass exercised the then-current isolated stack and 65 browser cases successfully; the SEO public-route and monitor-entry additions in this change remain unverified, and this does not claim production-provider or broader runtime verification.
 
 ## Verification Boundary
 
@@ -37,7 +37,9 @@ The configuration has two deterministic projects:
 
 Both projects use one worker, no retries, UTC, `en-US`, a 10-second action/expect timeout, a 20-second navigation timeout, and a 60-second test timeout. Historical-analysis specifications use a 120-second test timeout. No test may use `page.waitForTimeout()`.
 
-The reusable fixture boundary supplies unique run/test-derived users, authenticated browser setup, provider-simulator controls, guarded E2E controls, business-state waits, page-task helpers, and accessibility result collection. Authentication tests register and sign in through the UI. Other feature tests may create an owner through Playwright `APIRequestContext` and transfer only the returned session cookie into a browser context. Tests never access PostgreSQL directly, intercept or fulfill FreeCoinAlert API requests, or call real providers. The current workspace contains feature specifications for authentication, dashboard, Telegram, one-time price alerts, preset signals, historical analysis, recovery, stable accessibility states, and mobile workflows; the route/action matrix is [E2E_COVERAGE.md](E2E_COVERAGE.md).
+The reusable fixture boundary supplies unique run/test-derived users, authenticated browser setup, provider-simulator controls, guarded E2E controls, business-state waits, page-task helpers, and accessibility result collection. Authentication tests register and sign in through the UI. Other feature tests may create an owner through Playwright `APIRequestContext` and transfer only the returned session cookie into a browser context. Tests never access PostgreSQL directly, intercept or fulfill FreeCoinAlert API requests, or call real providers. The current workspace contains feature specifications for authentication, dashboard, Telegram, one-time price alerts, preset signals, historical analysis, recovery, stable accessibility states, mobile workflows, and the bounded public SEO surface; the route/action matrix is [E2E_COVERAGE.md](E2E_COVERAGE.md).
+
+The E2E web service explicitly sets `SITE_URL` to its isolated `.test` origin and `SEO_INDEXING_ENABLED=true` so Playwright can inspect production-style public metadata. This override is isolated to the non-routable E2E network; the normal local and preview default remains `SEO_INDEXING_ENABLED=false`. The SEO specification imports the pure route registry from the web source through the E2E image and does not add a crawler or browser-testing framework.
 
 Selectors prefer accessible roles and names, associated labels, stable visible text, and only then an approved `data-testid` for dynamic content with no unique semantic selector. Page helpers represent user tasks; assertions remain in spec files. Helpers wait for visible business states or URL transitions and do not use arbitrary sleeps.
 
@@ -124,5 +126,6 @@ The runner does not print a ready state when any required service is unhealthy, 
 | Playwright workspace, pinned image, fixtures, helpers, and feature projects | Implemented | Verified |
 | Dependency-free E2E lifecycle runner and safe artifacts | Implemented | Verified |
 | Complete feature journey suite and route coverage map | Implemented | Verified |
+| Public SEO metadata, canonical, sitemap, robots, structured-data, link, and private noindex specification | Implemented | Unverified |
 
-The maintainer-requested full `pnpm e2e` pass ran the isolated Compose startup, migrations, deterministic seed, provider simulator, real application workers, Playwright browser journeys, artifact handling, and teardown: 65 passed, 0 failed, 0 skipped, and 0 timed out. No standalone unit tests, build, package-install, lint, format, or type-check command was run, and no production provider or maintenance/reset pass was performed.
+The previous maintainer-requested full `pnpm e2e` pass ran the isolated Compose startup, migrations, deterministic seed, provider simulator, real application workers, Playwright browser journeys, artifact handling, and teardown: 65 passed, 0 failed, 0 skipped, and 0 timed out. That pass predates the public SEO and monitor-entry additions. No standalone unit tests, build, package-install, lint, format, or type-check command was run for this change, and no production provider or maintenance/reset pass was performed.
