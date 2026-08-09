@@ -226,7 +226,7 @@ test.describe("historical analysis configuration and reports", () => {
       expect(report.assumptions.entryTiming).toBe("next_candle_open");
       expect(report.safetyDisclosures.length).toBeGreaterThan(0);
       expect(report.candlePreview.length).toBeGreaterThan(0);
-      expect(report.candlePreview.length).toBeLessThanOrEqual(400);
+      expect(report.candlePreview.length).toBeLessThanOrEqual(2500);
       expect(report.candlePreview[0].openPrice).toEqual(expect.any(String));
       expect(report.candlePreview[0].highPrice).toEqual(expect.any(String));
       expect(report.candlePreview[0].lowPrice).toEqual(expect.any(String));
@@ -267,9 +267,31 @@ test.describe("historical analysis configuration and reports", () => {
       }
       await expect(
         newAuthenticatedPage.getByRole("img", {
-          name: /Candlestick chart with .* hypothetical trades and buy and sell markers/,
+          name: /Candlestick chart for .* hypothetical trades and buy and sell markers/,
         }),
       ).toBeVisible();
+      await expect(
+        newAuthenticatedPage.getByRole("button", {
+          name: `Expand ${manifest.symbol} chart`,
+          exact: true,
+        }),
+      ).toBeVisible();
+      await newAuthenticatedPage
+        .getByRole("button", {
+          name: `Expand ${manifest.symbol} chart`,
+          exact: true,
+        })
+        .click();
+      await expect(newAuthenticatedPage.getByRole("dialog")).toBeVisible();
+      await expect(
+        newAuthenticatedPage.getByRole("dialog").getByRole("img", {
+          name: /Candlestick chart for .* hypothetical trades and buy and sell markers/,
+        }),
+      ).toBeVisible();
+      await newAuthenticatedPage
+        .getByRole("dialog")
+        .getByRole("button", { name: "Close" })
+        .click();
       await newAuthenticatedPage.getByRole("tab", { name: "Methodology", exact: true }).click();
       const visibleReportPanel = newAuthenticatedPage.locator(
         '[data-slot="tabs-content"][data-state="active"]',

@@ -58,7 +58,7 @@ MAX_TRADES_LIMIT = 100
 DEFAULT_EQUITY_LIMIT = 200
 MAX_EQUITY_LIMIT = 500
 EQUITY_PREVIEW_LIMIT = 200
-CANDLE_PREVIEW_LIMIT = 200
+CANDLE_PREVIEW_LIMIT = 2_500
 TRADE_MARKER_TRADE_LIMIT = 100
 
 
@@ -455,7 +455,7 @@ def _downsample_equity_points(
     )
 
 
-def _downsample_candles(
+def _bounded_candles(
     candles: Sequence[HistoricalAnalysisDatasetCandle],
 ) -> Sequence[HistoricalAnalysisDatasetCandle]:
     if len(candles) <= CANDLE_PREVIEW_LIMIT:
@@ -471,7 +471,10 @@ def _chart_candle_preview(
     candles: Sequence[HistoricalAnalysisDatasetCandle],
     trades: Sequence[HistoricalAnalysisTrade],
 ) -> Sequence[HistoricalAnalysisDatasetCandle]:
-    preview = {candle.candle_id: candle for candle in _downsample_candles(candles)}
+    # Return the complete bounded visible sequence. Selecting sparse source
+    # candles and rendering them as adjacent bars makes a candle's close look
+    # disconnected from the next candle's open.
+    preview = {candle.candle_id: candle for candle in _bounded_candles(candles)}
     candles_by_id = {candle.candle_id: candle for candle in candles}
     for trade in trades:
         for candle_id in (trade.entry_candle_id, trade.exit_candle_id):

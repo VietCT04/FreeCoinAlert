@@ -384,7 +384,14 @@ export function ReportSummary({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <CandleChart candles={report.candlePreview} markers={report.tradeMarkers} />
+              <CandleChart
+                candles={report.candlePreview}
+                exchange={report.market.exchange}
+                marketType={report.market.marketType}
+                markers={report.tradeMarkers}
+                symbol={report.market.symbol}
+                timeframe={formatTimeframe(report.preset.timeframe)}
+              />
             </CardContent>
           </Card>
           <Card>
