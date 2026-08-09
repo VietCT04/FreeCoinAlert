@@ -246,6 +246,10 @@ export class AppApi {
     presetVersion: number;
     analysisStart: string;
     analysisEnd: string;
+    strategy?: {
+      position_direction: "long";
+      exit_rules: Array<Record<string, unknown>>;
+    };
     idempotencyKey?: string;
   }): Promise<Record<string, unknown>> {
     return this.post<Record<string, unknown>>(
@@ -258,6 +262,7 @@ export class AppApi {
         preset_version: input.presetVersion,
         analysis_start: input.analysisStart,
         analysis_end: input.analysisEnd,
+        ...(input.strategy ? { strategy: input.strategy } : {}),
       },
       {
         ...this.csrfHeaders(),

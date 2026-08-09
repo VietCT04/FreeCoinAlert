@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -12,12 +14,14 @@ class AuthenticationError(Exception):
         message: str,
         retry_after: int | None = None,
         clear_session_cookie: bool = False,
+        details: tuple[dict[str, Any], ...] = (),
     ) -> None:
         self.status_code = status_code
         self.code = code
         self.message = message
         self.retry_after = retry_after
         self.clear_session_cookie = clear_session_cookie
+        self.details = details
 
 
 def authentication_error_response(error: AuthenticationError) -> JSONResponse:
@@ -31,7 +35,7 @@ def authentication_error_response(error: AuthenticationError) -> JSONResponse:
         content={
             "code": error.code,
             "message": error.message,
-            "details": [],
+            "details": list(error.details),
         },
         headers=headers,
     )

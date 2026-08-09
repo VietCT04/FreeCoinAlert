@@ -14,6 +14,8 @@ import { ResponsiveTable } from "@/components/responsive-table";
 
 import {
   formatDirection,
+  formatExitPriceBasis,
+  formatExitReason,
   formatFixedDecimal,
   formatFixedSignedPercent,
   formatOutcome,
@@ -73,6 +75,7 @@ export function TradeTable({
                 <TableHead scope="col">Direction</TableHead>
                 <TableHead scope="col">Entry time / fill</TableHead>
                 <TableHead scope="col">Exit time / fill</TableHead>
+                <TableHead scope="col">Exit reason</TableHead>
                 <TableHead scope="col">Holding candles</TableHead>
                 <TableHead scope="col">Gross return</TableHead>
                 <TableHead scope="col">Net return</TableHead>
@@ -100,6 +103,12 @@ export function TradeTable({
                     {formatUtcDateTime(trade.exitCloseTime)}
                     <br />
                     {trade.exitFillPrice}
+                  </TableCell>
+                  <TableCell>
+                    <div>{formatExitReason(trade.exitReason, trade.exitRule)}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatExitPriceBasis(trade.exitPriceBasis)}
+                    </div>
                   </TableCell>
                   <TableCell>{trade.holdingCandleCount}</TableCell>
                   <TableCell>

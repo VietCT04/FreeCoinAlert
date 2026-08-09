@@ -2,7 +2,18 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint, text
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -28,6 +39,16 @@ class HistoricalAnalysisTrade(Base):
         CheckConstraint(
             "outcome IN ('win', 'loss', 'flat')",
             name="ck_historical_analysis_trades_outcome",
+        ),
+        CheckConstraint(
+            "exit_reason IN ('stop_loss_percent', 'take_profit_percent', "
+            "'rsi_threshold_cross', 'max_holding_candles')",
+            name="ck_historical_analysis_trades_exit_reason",
+        ),
+        CheckConstraint(
+            "exit_price_basis IN ('stop_loss_level', 'take_profit_level', "
+            "'gap_open', 'confirmed_candle_close')",
+            name="ck_historical_analysis_trades_exit_price_basis",
         ),
         CheckConstraint(
             "entry_raw_price > 0 AND entry_fill_price > 0 AND exit_raw_price > 0 AND exit_fill_price > 0",
@@ -103,6 +124,12 @@ class HistoricalAnalysisTrade(Base):
     net_pnl: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
     equity_after: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
     outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    exit_reason: Mapped[str] = mapped_column(String(64), nullable=False)
+    exit_price_basis: Mapped[str] = mapped_column(String(64), nullable=False)
+    exit_rule_snapshot: Mapped[dict[str, object]] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

@@ -47,6 +47,7 @@ from freecoinalert_api.schemas.historical_analysis import (
     HistoricalAnalysisReportEnvelope,
     HistoricalAnalysisReportResponse,
     HistoricalAnalysisReportSummaryResponse,
+    HistoricalAnalysisReportStrategyResponse,
     HistoricalAnalysisTradeMarkerResponse,
     HistoricalAnalysisTradeResponse,
     HistoricalAnalysisTradesEnvelope,
@@ -303,6 +304,8 @@ def _report_response(
         calculation_version=report.calculation_version,
         engine_version=report.engine_version,
         assumption_version=report.assumption_version,
+        strategy=_strategy_response(report.strategy_snapshot),
+        strategy_fingerprint=report.strategy_fingerprint,
         result_fingerprint=report.result_fingerprint,
         dataset_fingerprint=report.dataset_fingerprint,
         analysis_start=report.analysis_start,
@@ -330,8 +333,17 @@ def _report_response(
                 None if report.profit_factor is None else _decimal(report.profit_factor)
             ),
             profit_factor_undefined_reason=report.profit_factor_undefined_reason,
+            exit_reason_counts={
+                str(reason): int(count)
+                for reason, count in report.exit_reason_counts_snapshot.items()
+            },
         ),
-        safety_disclosures=list(_safety_disclosures(report.assumptions_snapshot)),
+        safety_disclosures=list(
+            _safety_disclosures(
+                report.assumptions_snapshot,
+                report.strategy_snapshot,
+            )
+        ),
         equity_preview=[_equity_response(point) for point in equity_points],
         candle_preview=[
             _candle_preview_response(candle)
@@ -364,6 +376,9 @@ def _trade_response(row: HistoricalAnalysisTrade) -> HistoricalAnalysisTradeResp
         exit_close_time=row.exit_close_time,
         exit_raw_price=_decimal(row.exit_raw_price),
         exit_fill_price=_decimal(row.exit_fill_price),
+        exit_reason=row.exit_reason,
+        exit_price_basis=row.exit_price_basis,
+        exit_rule=_camelize_snapshot(row.exit_rule_snapshot or {}),
         holding_candle_count=row.holding_candle_count,
         fee_rate=_decimal(row.fee_rate),
         slippage_rate=_decimal(row.slippage_rate),
@@ -437,6 +452,9 @@ def _trade_marker_responses(
                     position_direction=trade.position_direction,
                     candle_open_time=exit_open_time,
                     price=_decimal(trade.exit_fill_price),
+                    exit_reason=trade.exit_reason,
+                    exit_price_basis=trade.exit_price_basis,
+                    exit_rule=_camelize_snapshot(trade.exit_rule_snapshot or {}),
                 ),
             )
         )
@@ -500,16 +518,51 @@ def _decimal(value: Decimal) -> str:
     return format(value, "f")
 
 
-def _safety_disclosures(snapshot: dict[str, object]) -> Sequence[str]:
+def _safety_disclosures(
+    snapshot: dict[str, object],
+    strategy_snapshot: dict[str, object],
+) -> Sequence[str]:
     value = snapshot.get("safety_disclosures")
     if isinstance(value, list) and all(isinstance(item, str) for item in value):
-        return value
-    return (
-        "historical hypothetical simulation",
-        "not financial advice",
-        "not a prediction",
-        "not a delivery or profit guarantee",
-        "synthetic short results are not executable Binance Spot trades",
+        disclosures = list(value)
+    else:
+        disclosures = [
+            "historical hypothetical simulation",
+            "not financial advice",
+            "not a prediction",
+            "not a delivery or profit guarantee",
+            "synthetic short results are not executable Binance Spot trades",
+        ]
+    position_direction = strategy_snapshot.get("position_direction")
+    if position_direction != "synthetic_short":
+        disclosures = [
+            disclosure
+            for disclosure in disclosures
+            if "synthetic short" not in disclosure.lower()
+        ]
+    return disclosures
+
+
+def _strategy_response(
+    snapshot: dict[str, Any],
+) -> HistoricalAnalysisReportStrategyResponse:
+    version = snapshot.get("version") or snapshot.get("strategy_version")
+    position_direction = snapshot.get("position_direction")
+    raw_rules = snapshot.get("exit_rules")
+    if not isinstance(raw_rules, list):
+        raise ValueError("The persisted report strategy snapshot is invalid.")
+    if not isinstance(version, str):
+        version = "legacy_fixed_horizon_v1"
+    if not isinstance(position_direction, str):
+        position_direction = "synthetic_short"
+    return HistoricalAnalysisReportStrategyResponse(
+        version=version,
+        position_direction=position_direction,
+        exit_rules=[
+            _camelize_snapshot(rule)
+            for rule in raw_rules
+            if isinstance(rule, dict)
+        ],
     )
 
 

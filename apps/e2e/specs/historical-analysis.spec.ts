@@ -167,10 +167,16 @@ test.describe("historical analysis configuration and reports", () => {
         analysisEnd: string;
         datasetFingerprint: string;
         resultFingerprint: string;
+        strategy: {
+          version: string;
+          positionDirection: string;
+          exitRules: Array<Record<string, unknown>>;
+        };
+        strategyFingerprint: string;
         coverage: Record<string, unknown>;
         assumptions: Record<string, unknown>;
         safetyDisclosures: string[];
-        summary: Record<string, string | number | null>;
+        summary: Record<string, string | number | null | Record<string, number>>;
         candlePreview: Array<Record<string, string | number>>;
         tradeMarkers: Array<Record<string, string | number>>;
       };
@@ -222,6 +228,25 @@ test.describe("historical analysis configuration and reports", () => {
       }
       expect(report.datasetFingerprint).toMatch(/^[a-f0-9]{64}$/);
       expect(report.resultFingerprint).toMatch(/^[a-f0-9]{64}$/);
+      expect(report.strategyFingerprint).toMatch(/^[a-f0-9]{64}$/);
+      expect(report.strategy.version).toBe("legacy_fixed_horizon_v1");
+      expect(report.strategy.positionDirection).toMatch(/^(long|synthetic_short)$/);
+      expect(report.strategy.exitRules).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: "max_holding_candles",
+            candles: 6,
+          }),
+        ]),
+      );
+      const exitReasonCounts = report.summary.exitReasonCounts;
+      expect(exitReasonCounts).toEqual(expect.any(Object));
+      expect(
+        Object.values(exitReasonCounts as Record<string, number>).reduce(
+          (total, count) => total + count,
+          0,
+        ),
+      ).toBe(Number(report.summary.tradeCount));
       expect(report.assumptions.signalTiming).toBe("confirmed_candle_close");
       expect(report.assumptions.entryTiming).toBe("next_candle_open");
       expect(report.safetyDisclosures.length).toBeGreaterThan(0);
@@ -260,6 +285,8 @@ test.describe("historical analysis configuration and reports", () => {
         "Win rate",
         "Profit factor",
         "Executed trades",
+        "Strategy",
+        "Exit reasons",
         "Price action",
         "Equity progression",
       ]) {
@@ -306,6 +333,66 @@ test.describe("historical analysis configuration and reports", () => {
     });
   }
 
+  test("configurable strategy reports preserve exit rules and persisted exit metadata", async ({
+    appApi,
+  }) => {
+    const response = await appApi.createHistoricalAnalysis({
+      symbol: "ETHUSDT",
+      presetCode: "price_sma_200_cross_above_1h",
+      presetVersion: 1,
+      analysisStart: "2026-07-20T00:00:00Z",
+      analysisEnd: "2026-08-03T00:00:00Z",
+      strategy: {
+        position_direction: "long",
+        exit_rules: [
+          { type: "stop_loss_percent", percent: "1.25" },
+          { type: "take_profit_percent", percent: "2.50" },
+          { type: "max_holding_candles", candles: 6 },
+        ],
+      },
+    });
+    const runId = String((response.run as { id: string }).id);
+    await waitForHistoricalStatus(appApi, runId, "succeeded");
+
+    const reportResponse = await appApi.getHistoricalReport(runId);
+    const report = reportResponse.report as {
+      strategy: {
+        version: string;
+        positionDirection: string;
+        exitRules: Array<Record<string, unknown>>;
+      };
+      strategyFingerprint: string;
+      summary: {
+        tradeCount: string | number;
+        exitReasonCounts: Record<string, number>;
+      };
+    };
+    expect(report.strategy.version).toBe("configurable_exit_v1");
+    expect(report.strategy.positionDirection).toBe("long");
+    expect(report.strategy.exitRules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "stop_loss_percent", percent: "1.25" }),
+        expect.objectContaining({ type: "take_profit_percent", percent: "2.50" }),
+        expect.objectContaining({ type: "max_holding_candles", candles: 6 }),
+      ]),
+    );
+    expect(report.strategyFingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(
+      Object.values(report.summary.exitReasonCounts).reduce(
+        (total, count) => total + count,
+        0,
+      ),
+    ).toBe(Number(report.summary.tradeCount));
+
+    const trades = await appApi.getHistoricalTrades(runId);
+    const firstTrade = (trades.trades as Array<Record<string, unknown>> | undefined)?.[0];
+    if (firstTrade) {
+      expect(firstTrade.exitReason).toEqual(expect.any(String));
+      expect(firstTrade.exitPriceBasis).toEqual(expect.any(String));
+      expect(firstTrade.exitRule).toEqual(expect.any(Object));
+    }
+  });
+
   test("analysis-missing-coverage fails through the worker without a report", async ({
     appApi,
     authenticatedSession,
@@ -345,8 +432,19 @@ test.describe("historical analysis configuration and reports", () => {
     let tradeCursor: string | undefined;
     do {
       const page = await appApi.getHistoricalTrades(runId, tradeCursor);
+      const pageTrades = (page.trades as Array<Record<string, unknown>> | undefined) ?? [];
+      if (pageTrades.length > 0) {
+        expect(pageTrades[0].exitReason).toBe("max_holding_candles");
+        expect(pageTrades[0].exitPriceBasis).toBe("confirmed_candle_close");
+        expect(pageTrades[0].exitRule).toEqual(
+          expect.objectContaining({
+            type: "max_holding_candles",
+            candles: 6,
+          }),
+        );
+      }
       tradeSequences.push(
-        ...((page.trades as Array<{ sequence: number }> | undefined) ?? []).map(
+        ...(pageTrades as Array<{ sequence: number }>).map(
           (trade) => trade.sequence,
         ),
       );

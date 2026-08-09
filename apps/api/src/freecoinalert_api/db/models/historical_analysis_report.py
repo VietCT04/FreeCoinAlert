@@ -15,7 +15,9 @@ class HistoricalAnalysisReport(Base):
     __tablename__ = "historical_analysis_reports"
     __table_args__ = (
         CheckConstraint(
-            "result_fingerprint ~ '^[0-9a-f]{64}$' AND dataset_fingerprint ~ '^[0-9a-f]{64}$'",
+            "result_fingerprint ~ '^[0-9a-f]{64}$' "
+            "AND dataset_fingerprint ~ '^[0-9a-f]{64}$' "
+            "AND strategy_fingerprint ~ '^[0-9a-f]{64}$'",
             name="ck_historical_analysis_reports_fingerprints",
         ),
         CheckConstraint(
@@ -76,6 +78,12 @@ class HistoricalAnalysisReport(Base):
     engine_version: Mapped[str] = mapped_column(String(64), nullable=False)
     assumption_version: Mapped[str] = mapped_column(String(64), nullable=False)
     calculation_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    strategy_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    strategy_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    exit_reason_counts_snapshot: Mapped[dict[str, int]] = mapped_column(
+        JSONB,
+        nullable=False,
+    )
     market_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     preset_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     coverage_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)

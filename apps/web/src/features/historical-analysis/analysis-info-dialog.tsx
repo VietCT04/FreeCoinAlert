@@ -14,7 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import { formatBasisPoints } from "./format";
+import { formatBasisPoints, formatExitRuleType } from "./format";
 import type { HistoricalAnalysisConfiguration } from "./types";
 
 export function AnalysisInfoDialog({
@@ -23,6 +23,9 @@ export function AnalysisInfoDialog({
   configuration: HistoricalAnalysisConfiguration;
 }) {
   const { assumptions } = configuration;
+  const strategyCapabilities = configuration.strategyCapabilities;
+  const configurableStrategyAvailable =
+    strategyCapabilities?.configurableStrategyAvailable === true;
 
   return (
     <Dialog>
@@ -49,23 +52,45 @@ export function AnalysisInfoDialog({
         <div className="space-y-5 text-sm">
           <section className="space-y-2">
             <h3 className="font-medium">Simulation rules</h3>
-            <ul className="list-disc space-y-2 pl-5 text-muted-foreground">
-              <li>Signals use confirmed candle closes.</li>
-              <li>
-                Entry is at the next candle open; exit is after{" "}
-                {assumptions.holdingPeriodCandles} held candles.
-              </li>
-              <li>Cross-above is long; cross-below is synthetic short.</li>
-              <li>Uses all hypothetical equity with one position at a time.</li>
-              <li>
-                Fees: {formatBasisPoints(assumptions.feeBpsPerSide)} per side;
-                slippage: {formatBasisPoints(assumptions.slippageBpsPerSide)} per
-                side.
-              </li>
-              <li>
-                Overlapping signals and incomplete forward windows are skipped.
-              </li>
-            </ul>
+            {configurableStrategyAvailable ? (
+              <ul className="list-disc space-y-2 pl-5 text-muted-foreground">
+                <li>Signals use confirmed candle closes.</li>
+                <li>New configurable runs open a long position at the next candle open.</li>
+                <li>
+                  Choose up to {strategyCapabilities.maximumExitRules} supported exit rules;
+                  maximum holding is required.
+                </li>
+                <li>
+                  Maximum holding supports {strategyCapabilities.maxHoldingCandles.minimum}–
+                  {strategyCapabilities.maxHoldingCandles.maximum} candles.
+                </li>
+                <li>
+                  Same-candle priority: {strategyCapabilities.sameCandlePriority
+                    .map(formatExitRuleType)
+                    .join(" → ")}.
+                </li>
+                <li>Uses all hypothetical equity with one position at a time.</li>
+                <li>
+                  Fees: {formatBasisPoints(assumptions.feeBpsPerSide)} per side;
+                  slippage: {formatBasisPoints(assumptions.slippageBpsPerSide)} per side.
+                </li>
+              </ul>
+            ) : (
+              <ul className="list-disc space-y-2 pl-5 text-muted-foreground">
+                <li>Signals use confirmed candle closes.</li>
+                <li>
+                  Entry is at the next candle open; exit is after{" "}
+                  {assumptions.holdingPeriodCandles} held candles.
+                </li>
+                <li>Cross-above is long; cross-below is synthetic short.</li>
+                <li>Uses all hypothetical equity with one position at a time.</li>
+                <li>
+                  Fees: {formatBasisPoints(assumptions.feeBpsPerSide)} per side;
+                  slippage: {formatBasisPoints(assumptions.slippageBpsPerSide)} per side.
+                </li>
+                <li>Overlapping signals and incomplete forward windows are skipped.</li>
+              </ul>
+            )}
           </section>
 
           <section className="space-y-2">

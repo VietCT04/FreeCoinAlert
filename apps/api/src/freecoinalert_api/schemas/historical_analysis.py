@@ -7,6 +7,13 @@ from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
 from freecoinalert_api.schemas.auth import to_camel_case
 
 
+class HistoricalAnalysisStrategyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    position_direction: StrictStr
+    exit_rules: list[Any]
+
+
 class HistoricalAnalysisCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -17,6 +24,7 @@ class HistoricalAnalysisCreateRequest(BaseModel):
     preset_version: StrictInt
     analysis_start: datetime
     analysis_end: datetime
+    strategy: HistoricalAnalysisStrategyRequest | None = None
 
 
 class HistoricalAnalysisAssumptionsResponse(BaseModel):
@@ -32,6 +40,19 @@ class HistoricalAnalysisAssumptionsResponse(BaseModel):
     end_of_range: Literal["incomplete_trade_not_opened"]
 
 
+class HistoricalAnalysisStrategyCapabilitiesResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    configurable_strategy_available: bool
+    position_directions: list[str]
+    maximum_exit_rules: int
+    required_exit_rule_types: list[str]
+    supported_exit_rule_types: list[str]
+    same_candle_priority: list[str]
+    max_holding_candles: dict[str, int]
+    exit_rule_limits: dict[str, dict[str, Any]]
+
+
 class HistoricalAnalysisConfigurationResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
 
@@ -41,6 +62,7 @@ class HistoricalAnalysisConfigurationResponse(BaseModel):
     simulation_version: str
     assumption_version: str
     assumptions: HistoricalAnalysisAssumptionsResponse
+    strategy_capabilities: HistoricalAnalysisStrategyCapabilitiesResponse
 
 
 class HistoricalAnalysisMarketSnapshotResponse(BaseModel):
@@ -73,6 +95,19 @@ class HistoricalAnalysisPresetSnapshotResponse(BaseModel):
     parameters: HistoricalAnalysisPresetParametersResponse
 
 
+class HistoricalAnalysisStrategyResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    version: str
+    entry_preset_code: str
+    entry_preset_version: int
+    entry_timeframe: str
+    entry_signal_direction: str
+    entry_calculation_version: str
+    position_direction: Literal["long", "synthetic_short"]
+    exit_rules: list[dict[str, Any]]
+
+
 HistoricalAnalysisStatus = Literal[
     "queued",
     "running",
@@ -89,6 +124,9 @@ class HistoricalAnalysisRunResponse(BaseModel):
     status: HistoricalAnalysisStatus
     market: HistoricalAnalysisMarketSnapshotResponse
     preset: HistoricalAnalysisPresetSnapshotResponse
+    strategy_version: str
+    strategy: HistoricalAnalysisStrategyResponse
+    strategy_fingerprint: str
     calculation_version: str
     simulation_version: str
     assumption_version: str
@@ -140,6 +178,15 @@ class HistoricalAnalysisReportSummaryResponse(BaseModel):
     win_rate_undefined_reason: str | None
     profit_factor: str | None
     profit_factor_undefined_reason: str | None
+    exit_reason_counts: dict[str, int]
+
+
+class HistoricalAnalysisReportStrategyResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    version: str
+    position_direction: Literal["long", "synthetic_short"]
+    exit_rules: list[dict[str, Any]]
 
 
 class HistoricalAnalysisTradeResponse(BaseModel):
@@ -162,6 +209,9 @@ class HistoricalAnalysisTradeResponse(BaseModel):
     exit_close_time: datetime
     exit_raw_price: str
     exit_fill_price: str
+    exit_reason: str
+    exit_price_basis: str
+    exit_rule: dict[str, Any]
     holding_candle_count: int
     fee_rate: str
     slippage_rate: str
@@ -211,6 +261,9 @@ class HistoricalAnalysisTradeMarkerResponse(BaseModel):
     position_direction: Literal["long", "synthetic_short"]
     candle_open_time: datetime
     price: str
+    exit_reason: str | None = None
+    exit_price_basis: str | None = None
+    exit_rule: dict[str, Any] | None = None
 
 
 class HistoricalAnalysisReportResponse(BaseModel):
@@ -224,6 +277,8 @@ class HistoricalAnalysisReportResponse(BaseModel):
     calculation_version: str
     engine_version: str
     assumption_version: str
+    strategy: HistoricalAnalysisReportStrategyResponse
+    strategy_fingerprint: str
     result_fingerprint: str
     dataset_fingerprint: str
     analysis_start: datetime

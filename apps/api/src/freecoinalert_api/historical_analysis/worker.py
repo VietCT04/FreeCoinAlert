@@ -6,6 +6,7 @@ import asyncio
 import logging
 import signal
 import uuid
+from collections import Counter
 from dataclasses import asdict
 from datetime import timedelta
 
@@ -55,12 +56,17 @@ from freecoinalert_api.historical_analysis.datasets import (
     validate_historical_analysis_dataset_current,
     validate_historical_analysis_dataset_current_for_publication,
 )
+from freecoinalert_api.historical_analysis.configurable_engine import (
+    ConfigurableSimulationInput,
+    simulate_configurable_exit,
+)
 from freecoinalert_api.historical_analysis.engine import (
     HistoricalDatasetManifest,
     HistoricalPresetSnapshot,
     HistoricalSimulationCandle,
     HistoricalSimulationInput,
     HistoricalSimulationResult,
+    CONFIGURABLE_ENGINE_VERSION,
     simulate_fixed_preset,
 )
 from freecoinalert_api.market_data.catalog import utc_now
@@ -253,7 +259,12 @@ class HistoricalAnalysisWorker:
 
         simulation_input = _simulation_input(run, dataset, snapshots)
         try:
-            result = simulate_fixed_preset(simulation_input)
+            if run.simulation_version == CONFIGURABLE_ENGINE_VERSION:
+                result = simulate_configurable_exit(
+                    _configurable_simulation_input(run, dataset, snapshots)
+                )
+            else:
+                result = simulate_fixed_preset(simulation_input)
         except Exception:
             await self._handle_failure(
                 run_id,
@@ -555,6 +566,9 @@ async def _create_report_rows(
         engine_version=result.engine_version or run.simulation_version,
         assumption_version=result.assumption_version or run.assumption_version,
         calculation_version=result.calculation_version or run.calculation_version_snapshot,
+        strategy_snapshot=dict(run.strategy_snapshot),
+        strategy_fingerprint=run.strategy_fingerprint,
+        exit_reason_counts_snapshot=_exit_reason_counts(result),
         market_snapshot=_market_snapshot(run),
         preset_snapshot=_preset_snapshot(run),
         coverage_snapshot=_coverage_snapshot(dataset),
@@ -604,6 +618,13 @@ async def _create_report_rows(
         ),
     )
     return report
+
+
+def _exit_reason_counts(result: HistoricalSimulationResult) -> dict[str, int]:
+    counts = Counter(trade.exit_reason for trade in result.trades)
+    if sum(counts.values()) != (result.summary.executed_trade_count if result.summary else -1):
+        raise ValueError("Exit-reason counts must equal the executed trade count.")
+    return dict(sorted((str(reason), int(count)) for reason, count in counts.items()))
 
 
 def _simulation_input(
@@ -670,6 +691,27 @@ def _simulation_input(
         analysis_start=run.analysis_start,
         analysis_end=run.analysis_end,
         candles=candles,
+        engine_version=run.simulation_version,
+        assumption_version=run.assumption_version,
+    )
+
+
+def _configurable_simulation_input(
+    run: HistoricalAnalysisRun,
+    dataset: HistoricalAnalysisDataset,
+    snapshots: list[HistoricalAnalysisDatasetCandle],
+) -> ConfigurableSimulationInput:
+    fixed_input = _simulation_input(run, dataset, snapshots)
+    return ConfigurableSimulationInput(
+        dataset=fixed_input.dataset,
+        preset=fixed_input.preset,
+        calculation_version=fixed_input.calculation_version,
+        analysis_start=fixed_input.analysis_start,
+        analysis_end=fixed_input.analysis_end,
+        candles=fixed_input.candles,
+        strategy_version=run.strategy_version,
+        strategy_fingerprint=run.strategy_fingerprint,
+        strategy_snapshot=run.strategy_snapshot,
         engine_version=run.simulation_version,
         assumption_version=run.assumption_version,
     )

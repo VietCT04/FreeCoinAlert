@@ -1,5 +1,9 @@
 import type {
+  HistoricalAnalysisExitRuleType,
+  HistoricalAnalysisPreset,
+  HistoricalAnalysisRun,
   HistoricalAnalysisStatus,
+  HistoricalAnalysisStrategyExitRule,
   HistoricalAnalysisTrade,
 } from "./types";
 
@@ -154,6 +158,85 @@ export function formatStrategyType(strategyType: string): string {
     return "RSI threshold cross";
   }
   return strategyType;
+}
+
+export function formatExitRuleType(type: HistoricalAnalysisExitRuleType): string {
+  switch (type) {
+    case "take_profit_percent":
+      return "Take profit";
+    case "stop_loss_percent":
+      return "Stop loss";
+    case "rsi_threshold_cross":
+      return "Indicator exit";
+    case "max_holding_candles":
+      return "Maximum holding";
+    default:
+      return type;
+  }
+}
+
+export function formatStrategyExitRule(
+  rule: HistoricalAnalysisStrategyExitRule,
+): string {
+  switch (rule.type) {
+    case "take_profit_percent":
+      return `TP +${rule.percent ?? "?"}%`;
+    case "stop_loss_percent":
+      return `SL -${rule.percent ?? "?"}%`;
+    case "rsi_threshold_cross":
+      return `RSI ${rule.direction === "cross_above" ? ">" : "<"}${rule.threshold ?? "?"} exit`;
+    case "max_holding_candles":
+      return `max ${rule.candles ?? "?"} candles`;
+    default:
+      return formatExitRuleType(rule.type);
+  }
+}
+
+export function formatExitReason(
+  reason: string,
+  rule: HistoricalAnalysisStrategyExitRule | null | undefined,
+): string {
+  if (!rule) {
+    return reason.replaceAll("_", " ");
+  }
+  return formatStrategyExitRule(rule);
+}
+
+export function formatExitPriceBasis(value: string): string {
+  if (value === "take_profit_level") {
+    return "Take-profit level";
+  }
+  if (value === "stop_loss_level") {
+    return "Stop-loss level";
+  }
+  if (value === "gap_open") {
+    return "Gap-open price";
+  }
+  if (value === "confirmed_candle_close") {
+    return "Confirmed candle close";
+  }
+  return value.replaceAll("_", " ");
+}
+
+export function formatStrategyEntry(preset: HistoricalAnalysisPreset): string {
+  const threshold = preset.parameters.threshold;
+  const direction = preset.direction === "cross_below" ? "crosses below" : "crosses above";
+  if (threshold !== null) {
+    return `RSI(${preset.parameters.period}) ${direction} ${threshold}`;
+  }
+  return `Price crosses ${direction === "crosses below" ? "below" : "above"} its SMA(${preset.parameters.period})`;
+}
+
+export function formatStrategySummary(
+  run: HistoricalAnalysisRun,
+): string | null {
+  const position =
+    run.strategy.positionDirection === "synthetic_short"
+      ? "SYNTHETIC SHORT"
+      : "LONG";
+  const entry = `${run.preset.name} entry`;
+  const exits = run.strategy.exitRules.map(formatStrategyExitRule);
+  return [position, entry, ...exits].join(" · ");
 }
 
 export function formatPositionState(positionState: string): string {

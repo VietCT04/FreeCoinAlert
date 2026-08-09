@@ -10,6 +10,12 @@ import type {
 
 type ApiErrorPayload = {
   code?: unknown;
+  details?: unknown;
+};
+
+export type HistoricalAnalysisApiErrorDetail = {
+  field: string;
+  code: string;
 };
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -19,6 +25,7 @@ export class HistoricalAnalysisApiError extends Error {
     public readonly status: number,
     public readonly code?: string,
     public readonly retryAfter?: string | null,
+    public readonly details: HistoricalAnalysisApiErrorDetail[] = [],
   ) {
     super("Historical analysis request failed.");
   }
@@ -41,10 +48,27 @@ async function getApiError(response: Response): Promise<HistoricalAnalysisApiErr
     payload = undefined;
   }
 
+  const details = Array.isArray(payload?.details)
+    ? payload.details.flatMap((detail): HistoricalAnalysisApiErrorDetail[] => {
+        if (!detail || typeof detail !== "object") {
+          return [];
+        }
+
+        const field = (detail as { field?: unknown }).field;
+        const code = (detail as { code?: unknown }).code;
+        if (typeof field !== "string" || typeof code !== "string") {
+          return [];
+        }
+
+        return [{ field, code }];
+      })
+    : [];
+
   return new HistoricalAnalysisApiError(
     response.status,
     typeof payload?.code === "string" ? payload.code : undefined,
     response.headers.get("Retry-After"),
+    details,
   );
 }
 

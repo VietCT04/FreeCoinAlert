@@ -60,6 +60,10 @@ class HistoricalAnalysisRun(Base):
             "(status <> 'failed' AND failure_code IS NULL))",
             name="ck_historical_analysis_runs_failure_lifecycle",
         ),
+        CheckConstraint(
+            "strategy_fingerprint ~ '^[0-9a-f]{64}$'",
+            name="ck_historical_analysis_runs_strategy_fingerprint",
+        ),
         UniqueConstraint(
             "user_id",
             "idempotency_key",
@@ -123,6 +127,12 @@ class HistoricalAnalysisRun(Base):
         nullable=True,
     )
     price_input_snapshot: Mapped[str] = mapped_column(String(32), nullable=False)
+    strategy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    strategy_snapshot: Mapped[dict[str, object]] = mapped_column(
+        postgresql.JSONB,
+        nullable=False,
+    )
+    strategy_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     calculation_version_snapshot: Mapped[str] = mapped_column(String(64), nullable=False)
     simulation_version: Mapped[str] = mapped_column(String(64), nullable=False)
     assumption_version: Mapped[str] = mapped_column(String(64), nullable=False)

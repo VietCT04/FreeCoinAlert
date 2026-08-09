@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Maximize2 } from "lucide-react";
 import type {
   CandlestickData,
+  MouseEventParams,
   SeriesMarker,
   UTCTimestamp,
 } from "lightweight-charts";
@@ -21,6 +22,7 @@ import type {
   HistoricalAnalysisCandlePreview,
   HistoricalAnalysisTradeMarker,
 } from "./types";
+import { formatExitPriceBasis, formatExitReason } from "./format";
 
 type CandleChartProps = {
   candles: HistoricalAnalysisCandlePreview[];
@@ -37,6 +39,7 @@ type PlotData = {
   candles: CandlestickData<UTCTimestamp>[];
   markers: SeriesMarker<UTCTimestamp>[];
   fractionDigits: number;
+  markerDetails: Map<number, HistoricalAnalysisTradeMarker[]>;
 };
 
 function numericPrice(value: string): number | null {
@@ -122,11 +125,23 @@ function buildPlotData(
       },
     ];
   });
+  const markerDetails = new Map<number, HistoricalAnalysisTradeMarker[]>();
+  for (const marker of markers) {
+    const time = utcTimestamp(marker.candleOpenTime);
+    const price = numericPrice(marker.price);
+    if (time === null || price === null || !candleTimes.has(Number(time))) {
+      continue;
+    }
+    const existing = markerDetails.get(Number(time)) ?? [];
+    existing.push(marker);
+    markerDetails.set(Number(time), existing);
+  }
 
   return {
     candles: plottedCandles,
     markers: plottedMarkers.sort((left, right) => Number(left.time) - Number(right.time)),
     fractionDigits,
+    markerDetails,
   };
 }
 
@@ -157,6 +172,7 @@ export function CandleChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [chartError, setChartError] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [hoveredMarker, setHoveredMarker] = useState<HistoricalAnalysisTradeMarker | null>(null);
   const plotData = useMemo(() => buildPlotData(candles, markers), [candles, markers]);
 
   useEffect(() => {
@@ -170,6 +186,7 @@ export function CandleChart({
     let chart: { remove: () => void } | null = null;
     let seriesMarkers: { detach: () => void } | null = null;
     let resizeObserver: ResizeObserver | null = null;
+    let unsubscribeCrosshairMove: (() => void) | null = null;
     const initialHeight = isExpanded ? 560 : 360;
 
     void import("lightweight-charts")
@@ -224,6 +241,14 @@ export function CandleChart({
         series.setData(plotData.candles);
         seriesMarkers = createSeriesMarkers(series, plotData.markers);
         nextChart.timeScale().fitContent();
+        const handleCrosshairMove = (param: MouseEventParams<UTCTimestamp>) => {
+          const time = typeof param.time === "number" ? Number(param.time) : null;
+          const details = time === null ? undefined : plotData.markerDetails.get(time);
+          setHoveredMarker(details?.find((marker) => marker.markerType === "exit") ?? null);
+        };
+        nextChart.subscribeCrosshairMove(handleCrosshairMove);
+        unsubscribeCrosshairMove = () =>
+          nextChart.unsubscribeCrosshairMove(handleCrosshairMove);
 
         resizeObserver = new ResizeObserver((entries) => {
           const width = Math.max(
@@ -246,6 +271,7 @@ export function CandleChart({
     return () => {
       disposed = true;
       resizeObserver?.disconnect();
+      unsubscribeCrosshairMove?.();
       seriesMarkers?.detach();
       chart?.remove();
     };
@@ -266,8 +292,8 @@ export function CandleChart({
       aria-label={chartLabel}
       className={
         isExpanded
-          ? "h-full min-h-[320px] w-full overflow-hidden rounded-xl border bg-card p-2 sm:p-4"
-          : "min-h-[360px] w-full overflow-hidden rounded-xl border bg-card p-2 sm:p-4"
+          ? "relative h-full min-h-[320px] w-full overflow-hidden rounded-xl border bg-card p-2 sm:p-4"
+          : "relative min-h-[360px] w-full overflow-hidden rounded-xl border bg-card p-2 sm:p-4"
       }
       ref={chartContainerRef}
       role="img"
@@ -276,6 +302,22 @@ export function CandleChart({
         <p className="p-4 text-sm text-muted-foreground">
           The price chart is temporarily unavailable.
         </p>
+      ) : null}
+      {hoveredMarker?.markerType === "exit" ? (
+        <div
+          aria-live="polite"
+          className="pointer-events-none absolute left-3 top-3 z-10 rounded-md border bg-background/95 px-3 py-2 text-xs shadow-sm"
+          role="status"
+        >
+          <p className="font-semibold">Trade #{hoveredMarker.sequence} exit</p>
+          <p>{formatExitReason(hoveredMarker.exitReason ?? "exit", hoveredMarker.exitRule)}</p>
+          <p>Fill: {formatPrice(Number(hoveredMarker.price), plotData.fractionDigits)}</p>
+          {hoveredMarker.exitPriceBasis ? (
+            <p className="text-muted-foreground">
+              Basis: {formatExitPriceBasis(hoveredMarker.exitPriceBasis)}
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

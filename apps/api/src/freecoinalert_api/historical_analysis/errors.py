@@ -1,3 +1,5 @@
+from typing import Any
+
 from freecoinalert_api.api.errors import AuthenticationError
 
 
@@ -10,6 +12,17 @@ def request_invalid_error() -> HistoricalAnalysisError:
         status_code=422,
         code="HISTORICAL_ANALYSIS_REQUEST_INVALID",
         message="The historical-analysis request is invalid.",
+    )
+
+
+def strategy_invalid_error(
+    details: tuple[dict[str, Any], ...],
+) -> HistoricalAnalysisError:
+    return HistoricalAnalysisError(
+        status_code=422,
+        code="HISTORICAL_ANALYSIS_STRATEGY_INVALID",
+        message="The historical-analysis strategy is invalid.",
+        details=details,
     )
 
 

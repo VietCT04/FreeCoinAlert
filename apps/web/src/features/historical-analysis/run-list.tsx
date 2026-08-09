@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   formatStatus,
+  formatStrategySummary,
   formatTimeframe,
   formatUtcDateTime,
 } from "./format";
@@ -77,6 +78,7 @@ export function RunList({
               run.cancellationRequested,
             );
             const isActive = run.status === "queued" || run.status === "running";
+            const strategySummary = formatStrategySummary(run);
 
             return (
               <li key={run.id}>
@@ -97,6 +99,11 @@ export function RunList({
                           {formatUtcDateTime(run.analysisStart)} →{" "}
                           {formatUtcDateTime(run.analysisEnd)}
                         </p>
+                        {strategySummary ? (
+                          <p className="truncate text-xs text-muted-foreground">
+                            {strategySummary}
+                          </p>
+                        ) : null}
                       </div>
                       <div className="flex items-start gap-2 sm:flex-col sm:items-end">
                         <StatusBadge status={statusLabel} />
