@@ -2,7 +2,7 @@
 
 ## Purpose and Current Scope
 
-The server owns fixed, versioned preset definitions and provider-neutral Decimal calculations over canonical complete candles. Users cannot choose parameters or submit expressions.
+The server owns fixed, versioned entry-preset definitions and provider-neutral Decimal calculations over canonical complete candles. Historical-analysis runs additionally persist a versioned, server-validated exit strategy; users cannot submit formulas, expressions, or arbitrary indicator definitions.
 
 ## Versioned Preset Catalog
 
@@ -63,13 +63,21 @@ The browser preset catalog renders these definitions read-only. It does not subm
 
 ## Unsupported Strategy Features
 
-MACD, EMA, Bollinger Bands, volume spikes, configurable periods, combined rules, arbitrary user code, custom expressions, intrabar evaluation, and public report sharing are not implemented. The authenticated browser historical-analysis presentation exposes only reports produced by the fixed server-controlled worker and engine through a read-only guided flow and methodology tab; it does not expose formulas or editable parameters.
+MACD, EMA, Bollinger Bands, volume spikes, configurable indicator periods, arbitrary user code, custom expressions, intrabar evaluation, and public report sharing are not implemented. The authenticated browser historical-analysis presentation exposes only server-supported fixed entry presets and approved configurable exit controls; it does not accept formulas, arbitrary indicators, or client-side simulation logic.
+
+## Historical-Analysis Strategy Contract
+
+Each historical-analysis run stores an immutable `historical_strategy_snapshot_v1` with the fixed entry preset code/version, timeframe, signal direction, calculation version, position direction, and normalized exit rules. Omitted strategy input maps to `legacy_fixed_horizon_v1`: `cross_above` remains long, `cross_below` remains synthetic short, and the exit remains six candles. Explicit strategies use `configurable_exit_v1` and support long direction with at most one take-profit percentage, one stop-loss percentage, one RSI threshold-cross exit, and exactly one maximum-holding rule. The server publishes the supported rule types, limits, and same-candle priority through the historical-analysis configuration endpoint.
+
+The RSI exit vocabulary is pinned to RSI 14, close input, the selected entry timeframe, and `rsi_wilder_close_v1`; the browser supplies only direction and threshold. TP, SL, and RSI values are validated as finite exact decimals and serialized as canonical strings. Rule order is normalized to stop loss, take profit, RSI threshold cross, then maximum holding. The SHA-256 strategy fingerprint is part of the owner-scoped idempotency identity. Configurable execution and trade exit semantics are implemented by the separate `historical_configurable_exit_v1` engine; this contract does not change the fixed engine.
 
 ## Historical Simulation Compatibility
 
-Historical-analysis dataset preparation supplies the pure engine with immutable snapshots of canonical complete `1h`/`4h` candles. SMA 200 uses exactly 200 warm-up candles and RSI 14 uses 15; the first visible analysis candle is outside the warm-up range. The engine recalculates from these rows with the same versioned calculations and equality-aware crossing helper used by live evaluation, preserves UTC ordering and completeness, and discloses the fixed simulation assumptions. The separate worker invokes it without calling Binance per user request, reusing stored `signal_events`, or reading mutable current candle rows after preparation. Successful output is persisted as an immutable owner-scoped report with complete trades and equity points; the browser presents server-provided metrics and series through a presentation-only equity chart without calculating or reinterpreting them.
+Historical-analysis dataset preparation supplies the pure engines with immutable snapshots of canonical complete `1h`/`4h` candles. SMA 200 uses exactly 200 warm-up candles and RSI 14 uses 15; the first visible analysis candle is outside the warm-up range. Both paths recalculate from these rows with the same versioned calculations and equality-aware crossing helper used by live evaluation, preserve UTC ordering and completeness, and disclose their execution assumptions. The fixed path preserves six-candle long/synthetic-short behavior; the configurable path is long-only and evaluates its pinned stop-loss, take-profit, RSI-cross, and maximum-holding rules deterministically. The separate worker dispatches by the persisted simulation version without calling Binance per user request, reusing stored `signal_events`, or reading mutable current candle rows after preparation. Successful output is persisted as an immutable owner-scoped report with complete trades, exit metadata, and equity points; the browser presents server-provided metrics and series through presentation-only charts without calculating or reinterpreting them.
 
-The isolated E2E historical manifest pins each worker scenario to an existing preset code/version and fixed UTC range. Scenario assertions read the server's exact decimal and UTC strings, report undefined reasons, immutable fingerprints, and paginated sequence values; the browser never reproduces an indicator, trade, equity, or metric calculation.
+Published reports copy the immutable strategy snapshot and fingerprint from the run. Their server-persisted exit-reason counts cover the complete trade set, while trade rows and chart markers expose the exit reason, exact rule snapshot, and price basis without reconstructing them in the browser. Synthetic-short safety wording is conditional on the stored position direction; the long-only configurable path does not inherit that disclosure.
+
+The isolated E2E historical manifest pins each worker scenario to an existing preset code/version and fixed UTC range. Scenario assertions read the server's exact decimal and UTC strings, strategy fingerprints, exit rules, persisted exit-reason counts, trade exit metadata, report undefined reasons, immutable fingerprints, and paginated sequence values; the browser never reproduces an indicator, trade, equity, exit count, or metric calculation.
 
 ## Verification Status
 

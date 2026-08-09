@@ -20,6 +20,8 @@ export function historicalAnalysisErrorMessage(error: unknown): string {
     switch (error.code) {
       case "HISTORICAL_ANALYSIS_REQUEST_INVALID":
         return "That historical-analysis request is invalid. Review the market, preset, and UTC date range.";
+      case "HISTORICAL_ANALYSIS_STRATEGY_INVALID":
+        return "That strategy configuration is invalid. Review the exit rules and try again.";
       case "HISTORICAL_ANALYSIS_MARKET_NOT_FOUND":
         return "That market is no longer available for historical analysis. Refresh the market list.";
       case "HISTORICAL_ANALYSIS_PRESET_NOT_FOUND":

@@ -3,6 +3,7 @@ import binascii
 import json
 import logging
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -29,18 +30,6 @@ from freecoinalert_api.historical_analysis.engine import (
     ASSUMPTION_VERSION,
     ENGINE_VERSION,
 )
-from freecoinalert_api.market_data.catalog import utc_now
-from freecoinalert_api.schemas.historical_analysis import (
-    HistoricalAnalysisAssumptionsResponse,
-    HistoricalAnalysisConfigurationResponse,
-    HistoricalAnalysisCreateRequest,
-    HistoricalAnalysisMarketSnapshotResponse,
-    HistoricalAnalysisPresetParametersResponse,
-    HistoricalAnalysisPresetSnapshotResponse,
-    HistoricalAnalysisRunEnvelope,
-    HistoricalAnalysisRunListEnvelope,
-    HistoricalAnalysisRunResponse,
-)
 from freecoinalert_api.historical_analysis.errors import (
     HistoricalAnalysisError,
     active_limit_error,
@@ -51,8 +40,32 @@ from freecoinalert_api.historical_analysis.errors import (
     preset_unavailable_error,
     range_unavailable_error,
     request_invalid_error,
+    strategy_invalid_error,
     unavailable_error,
 )
+from freecoinalert_api.historical_analysis.strategy import (
+    CONFIGURABLE_ASSUMPTION_VERSION,
+    CONFIGURABLE_SIMULATION_VERSION,
+    CONFIGURABLE_STRATEGY_VERSION,
+    StrategySnapshot,
+    StrategyValidationError,
+    capabilities_payload,
+    normalize_strategy,
+)
+from freecoinalert_api.market_data.catalog import utc_now
+from freecoinalert_api.schemas.historical_analysis import (
+    HistoricalAnalysisAssumptionsResponse,
+    HistoricalAnalysisConfigurationResponse,
+    HistoricalAnalysisCreateRequest,
+    HistoricalAnalysisMarketSnapshotResponse,
+    HistoricalAnalysisPresetParametersResponse,
+    HistoricalAnalysisPresetSnapshotResponse,
+    HistoricalAnalysisStrategyResponse,
+    HistoricalAnalysisRunEnvelope,
+    HistoricalAnalysisRunListEnvelope,
+    HistoricalAnalysisRunResponse,
+)
+from freecoinalert_api.schemas.auth import to_camel_case
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +95,7 @@ class NormalizedHistoricalAnalysisRequest:
     preset_version: int
     analysis_start: datetime
     analysis_end: datetime
+    strategy_payload: Mapping[str, object] | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,6 +193,7 @@ class HistoricalAnalysisService:
                 raise preset_unavailable_error()
 
             calculation_version = resolve_calculation_version(preset)
+            strategy = strategy_for_preset(normalized, preset, calculation_version)
             required_warmup_candles = resolve_required_warmup(preset)
             validate_range(
                 normalized,
@@ -216,9 +231,12 @@ class HistoricalAnalysisService:
                 period_snapshot=preset.period,
                 threshold_snapshot=preset.threshold,
                 price_input_snapshot=preset.price_input,
+                strategy_version=strategy.version,
+                strategy_snapshot=strategy.to_snapshot(),
+                strategy_fingerprint=strategy.fingerprint,
                 calculation_version_snapshot=calculation_version,
-                simulation_version=SIMULATION_VERSION,
-                assumption_version=ASSUMPTION_VERSION,
+                simulation_version=simulation_version_for(strategy),
+                assumption_version=assumption_version_for(strategy),
                 analysis_start=normalized.analysis_start,
                 analysis_end=normalized.analysis_end,
                 available_at=now,
@@ -356,6 +374,7 @@ class HistoricalAnalysisService:
 
     @staticmethod
     def response_for(run: HistoricalAnalysisRun) -> HistoricalAnalysisRunEnvelope:
+        strategy = strategy_response_for(run)
         return HistoricalAnalysisRunEnvelope(
             run=HistoricalAnalysisRunResponse(
                 id=run.id,
@@ -384,6 +403,9 @@ class HistoricalAnalysisService:
                         price_input=run.price_input_snapshot,
                     ),
                 ),
+                strategy_version=run.strategy_version,
+                strategy=strategy,
+                strategy_fingerprint=run.strategy_fingerprint,
                 calculation_version=run.calculation_version_snapshot,
                 simulation_version=run.simulation_version,
                 assumption_version=run.assumption_version,
@@ -403,6 +425,45 @@ class HistoricalAnalysisService:
         )
 
 
+def strategy_response_for(
+    run: HistoricalAnalysisRun,
+) -> HistoricalAnalysisStrategyResponse:
+    snapshot = run.strategy_snapshot
+    entry = snapshot.get("entry")
+    rules = snapshot.get("exit_rules")
+    if not isinstance(entry, dict) or not isinstance(rules, list):
+        raise ValueError("The persisted strategy snapshot is invalid.")
+    return HistoricalAnalysisStrategyResponse(
+        version=run.strategy_version,
+        entry_preset_code=str(entry["preset_code"]),
+        entry_preset_version=int(entry["preset_version"]),
+        entry_timeframe=str(entry["timeframe"]),
+        entry_signal_direction=str(entry["signal_direction"]),
+        entry_calculation_version=str(entry["calculation_version"]),
+        position_direction=str(snapshot["position_direction"]),
+        exit_rules=[
+            _camelize_strategy_rule(rule)
+            for rule in rules
+            if isinstance(rule, dict)
+        ],
+    )
+
+
+def _camelize_strategy_rule(value: dict[str, object]) -> dict[str, object]:
+    return {
+        to_camel_case(str(key)): _camelize_strategy_value(item)
+        for key, item in value.items()
+    }
+
+
+def _camelize_strategy_value(value: object) -> object:
+    if isinstance(value, dict):
+        return _camelize_strategy_rule(value)
+    if isinstance(value, list):
+        return [_camelize_strategy_value(item) for item in value]
+    return value
+
+
 def normalize_request(
     request: HistoricalAnalysisCreateRequest,
 ) -> NormalizedHistoricalAnalysisRequest:
@@ -419,6 +480,14 @@ def normalize_request(
         preset_version=request.preset_version,
         analysis_start=analysis_start,
         analysis_end=analysis_end,
+        strategy_payload=(
+            None
+            if request.strategy is None
+            else {
+                "position_direction": request.strategy.position_direction,
+                "exit_rules": request.strategy.exit_rules,
+            }
+        ),
     )
 
 
@@ -440,6 +509,62 @@ def resolve_required_warmup(preset: SignalPreset) -> int:
     if required_warmup is None or preset.timeframe not in TIMEFRAME_HOURS:
         raise preset_unavailable_error()
     return required_warmup
+
+
+def strategy_for_preset(
+    request: NormalizedHistoricalAnalysisRequest,
+    preset: SignalPreset,
+    calculation_version: str,
+) -> StrategySnapshot:
+    try:
+        return normalize_strategy(
+            request.strategy_payload,
+            preset_code=preset.code,
+            preset_version=preset.version,
+            timeframe=preset.timeframe,
+            signal_direction=preset.direction,
+            calculation_version=calculation_version,
+        )
+    except StrategyValidationError as error:
+        raise strategy_invalid_error(
+            tuple(issue.to_dict() for issue in error.issues)
+        ) from None
+
+
+def strategy_for_run(
+    request: NormalizedHistoricalAnalysisRequest,
+    run: HistoricalAnalysisRun,
+) -> StrategySnapshot:
+    try:
+        entry = run.strategy_snapshot.get("entry")
+        if not isinstance(entry, dict):
+            raise StrategyValidationError(())
+        return normalize_strategy(
+            request.strategy_payload,
+            preset_code=str(entry["preset_code"]),
+            preset_version=int(entry["preset_version"]),
+            timeframe=str(entry["timeframe"]),
+            signal_direction=str(entry["signal_direction"]),
+            calculation_version=str(entry["calculation_version"]),
+        )
+    except (KeyError, TypeError, ValueError, StrategyValidationError) as error:
+        if isinstance(error, StrategyValidationError) and error.issues:
+            details = tuple(issue.to_dict() for issue in error.issues)
+        else:
+            details = ({"field": "strategy", "code": "MALFORMED_RULE"},)
+        raise strategy_invalid_error(details) from None
+
+
+def simulation_version_for(strategy: StrategySnapshot) -> str:
+    if strategy.version == CONFIGURABLE_STRATEGY_VERSION:
+        return CONFIGURABLE_SIMULATION_VERSION
+    return SIMULATION_VERSION
+
+
+def assumption_version_for(strategy: StrategySnapshot) -> str:
+    if strategy.version == CONFIGURABLE_STRATEGY_VERSION:
+        return CONFIGURABLE_ASSUMPTION_VERSION
+    return ASSUMPTION_VERSION
 
 
 def validate_range(
@@ -509,6 +634,9 @@ def require_matching_replay(
         or run.analysis_start != request.analysis_start
         or run.analysis_end != request.analysis_end
     ):
+        raise idempotency_conflict_error()
+    strategy = strategy_for_run(request, run)
+    if run.strategy_fingerprint != strategy.fingerprint:
         raise idempotency_conflict_error()
 
 
@@ -600,6 +728,7 @@ def configuration_response() -> HistoricalAnalysisConfigurationResponse:
             overlapping_signals="ignored",
             end_of_range="incomplete_trade_not_opened",
         ),
+        strategy_capabilities=capabilities_payload(configurable_available=True),
     )
 
 

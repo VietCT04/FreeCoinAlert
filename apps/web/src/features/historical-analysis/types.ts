@@ -18,6 +18,73 @@ export type HistoricalAnalysisAssumptionsConfiguration = {
   endOfRange: "incomplete_trade_not_opened";
 };
 
+export type HistoricalAnalysisExitRuleType =
+  | "take_profit_percent"
+  | "stop_loss_percent"
+  | "rsi_threshold_cross"
+  | "max_holding_candles";
+
+export type HistoricalAnalysisStrategyExitRule = {
+  type: HistoricalAnalysisExitRuleType;
+  percent?: string;
+  direction?: string;
+  threshold?: string;
+  period?: number;
+  priceInput?: string;
+  timeframe?: string;
+  calculationVersion?: string;
+  candles?: number;
+};
+
+export type HistoricalAnalysisStrategyRequest = {
+  position_direction: "long";
+  exit_rules: HistoricalAnalysisStrategyExitRule[];
+};
+
+export type HistoricalAnalysisStrategySnapshot = {
+  version?: string;
+  positionDirection: "long" | "synthetic_short";
+  exitRules: HistoricalAnalysisStrategyExitRule[];
+};
+
+export type HistoricalAnalysisStrategy = {
+  version: string;
+  positionDirection: "long" | "synthetic_short";
+  exitRules: HistoricalAnalysisStrategyExitRule[];
+};
+
+export type HistoricalAnalysisStrategyRuleCapability = {
+  minimum?: string | number;
+  maximum?: string | number;
+  minimumInclusive?: boolean;
+  maximumInclusive?: boolean;
+  minimumExclusive?: string | number;
+  maximumExclusive?: string | number;
+  default?: string | number;
+  directions?: string[];
+  period?: number;
+  priceInput?: string;
+  timeframe?: string;
+  calculationVersion?: string;
+};
+
+export type HistoricalAnalysisStrategyCapabilities = {
+  configurableStrategyAvailable: boolean;
+  positionDirections: string[];
+  maximumExitRules: number;
+  requiredExitRuleTypes: HistoricalAnalysisExitRuleType[];
+  supportedExitRuleTypes?: HistoricalAnalysisExitRuleType[];
+  sameCandlePriority: HistoricalAnalysisExitRuleType[];
+  maxHoldingCandles: {
+    minimum: number;
+    maximum: number;
+    default: number;
+  };
+  exitRuleLimits?: Partial<
+    Record<HistoricalAnalysisExitRuleType, HistoricalAnalysisStrategyRuleCapability>
+  >;
+};
+
 export type HistoricalAnalysisConfiguration = {
   minimumRangeDays: number;
   maximumRangeDays: number;
@@ -25,6 +92,7 @@ export type HistoricalAnalysisConfiguration = {
   simulationVersion: string;
   assumptionVersion: string;
   assumptions: HistoricalAnalysisAssumptionsConfiguration;
+  strategyCapabilities?: HistoricalAnalysisStrategyCapabilities;
 };
 
 export type HistoricalAnalysisMarket = {
@@ -57,6 +125,9 @@ export type HistoricalAnalysisRun = {
   calculationVersion: string;
   simulationVersion: string;
   assumptionVersion: string;
+  strategyVersion: string;
+  strategy: HistoricalAnalysisStrategy;
+  strategyFingerprint: string;
   analysisStart: string;
   analysisEnd: string;
   progressStage: string;
@@ -88,6 +159,7 @@ export type HistoricalAnalysisCreateRequest = {
   preset_version: number;
   analysis_start: string;
   analysis_end: string;
+  strategy?: HistoricalAnalysisStrategyRequest;
 };
 
 export type HistoricalAnalysisReportSummary = {
@@ -109,6 +181,7 @@ export type HistoricalAnalysisReportSummary = {
   winRateUndefinedReason: string | null;
   profitFactor: string | null;
   profitFactorUndefinedReason: string | null;
+  exitReasonCounts: Record<string, number>;
 };
 
 export type HistoricalAnalysisEquityPoint = {
@@ -142,6 +215,9 @@ export type HistoricalAnalysisTradeMarker = {
   positionDirection: "long" | "synthetic_short";
   candleOpenTime: string;
   price: string;
+  exitReason?: string | null;
+  exitPriceBasis?: string | null;
+  exitRule?: HistoricalAnalysisStrategyExitRule | null;
 };
 
 export type HistoricalAnalysisTrade = {
@@ -162,6 +238,9 @@ export type HistoricalAnalysisTrade = {
   exitCloseTime: string;
   exitRawPrice: string;
   exitFillPrice: string;
+  exitReason: string;
+  exitPriceBasis: string;
+  exitRule: HistoricalAnalysisStrategyExitRule;
   holdingCandleCount: number;
   feeRate: string;
   slippageRate: string;
@@ -183,6 +262,8 @@ export type HistoricalAnalysisReport = {
   calculationVersion: string;
   engineVersion: string;
   assumptionVersion: string;
+  strategy: HistoricalAnalysisStrategy;
+  strategyFingerprint: string;
   resultFingerprint: string;
   datasetFingerprint: string;
   analysisStart: string;

@@ -59,6 +59,7 @@ from freecoinalert_api.historical_analysis.engine import (
 from freecoinalert_api.historical_analysis.service import (
     SUPPORTED_CALCULATION_VERSIONS,
 )
+from freecoinalert_api.historical_analysis.strategy import legacy_strategy_snapshot
 from freecoinalert_api.schemas.auth import to_camel_case
 
 
@@ -493,6 +494,13 @@ async def _create_historical_fixture(
             range_days=request.range_days or _scenario_range_days(request.scenario),
         )
         calculation_version = SUPPORTED_CALCULATION_VERSIONS[preset.strategy_type]
+        strategy = legacy_strategy_snapshot(
+            preset_code=preset.code,
+            preset_version=preset.version,
+            timeframe=preset.timeframe,
+            signal_direction=preset.direction,
+            calculation_version=calculation_version,
+        )
         market_id = market.id
         market_exchange = market.exchange
         market_type = market.market_type
@@ -531,6 +539,9 @@ async def _create_historical_fixture(
                 period_snapshot=preset_period,
                 threshold_snapshot=preset_threshold,
                 price_input_snapshot=preset_price_input,
+                strategy_version=strategy.version,
+                strategy_snapshot=strategy.to_snapshot(),
+                strategy_fingerprint=strategy.fingerprint,
                 calculation_version_snapshot=calculation_version,
                 simulation_version=ENGINE_VERSION,
                 assumption_version=ASSUMPTION_VERSION,

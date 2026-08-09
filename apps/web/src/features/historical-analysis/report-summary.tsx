@@ -26,7 +26,12 @@ import {
   formatFixedDecimal,
   formatFixedPercent,
   formatFixedSignedPercent,
+  formatExitReason,
+  formatExitRuleType,
   formatFingerprint,
+  formatPositionDirection,
+  formatStrategyEntry,
+  formatStrategyExitRule,
   formatTimeframe,
   formatUndefinedMetric,
   formatUtcDateTime,
@@ -34,6 +39,7 @@ import {
 import type {
   HistoricalAnalysisReport,
   HistoricalAnalysisRun,
+  HistoricalAnalysisExitRuleType,
   HistoricalAnalysisTrade,
 } from "./types";
 import { CandleChart } from "./candle-chart";
@@ -175,6 +181,94 @@ function ReportContext({ report }: { report: HistoricalAnalysisReport }) {
   );
 }
 
+function StrategySummary({ report }: { report: HistoricalAnalysisReport }) {
+  const priority = Array.isArray(report.assumptions.sameCandleExitPriority)
+    ? report.assumptions.sameCandleExitPriority.filter(
+        (value): value is string => typeof value === "string",
+      )
+    : [
+        "stop_loss_percent",
+        "take_profit_percent",
+        "rsi_threshold_cross",
+        "max_holding_candles",
+      ];
+  const rules = report.strategy.exitRules;
+  const legacy = report.strategy.version === "legacy_fixed_horizon_v1";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Strategy</CardTitle>
+        <CardDescription>
+          {legacy ? "Legacy fixed-horizon simulation" : "Immutable strategy used for this report"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5 text-sm">
+        <div className="space-y-1">
+          <p className="font-medium uppercase tracking-wide text-muted-foreground">Entry</p>
+          <p>{formatStrategyEntry(report.preset)}</p>
+          <p className="text-muted-foreground">
+            → {formatPositionDirection(report.strategy.positionDirection)} at next candle open
+          </p>
+        </div>
+        <div className="space-y-2">
+          <p className="font-medium uppercase tracking-wide text-muted-foreground">Exits</p>
+          {rules.length ? (
+            <ul className="space-y-1">
+              {rules.map((rule) => (
+                <li key={`${rule.type}-${JSON.stringify(rule)}`}>
+                  {formatStrategyExitRule(rule)}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground">Close after the fixed holding period.</p>
+          )}
+        </div>
+        <div className="space-y-1">
+          <p className="font-medium uppercase tracking-wide text-muted-foreground">
+            Same-candle priority
+          </p>
+          <p>
+            {priority
+              .map((rule) => formatExitRuleType(rule as HistoricalAnalysisExitRuleType))
+              .join(" → ")}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ExitReasonBreakdown({ report }: { report: HistoricalAnalysisReport }) {
+  const counts = report.summary.exitReasonCounts;
+  const rules = new Map(report.strategy.exitRules.map((rule) => [rule.type, rule]));
+  const reasons = Object.entries(counts);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Exit reasons</CardTitle>
+        <CardDescription>Server-persisted reasons for completed hypothetical trades.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {reasons.length ? (
+          <dl className="grid gap-3 sm:grid-cols-2">
+            {reasons.map(([reason, count]) => (
+              <div className="flex items-center justify-between gap-4" key={reason}>
+                <dt>{formatExitReason(reason, rules.get(reason))}</dt>
+                <dd className="font-semibold tabular-nums">{count}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-sm text-muted-foreground">No completed trades.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function PrimaryMetrics({ report }: { report: HistoricalAnalysisReport }) {
   const { summary } = report;
 
@@ -260,19 +354,13 @@ function Methodology({ report }: { report: HistoricalAnalysisReport }) {
   return (
     <div className="space-y-4">
       <ReportContext report={report} />
+      <StrategySummary report={report} />
       <Card>
         <CardHeader>
-          <CardTitle>Data coverage and assumptions</CardTitle>
-          <CardDescription>
-            Full server snapshots remain available without changing their domain meaning.
-          </CardDescription>
+          <CardTitle>Execution assumptions</CardTitle>
+          <CardDescription>Server-controlled rules used for this simulation.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <SnapshotDetails
-            entries={coverageEntries}
-            formatValue={formatCoverageValue}
-            title="View stored data coverage"
-          />
           <SnapshotDetails
             entries={assumptionEntries}
             formatValue={formatAssumptionValue}
@@ -293,6 +381,43 @@ function Methodology({ report }: { report: HistoricalAnalysisReport }) {
               />
             </dl>
           </details>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Data coverage</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SnapshotDetails
+            entries={coverageEntries}
+            formatValue={formatCoverageValue}
+            title="View stored data coverage"
+          />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Versions and fingerprints</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="font-medium">Strategy version</dt>
+              <dd className="text-muted-foreground">{report.strategy.version}</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Strategy fingerprint</dt>
+              <dd className="break-all text-muted-foreground">{formatFingerprint(report.strategyFingerprint)}</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Engine version</dt>
+              <dd className="text-muted-foreground">{report.engineVersion}</dd>
+            </div>
+            <div>
+              <dt className="font-medium">Result fingerprint</dt>
+              <dd className="break-all text-muted-foreground">{formatFingerprint(report.resultFingerprint)}</dd>
+            </div>
+          </dl>
         </CardContent>
       </Card>
       <Card>
@@ -360,8 +485,10 @@ export function ReportSummary({
         </AlertTitle>
         <AlertDescription>
           Not financial advice. This is not a prediction or guarantee. Real
-          execution may differ. Synthetic-short results are not executable
-          Binance Spot trades.
+          execution may differ.
+          {report.strategy.positionDirection === "synthetic_short"
+            ? " Synthetic-short results are not executable Binance Spot trades."
+            : null}
         </AlertDescription>
       </Alert>
 
@@ -374,7 +501,9 @@ export function ReportSummary({
 
         <TabsContent className="space-y-6" forceMount value="overview">
           <ReportContext report={report} />
+          <StrategySummary report={report} />
           <PrimaryMetrics report={report} />
+          <ExitReasonBreakdown report={report} />
           <SecondaryMetrics report={report} />
           <Card>
             <CardHeader>

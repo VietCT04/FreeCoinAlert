@@ -1,11 +1,11 @@
-"""Pure deterministic simulation for the fixed historical-analysis presets."""
+"""Pure deterministic simulation for historical-analysis presets."""
 
 from __future__ import annotations
 
 import hashlib
 import json
 from collections.abc import Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_EVEN, localcontext
 from typing import Literal
@@ -24,6 +24,9 @@ from freecoinalert_api.strategies.errors import StrategyCalculationError
 ENGINE_VERSION = "historical_fixed_preset_v1"
 ASSUMPTION_VERSION = "fixed_horizon_v1"
 RESULT_FINGERPRINT_SCHEMA_VERSION = "historical_simulation_result_v1"
+CONFIGURABLE_ENGINE_VERSION = "historical_configurable_exit_v1"
+CONFIGURABLE_ASSUMPTION_VERSION = "configurable_exit_v1"
+CONFIGURABLE_RESULT_FINGERPRINT_SCHEMA_VERSION = "historical_simulation_result_v2"
 
 MAX_TOTAL_CANDLES = 2_500
 MAX_ANALYSIS_CANDLES = 2_200
@@ -241,6 +244,25 @@ class FixedHorizonAssumptions:
     short_loss_cap: Literal["allocated_equity"]
 
 
+@dataclass(frozen=True, slots=True)
+class ConfigurableExitAssumptions:
+    """The shared execution assumptions for ``configurable_exit_v1``."""
+
+    initial_equity: Decimal
+    signal_timing: Literal["confirmed_candle_close"]
+    entry_timing: Literal["next_candle_open"]
+    position_direction: Literal["long"]
+    position_sizing: Literal["one_position_full_equity"]
+    concurrent_positions: int
+    overlapping_signals: Literal["ignored"]
+    entry_slippage_rate: Decimal
+    exit_slippage_rate: Decimal
+    fee_rate: Decimal
+    same_candle_exit_priority: tuple[str, ...]
+    end_of_range: Literal["incomplete_trade_not_opened"]
+    compounding: Literal["prior_net_closing_equity"]
+
+
 FIXED_HORIZON_V1_ASSUMPTIONS = FixedHorizonAssumptions(
     initial_equity=INITIAL_EQUITY,
     signal_timing="confirmed_candle_close",
@@ -259,6 +281,28 @@ FIXED_HORIZON_V1_ASSUMPTIONS = FixedHorizonAssumptions(
     end_of_range="incomplete_trade_not_opened",
     compounding="prior_net_closing_equity",
     short_loss_cap="allocated_equity",
+)
+
+
+CONFIGURABLE_EXIT_V1_ASSUMPTIONS = ConfigurableExitAssumptions(
+    initial_equity=INITIAL_EQUITY,
+    signal_timing="confirmed_candle_close",
+    entry_timing="next_candle_open",
+    position_direction="long",
+    position_sizing="one_position_full_equity",
+    concurrent_positions=1,
+    overlapping_signals="ignored",
+    entry_slippage_rate=SLIPPAGE_RATE,
+    exit_slippage_rate=SLIPPAGE_RATE,
+    fee_rate=FEE_RATE,
+    same_candle_exit_priority=(
+        "stop_loss_percent",
+        "take_profit_percent",
+        "rsi_threshold_cross",
+        "max_holding_candles",
+    ),
+    end_of_range="incomplete_trade_not_opened",
+    compounding="prior_net_closing_equity",
 )
 
 
@@ -306,6 +350,14 @@ class HistoricalSimulationTrade:
     net_pnl: Decimal
     equity_after: Decimal
     outcome: TradeOutcome
+    exit_reason: str = "max_holding_candles"
+    exit_price_basis: str = "confirmed_candle_close"
+    exit_rule_snapshot: dict[str, object] = field(
+        default_factory=lambda: {
+            "type": "max_holding_candles",
+            "candles": HOLDING_PERIOD_CANDLES,
+        }
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -355,17 +407,20 @@ class HistoricalSimulationResult:
     assumption_version: str | None
     analysis_start: datetime | None
     analysis_end: datetime | None
-    assumptions: FixedHorizonAssumptions | None
+    assumptions: FixedHorizonAssumptions | ConfigurableExitAssumptions | None
     trades: tuple[HistoricalSimulationTrade, ...]
     equity_series: tuple[HistoricalSimulationEquityPoint, ...]
     summary: HistoricalSimulationSummary | None
     safety_disclosures: tuple[str, ...]
     result_fingerprint: str | None
+    strategy_version: str | None = None
+    strategy_fingerprint: str | None = None
+    strategy_snapshot: dict[str, object] | None = None
 
     def to_serializable(self) -> dict[str, object]:
         """Return a JSON-compatible result with eight-place Decimal strings."""
 
-        return {
+        payload: dict[str, object] = {
             "status": self.status,
             "failure_reason": self.failure_reason,
             "dataset_fingerprint": self.dataset_fingerprint,
@@ -377,7 +432,12 @@ class HistoricalSimulationResult:
             "analysis_start": _optional_utc_z(self.analysis_start),
             "analysis_end": _optional_utc_z(self.analysis_end),
             "assumptions": _assumptions_payload(self.assumptions),
-            "trades": [_trade_payload(trade) for trade in self.trades],
+            "trades": [
+                _configurable_trade_payload(trade)
+                if self.engine_version == CONFIGURABLE_ENGINE_VERSION
+                else _trade_payload(trade)
+                for trade in self.trades
+            ],
             "equity_series": [
                 _equity_point_payload(point) for point in self.equity_series
             ],
@@ -385,6 +445,17 @@ class HistoricalSimulationResult:
             "safety_disclosures": list(self.safety_disclosures),
             "result_fingerprint": self.result_fingerprint,
         }
+        if self.engine_version == CONFIGURABLE_ENGINE_VERSION:
+            payload.update(
+                {
+                    "strategy_version": self.strategy_version,
+                    "strategy_fingerprint": self.strategy_fingerprint,
+                    "strategy_snapshot": _json_safe_strategy_snapshot(
+                        self.strategy_snapshot
+                    ),
+                }
+            )
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -1304,10 +1375,32 @@ def _result_fingerprint(result: HistoricalSimulationResult) -> str:
 
 
 def _assumptions_payload(
-    assumptions: FixedHorizonAssumptions | None,
+    assumptions: FixedHorizonAssumptions | ConfigurableExitAssumptions | None,
 ) -> dict[str, object] | None:
     if assumptions is None:
         return None
+    if isinstance(assumptions, ConfigurableExitAssumptions):
+        return {
+            "initial_equity": _display_decimal(assumptions.initial_equity),
+            "signal_timing": assumptions.signal_timing,
+            "entry_timing": assumptions.entry_timing,
+            "position_direction": assumptions.position_direction,
+            "position_sizing": assumptions.position_sizing,
+            "concurrent_positions": assumptions.concurrent_positions,
+            "overlapping_signals": assumptions.overlapping_signals,
+            "entry_slippage_rate": _display_decimal(
+                assumptions.entry_slippage_rate
+            ),
+            "exit_slippage_rate": _display_decimal(
+                assumptions.exit_slippage_rate
+            ),
+            "fee_rate": _display_decimal(assumptions.fee_rate),
+            "same_candle_exit_priority": list(
+                assumptions.same_candle_exit_priority
+            ),
+            "end_of_range": assumptions.end_of_range,
+            "compounding": assumptions.compounding,
+        }
     return {
         "initial_equity": _display_decimal(assumptions.initial_equity),
         "signal_timing": assumptions.signal_timing,
@@ -1359,6 +1452,38 @@ def _trade_payload(trade: HistoricalSimulationTrade) -> dict[str, object]:
         "equity_after": _display_decimal(trade.equity_after),
         "outcome": trade.outcome,
     }
+
+
+def _configurable_trade_payload(
+    trade: HistoricalSimulationTrade,
+) -> dict[str, object]:
+    payload = _trade_payload(trade)
+    payload.update(
+        {
+            "exit_reason": trade.exit_reason,
+            "exit_price_basis": trade.exit_price_basis,
+            "exit_rule_snapshot": _json_safe_strategy_snapshot(
+                trade.exit_rule_snapshot
+            ),
+        }
+    )
+    return payload
+
+
+def _json_safe_strategy_snapshot(
+    snapshot: dict[str, object] | None,
+) -> dict[str, object] | None:
+    if snapshot is None:
+        return None
+    return json.loads(
+        json.dumps(
+            snapshot,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+            allow_nan=False,
+        )
+    )
 
 
 def _equity_point_payload(point: HistoricalSimulationEquityPoint) -> dict[str, object]:

@@ -160,7 +160,7 @@ The current browser contract consumers are covered by the repository-owned E2E j
 
 The authenticated HTTP API exposes bounded owner-scoped historical-analysis requests, lifecycle metadata, and report reads. Run creation/list/detail/cancel routes do not read candles, calculate indicators, contact Binance, create alerts or signals, or perform simulation. A separate database worker prepares canonical immutable datasets and invokes the pure engine; report publication is atomic and the report routes read only the owner's persisted result.
 
-`GET /historical-analysis/configuration` requires authentication and returns `Cache-Control: no-store` with the fixed server contract:
+`GET /historical-analysis/configuration` requires authentication and returns `Cache-Control: no-store` with the server-owned contract:
 
 ```json
 {
@@ -178,11 +178,52 @@ The authenticated HTTP API exposes bounded owner-scoped historical-analysis requ
     "positionSizing": "one_position_full_equity",
     "overlappingSignals": "ignored",
     "endOfRange": "incomplete_trade_not_opened"
-  }
+  },
+  "strategyCapabilities": {
+      "configurableStrategyAvailable": true,
+      "positionDirections": ["long"],
+      "maximumExitRules": 4,
+      "requiredExitRuleTypes": ["max_holding_candles"],
+      "supportedExitRuleTypes": [
+        "take_profit_percent",
+        "stop_loss_percent",
+        "rsi_threshold_cross",
+        "max_holding_candles"
+      ],
+      "sameCandlePriority": [
+        "stop_loss_percent",
+        "take_profit_percent",
+        "rsi_threshold_cross",
+        "max_holding_candles"
+      ],
+      "maxHoldingCandles": {"minimum": 1, "maximum": 2200, "default": 6},
+      "exitRuleLimits": {
+        "take_profit_percent": {
+          "minimum": "0.01",
+          "maximum": "1000",
+          "maximumInclusive": true
+        },
+        "stop_loss_percent": {
+          "minimum": "0.01",
+          "maximum": "100",
+          "maximumInclusive": false
+        },
+        "rsi_threshold_cross": {
+          "minimum": "0",
+          "minimumInclusive": false,
+          "maximum": "100",
+          "maximumInclusive": false,
+          "directions": ["cross_above", "cross_below"],
+          "period": 14,
+          "priceInput": "close",
+          "calculationVersion": "rsi_wilder_close_v1"
+        }
+      }
+    }
 }
 ```
 
-The configuration endpoint describes the fixed simulation contract; it does not invoke the pure engine. A report is available only after the worker publishes a successful run.
+The configuration endpoint describes the legacy fixed simulation contract and the server-owned strategy capability boundary; it does not invoke the pure engine. Configurable strategies are available only through the server-published capability contract and are executed by the versioned historical-analysis worker path. A report is available only after the worker publishes a successful run.
 
 `POST /historical-analyses` requires authentication, CSRF, and a UUID `Idempotency-Key` header. The body is:
 
@@ -194,25 +235,32 @@ The configuration endpoint describes the fixed simulation contract; it does not 
   "preset_code": "price_sma_200_cross_above_1h",
   "preset_version": 1,
   "analysis_start": "2026-05-01T00:00:00Z",
-  "analysis_end": "2026-06-01T00:00:00Z"
+  "analysis_end": "2026-06-01T00:00:00Z",
+  "strategy": {
+    "position_direction": "long",
+    "exit_rules": [
+      {"type": "take_profit_percent", "percent": "6"},
+      {"type": "max_holding_candles", "candles": 7}
+    ]
+  }
 }
 ```
 
-Only controlled Binance Spot markets, active fixed preset code/version pairs, and preset timeframes `1h` and `4h` are accepted. The server resolves the calculation snapshot (`sma_close_v1` for SMA presets or `rsi_wilder_close_v1` for RSI presets), `historical_fixed_preset_v1`, and `fixed_horizon_v1`; callers cannot submit formulas, parameters, fees, slippage, sizing, holding duration, or engine versions. Dates must be timezone-aware UTC values aligned to the selected timeframe, use an inclusive start and exclusive end, span 7 through 90 days, end no later than the latest fully closed timeframe boundary, and leave the required 200-candle SMA or 15-candle RSI warm-up inside the configured canonical candle-retention window. Creation performs no exact candle-availability check.
+Only controlled Binance Spot markets, active fixed preset code/version pairs, and preset timeframes `1h` and `4h` are accepted. The server resolves the calculation snapshot (`sma_close_v1` for SMA presets or `rsi_wilder_close_v1` for RSI presets). An omitted strategy creates a `legacy_fixed_horizon_v1` snapshot with the existing six-candle behavior. An explicit strategy creates a `configurable_exit_v1` snapshot containing long direction and canonicalized supported exit rules; the worker dispatches it to the versioned `historical_configurable_exit_v1` engine. Callers cannot submit formulas, parameters, fees, slippage, sizing, or engine versions. Dates must be timezone-aware UTC values aligned to the selected timeframe, use an inclusive start and exclusive end, span 7 through 90 days, end no later than the latest fully closed timeframe boundary, and leave the required 200-candle SMA or 15-candle RSI warm-up inside the configured canonical candle-retention window. Creation performs no exact candle-availability check.
 
-A new request returns `201` with `{ "run": ... }`, status `queued`, progress stage `queued`, and progress `0`. The safe run envelope contains the immutable market/preset/calculation/version snapshots, UTC range, lifecycle status, progress, cancellation-requested state, safe lifecycle timestamps, and safe failure category. It never returns user IDs, lock IDs, raw errors, candle IDs, or provider details. The maximum active run count is two per user. A replay with the same user-scoped idempotency key and equivalent request returns the original run with `200`; reusing the key for a different request returns `409 HISTORICAL_ANALYSIS_IDEMPOTENCY_CONFLICT`.
+A new request returns `201` with `{ "run": ... }`, status `queued`, progress stage `queued`, and progress `0`. The safe run envelope contains the immutable market/preset/strategy/calculation/version snapshots, UTC range, lifecycle status, progress, cancellation-requested state, safe lifecycle timestamps, and safe failure category. The strategy response includes its version, fixed entry preset/version, position direction, canonical exit rules, and SHA-256 strategy fingerprint. It never returns user IDs, lock IDs, raw errors, candle IDs, or provider details. The maximum active run count is two per user. A replay with the same user-scoped idempotency key and equivalent request, including the normalized strategy fingerprint, returns the original run with `200`; reusing the key for a different request or strategy returns `409 HISTORICAL_ANALYSIS_IDEMPOTENCY_CONFLICT`.
 
 `GET /historical-analyses` requires authentication, returns newest-first owner-only rows, uses a default limit of 20 and maximum of 100, accepts one lifecycle status filter, and uses an opaque cursor based on `(created_at, id)`. `GET /historical-analyses/{run_id}` returns the same safe owner-only envelope. Unknown, malformed, or foreign run identifiers do not disclose another user's run.
 
 `POST /historical-analyses/{run_id}/cancel` requires CSRF and no body. A queued run becomes `cancelled` immediately; a running run records `cancellationRequested` and the separate worker acknowledges it at safe stage boundaries; repeated cancellation is idempotent; and succeeded, failed, or cancelled runs remain unchanged. The response is `200` with the complete safe run envelope.
 
-Creation is limited to 10 per user and 30 per direct client IP per 15 minutes; cancellation is limited to 30 per user; configuration/list/detail/report/trade/equity reads share a limit of 120 per user per 15 minutes. Rate-limited responses use `429 HISTORICAL_ANALYSIS_RATE_LIMITED` and `Retry-After`. Stable domain errors are `422 HISTORICAL_ANALYSIS_REQUEST_INVALID`, `404 HISTORICAL_ANALYSIS_MARKET_NOT_FOUND`, `404 HISTORICAL_ANALYSIS_PRESET_NOT_FOUND`, `409 HISTORICAL_ANALYSIS_PRESET_UNAVAILABLE`, `409 HISTORICAL_ANALYSIS_RANGE_UNAVAILABLE`, `409 HISTORICAL_ANALYSIS_ACTIVE_LIMIT_REACHED`, `409 HISTORICAL_ANALYSIS_IDEMPOTENCY_CONFLICT`, `404 HISTORICAL_ANALYSIS_NOT_FOUND`, `409 HISTORICAL_ANALYSIS_REPORT_NOT_READY`, and `503 HISTORICAL_ANALYSIS_UNAVAILABLE`.
+Creation is limited to 10 per user and 30 per direct client IP per 15 minutes; cancellation is limited to 30 per user; configuration/list/detail/report/trade/equity reads share a limit of 120 per user per 15 minutes. Rate-limited responses use `429 HISTORICAL_ANALYSIS_RATE_LIMITED` and `Retry-After`. Stable domain errors are `422 HISTORICAL_ANALYSIS_REQUEST_INVALID`, `422 HISTORICAL_ANALYSIS_STRATEGY_INVALID`, `404 HISTORICAL_ANALYSIS_MARKET_NOT_FOUND`, `404 HISTORICAL_ANALYSIS_PRESET_NOT_FOUND`, `409 HISTORICAL_ANALYSIS_PRESET_UNAVAILABLE`, `409 HISTORICAL_ANALYSIS_RANGE_UNAVAILABLE`, `409 HISTORICAL_ANALYSIS_ACTIVE_LIMIT_REACHED`, `409 HISTORICAL_ANALYSIS_IDEMPOTENCY_CONFLICT`, `404 HISTORICAL_ANALYSIS_NOT_FOUND`, `409 HISTORICAL_ANALYSIS_REPORT_NOT_READY`, and `503 HISTORICAL_ANALYSIS_UNAVAILABLE`. Strategy validation details contain only safe field paths and stable codes; they never echo submitted values or internal errors.
 
-`GET /historical-analyses/{run_id}/report` is owner-only and returns `Cache-Control: no-store`. Unknown or foreign runs return `404 HISTORICAL_ANALYSIS_NOT_FOUND`; a queued, running, failed, or cancelled run returns `409 HISTORICAL_ANALYSIS_REPORT_NOT_READY`, while the run detail retains its lifecycle and safe failure category. A successful report includes the run/range identity, server-snapshot market and preset meaning, calculation/engine/assumption versions, result and dataset fingerprints, coverage and assumptions snapshots, all summary metrics and undefined reasons, safety disclosures, an evenly downsampled equity preview of at most 200 points preserving the first and last points, a bounded candle preview containing the complete visible contiguous candle sequence up to 2,500 server-decimal OHLC rows, and bounded hypothetical entry/exit markers aligned to their stored candle open times. The candle preview retains adjacent visible candles and marker anchor candles so the chart does not render sparse source candles as consecutive bars. Decimal values are strings; the browser may convert preview prices only for chart plotting.
+`GET /historical-analyses/{run_id}/report` is owner-only and returns `Cache-Control: no-store`. Unknown or foreign runs return `404 HISTORICAL_ANALYSIS_NOT_FOUND`; a queued, running, failed, or cancelled run returns `409 HISTORICAL_ANALYSIS_REPORT_NOT_READY`, while the run detail retains its lifecycle and safe failure category. A successful report includes the run/range identity, server-snapshot market and preset meaning, the immutable strategy snapshot and strategy fingerprint, calculation/engine/assumption versions, result and dataset fingerprints, coverage and assumptions snapshots, all summary metrics and undefined reasons, publication-time `exitReasonCounts`, safety disclosures, an evenly downsampled equity preview of at most 200 points preserving the first and last points, a bounded candle preview containing the complete visible contiguous candle sequence up to 2,500 server-decimal OHLC rows, and bounded hypothetical entry/exit markers aligned to their stored candle open times. Exit markers include the persisted exit reason, price basis, and exit-rule snapshot. The candle preview retains adjacent visible candles and marker anchor candles so the chart does not render sparse source candles as consecutive bars. Decimal values are strings; the browser may convert preview prices only for chart plotting.
 
-`GET /historical-analyses/{run_id}/trades` defaults to 50 rows and accepts a maximum of 100. `GET /historical-analyses/{run_id}/equity` defaults to 200 rows and accepts a maximum of 500. Both return ascending immutable sequence rows and an opaque sequence cursor; every trade includes signal, entry, exit, execution, return, PnL, equity, and outcome fields, while every equity row includes candle identity/revision/times, equity, drawdown, position state, and active trade sequence. The endpoints are owner-scoped and never expose user IDs, provider payloads, raw errors, or mutable live state.
+`GET /historical-analyses/{run_id}/trades` defaults to 50 rows and accepts a maximum of 100. `GET /historical-analyses/{run_id}/equity` defaults to 200 rows and accepts a maximum of 500. Both return ascending immutable sequence rows and an opaque sequence cursor; every trade includes signal, entry, exit, execution, persisted `exitReason`, `exitPriceBasis`, `exitRule`, return, PnL, equity, and outcome fields, while every equity row includes candle identity/revision/times, equity, drawdown, position state, and active trade sequence. Exit counts are report-level snapshots and are not recomputed from a paginated trade page. The endpoints are owner-scoped and never expose user IDs, provider payloads, raw errors, or mutable live state.
 
-The authenticated browser `Historical analysis` section consumes these routes with native credentialed Fetch. It displays only server-returned market/preset/configuration and report values through a guided Configure, Processing, Results flow with responsive previous-run selection and three focused report tabs. It uses the existing CSRF token for create/cancel mutations, keeps an idempotency key in memory for ambiguous create retries, polls selected queued/running details only while visible, and loads trade pages through the documented opaque cursor when the Hypothetical trades tab is activated. The report's equity and candle previews plus hypothetical trade markers are presentation-only; the browser does not load the full equity pages, calculate indicators, metrics, or trades, store report data, or contact Binance or Telegram. The candlestick chart labels buy/sell markers as hypothetical and explains synthetic-short direction. The repository E2E suite exercises the same contracts for named lifecycle, cancellation, failure, pagination, reload, and ownership-revalidation states.
+The authenticated browser `Historical analysis` section consumes these routes with native credentialed Fetch. It displays only server-returned market/preset/configuration and report values through a guided Configure, Processing, Results flow with responsive previous-run selection and three focused report tabs. It uses the existing CSRF token for create/cancel mutations, keeps an idempotency key in memory for ambiguous create retries, polls selected queued/running details only while visible, and loads trade pages through the documented opaque cursor when the Hypothetical trades tab is activated. The report's strategy summary, persisted exit-reason breakdown, equity and candle previews, trade-table metadata, and hypothetical trade markers are presentation-only; the browser does not load the full equity pages, calculate indicators, metrics, exit counts, or trades, store report data, or contact Binance or Telegram. Marker tooltips use only server-provided exit metadata and prices. The candlestick chart labels buy/sell markers as hypothetical and explains synthetic-short direction only when the stored strategy uses that position direction. The repository E2E suite exercises the same contracts for named lifecycle, cancellation, failure, pagination, reload, and ownership-revalidation states.
 
 ## Ownership and Information-Exposure Rules
 

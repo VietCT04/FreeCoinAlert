@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 
 import { historicalAnalysisFailureMessage } from "./errors";
-import { formatStatus, formatUtcDateTime } from "./format";
+import { formatStatus, formatStrategySummary, formatUtcDateTime } from "./format";
 import type { HistoricalAnalysisRun } from "./types";
 
 function timestampLabel(
@@ -33,6 +33,7 @@ export function RunStatus({ run }: { run: HistoricalAnalysisRun }) {
   const failureMessage = historicalAnalysisFailureMessage(run.failureCode);
   const isActive = run.status === "queued" || run.status === "running";
   const hasServerProgress = Number.isFinite(run.progressPercent);
+  const strategySummary = formatStrategySummary(run);
 
   return (
     <Card aria-live="polite">
@@ -47,6 +48,11 @@ export function RunStatus({ run }: { run: HistoricalAnalysisRun }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {strategySummary ? (
+          <p className="rounded-lg border bg-muted/30 p-3 text-sm" data-testid="strategy-summary">
+            {strategySummary}
+          </p>
+        ) : null}
         {isActive ? (
           <div className="space-y-1 text-sm">
             <p>
