@@ -37,7 +37,10 @@ class HistoricalAnalysisAssumptionsResponse(BaseModel):
     slippage_bps_per_side: str
     position_sizing: Literal["one_position_full_equity"]
     overlapping_signals: Literal["ignored"]
-    end_of_range: Literal["incomplete_trade_not_opened"]
+    end_of_range: Literal[
+        "incomplete_trade_not_opened",
+        "open_at_end_mark_to_market",
+    ]
 
 
 class HistoricalAnalysisStrategyCapabilitiesResponse(BaseModel):
@@ -163,11 +166,14 @@ class HistoricalAnalysisReportSummaryResponse(BaseModel):
     analysis_candle_count: int
     signal_count: int
     trade_count: int
+    closed_trade_count: int
+    open_at_end_count: int
     winning_trade_count: int
     losing_trade_count: int
     flat_trade_count: int
     overlapping_signal_count: int
     insufficient_forward_signal_count: int
+    entry_unavailable_signal_count: int
     equity_exhausted_signal_count: int
     initial_equity: str
     final_equity: str
@@ -193,6 +199,7 @@ class HistoricalAnalysisTradeResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
 
     sequence: int
+    trade_status: Literal["closed", "open_at_end"]
     signal_candle_id: uuid.UUID
     signal_candle_revision: int
     signal_open_time: datetime
@@ -204,14 +211,14 @@ class HistoricalAnalysisTradeResponse(BaseModel):
     entry_open_time: datetime
     entry_raw_price: str
     entry_fill_price: str
-    exit_candle_id: uuid.UUID
-    exit_candle_revision: int
-    exit_close_time: datetime
-    exit_raw_price: str
-    exit_fill_price: str
-    exit_reason: str
-    exit_price_basis: str
-    exit_rule: dict[str, Any]
+    exit_candle_id: uuid.UUID | None
+    exit_candle_revision: int | None
+    exit_close_time: datetime | None
+    exit_raw_price: str | None
+    exit_fill_price: str | None
+    exit_reason: str | None
+    exit_price_basis: str | None
+    exit_rule: dict[str, Any] | None
     holding_candle_count: int
     fee_rate: str
     slippage_rate: str
@@ -221,7 +228,13 @@ class HistoricalAnalysisTradeResponse(BaseModel):
     gross_pnl: str
     net_pnl: str
     equity_after: str
-    outcome: str
+    outcome: str | None
+    mark_candle_id: uuid.UUID | None
+    mark_candle_revision: int | None
+    mark_close_time: datetime | None
+    mark_price: str | None
+    unrealized_return: str | None
+    unrealized_pnl: str | None
 
 
 class HistoricalAnalysisEquityPointResponse(BaseModel):

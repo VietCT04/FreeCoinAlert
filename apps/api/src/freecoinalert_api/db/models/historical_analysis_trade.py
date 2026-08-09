@@ -25,8 +25,14 @@ class HistoricalAnalysisTrade(Base):
     __table_args__ = (
         CheckConstraint("sequence >= 1", name="ck_historical_analysis_trades_sequence"),
         CheckConstraint(
-            "signal_candle_revision >= 1 AND entry_candle_revision >= 1 AND exit_candle_revision >= 1",
+            "signal_candle_revision >= 1 AND entry_candle_revision >= 1 "
+            "AND (exit_candle_revision IS NULL OR exit_candle_revision >= 1) "
+            "AND (mark_candle_revision IS NULL OR mark_candle_revision >= 1)",
             name="ck_historical_analysis_trades_revisions",
+        ),
+        CheckConstraint(
+            "trade_status IN ('closed', 'open_at_end')",
+            name="ck_historical_analysis_trades_status",
         ),
         CheckConstraint(
             "signal_direction IN ('cross_above', 'cross_below')",
@@ -37,21 +43,37 @@ class HistoricalAnalysisTrade(Base):
             name="ck_historical_analysis_trades_position_direction",
         ),
         CheckConstraint(
-            "outcome IN ('win', 'loss', 'flat')",
+            "((trade_status = 'closed' AND outcome IN ('win', 'loss', 'flat')) OR "
+            "(trade_status = 'open_at_end' AND outcome IS NULL))",
             name="ck_historical_analysis_trades_outcome",
         ),
         CheckConstraint(
-            "exit_reason IN ('stop_loss_percent', 'take_profit_percent', "
-            "'rsi_threshold_cross', 'max_holding_candles')",
+            "((trade_status = 'closed' AND exit_reason IN ('stop_loss_percent', "
+            "'take_profit_percent', 'rsi_threshold_cross', 'max_holding_candles')) OR "
+            "(trade_status = 'open_at_end' AND exit_reason IS NULL))",
             name="ck_historical_analysis_trades_exit_reason",
         ),
         CheckConstraint(
-            "exit_price_basis IN ('stop_loss_level', 'take_profit_level', "
-            "'gap_open', 'confirmed_candle_close')",
+            "((trade_status = 'closed' AND exit_price_basis IN ('stop_loss_level', "
+            "'take_profit_level', 'gap_open', 'confirmed_candle_close')) OR "
+            "(trade_status = 'open_at_end' AND exit_price_basis IS NULL))",
             name="ck_historical_analysis_trades_exit_price_basis",
         ),
         CheckConstraint(
-            "entry_raw_price > 0 AND entry_fill_price > 0 AND exit_raw_price > 0 AND exit_fill_price > 0",
+            "entry_raw_price > 0 AND entry_fill_price > 0 AND "
+            "((trade_status = 'closed' AND exit_candle_id IS NOT NULL "
+            "AND exit_candle_revision IS NOT NULL AND exit_close_time IS NOT NULL "
+            "AND exit_raw_price > 0 AND exit_fill_price > 0 "
+            "AND mark_candle_id IS NULL AND mark_candle_revision IS NULL "
+            "AND mark_close_time IS NULL AND mark_price IS NULL "
+            "AND unrealized_return IS NULL AND unrealized_pnl IS NULL) OR "
+            "(trade_status = 'open_at_end' AND exit_candle_id IS NULL "
+            "AND exit_candle_revision IS NULL AND exit_close_time IS NULL "
+            "AND exit_raw_price IS NULL "
+            "AND exit_fill_price IS NULL AND mark_candle_id IS NOT NULL "
+            "AND mark_candle_revision IS NOT NULL AND mark_close_time IS NOT NULL "
+            "AND mark_price > 0 AND unrealized_return IS NOT NULL "
+            "AND unrealized_pnl IS NOT NULL))",
             name="ck_historical_analysis_trades_prices_positive",
         ),
         CheckConstraint(
@@ -61,6 +83,11 @@ class HistoricalAnalysisTrade(Base):
         CheckConstraint(
             "equity_before >= 0 AND equity_after >= 0",
             name="ck_historical_analysis_trades_equity_nonnegative",
+        ),
+        CheckConstraint(
+            "((trade_status = 'closed' AND exit_rule_snapshot IS NOT NULL) OR "
+            "(trade_status = 'open_at_end' AND exit_rule_snapshot IS NULL))",
+            name="ck_historical_analysis_trades_exit_rule_snapshot",
         ),
         UniqueConstraint(
             "report_id",
@@ -78,6 +105,10 @@ class HistoricalAnalysisTrade(Base):
             "entry_candle_id",
             "exit_candle_id",
         ),
+        Index(
+            "ix_historical_analysis_trades_mark_candle_id",
+            "mark_candle_id",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -89,6 +120,7 @@ class HistoricalAnalysisTrade(Base):
         nullable=False,
     )
     sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+    trade_status: Mapped[str] = mapped_column(String(16), nullable=False)
     signal_candle_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("market_candles.id", ondelete="RESTRICT"),
         nullable=False,
@@ -108,12 +140,21 @@ class HistoricalAnalysisTrade(Base):
     entry_fill_price: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
     exit_candle_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("market_candles.id", ondelete="RESTRICT"),
-        nullable=False,
+        nullable=True,
     )
-    exit_candle_revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    exit_close_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    exit_raw_price: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
-    exit_fill_price: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
+    exit_candle_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    exit_close_time: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    exit_raw_price: Mapped[Decimal | None] = mapped_column(
+        Numeric(38, 18),
+        nullable=True,
+    )
+    exit_fill_price: Mapped[Decimal | None] = mapped_column(
+        Numeric(38, 18),
+        nullable=True,
+    )
     holding_candle_count: Mapped[int] = mapped_column(Integer, nullable=False)
     fee_rate: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
     slippage_rate: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
@@ -123,12 +164,33 @@ class HistoricalAnalysisTrade(Base):
     gross_pnl: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
     net_pnl: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
     equity_after: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
-    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
-    exit_reason: Mapped[str] = mapped_column(String(64), nullable=False)
-    exit_price_basis: Mapped[str] = mapped_column(String(64), nullable=False)
-    exit_rule_snapshot: Mapped[dict[str, object]] = mapped_column(
+    outcome: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    exit_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    exit_price_basis: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    exit_rule_snapshot: Mapped[dict[str, object] | None] = mapped_column(
         JSONB,
-        nullable=False,
+        nullable=True,
+    )
+    mark_candle_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("market_candles.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    mark_candle_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mark_close_time: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    mark_price: Mapped[Decimal | None] = mapped_column(
+        Numeric(38, 18),
+        nullable=True,
+    )
+    unrealized_return: Mapped[Decimal | None] = mapped_column(
+        Numeric(38, 18),
+        nullable=True,
+    )
+    unrealized_pnl: Mapped[Decimal | None] = mapped_column(
+        Numeric(38, 18),
+        nullable=True,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

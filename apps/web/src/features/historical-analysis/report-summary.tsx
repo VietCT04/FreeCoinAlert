@@ -295,7 +295,7 @@ function PrimaryMetrics({ report }: { report: HistoricalAnalysisReport }) {
             : formatFixedDecimal(summary.profitFactor)
         }
       />
-      <MetricCard label="Executed trades" value={summary.tradeCount} />
+      <MetricCard label="Positions opened" value={summary.tradeCount} />
     </div>
   );
 }
@@ -313,6 +313,8 @@ function SecondaryMetrics({ report }: { report: HistoricalAnalysisReport }) {
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <MetricCard label="Gross return" value={signedMetric(summary.grossReturn)} />
+        <MetricCard label="Closed trades" value={summary.closedTradeCount} />
+        <MetricCard label="Open at end" value={summary.openAtEndCount} />
         <MetricCard label="Signal count" value={summary.signalCount} />
         <MetricCard label="Analysis candle count" value={summary.analysisCandleCount} />
         <MetricCard
@@ -332,8 +334,16 @@ function SecondaryMetrics({ report }: { report: HistoricalAnalysisReport }) {
           value={summary.overlappingSignalCount}
         />
         <MetricCard
-          label="Incomplete-forward-window signals"
-          value={summary.insufficientForwardSignalCount}
+          label={
+            report.engineVersion.endsWith("_v1")
+              ? "Incomplete-forward-window signals"
+              : "No next-candle entry signals"
+          }
+          value={
+            report.engineVersion.endsWith("_v1")
+              ? summary.insufficientForwardSignalCount
+              : summary.entryUnavailableSignalCount
+          }
         />
         <MetricCard
           label="Equity-exhausted signals"

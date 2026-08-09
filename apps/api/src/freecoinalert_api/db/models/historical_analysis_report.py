@@ -28,7 +28,8 @@ class HistoricalAnalysisReport(Base):
             "analysis_candle_count >= 0 AND signal_count >= 0 AND trade_count >= 0 "
             "AND winning_trade_count >= 0 AND losing_trade_count >= 0 AND flat_trade_count >= 0 "
             "AND overlapping_signal_count >= 0 AND insufficient_forward_signal_count >= 0 "
-            "AND equity_exhausted_signal_count >= 0",
+            "AND entry_unavailable_signal_count >= 0 AND equity_exhausted_signal_count >= 0 "
+            "AND closed_trade_count >= 0 AND open_at_end_count >= 0",
             name="ck_historical_analysis_reports_counts_nonnegative",
         ),
         CheckConstraint(
@@ -93,11 +94,14 @@ class HistoricalAnalysisReport(Base):
     analysis_candle_count: Mapped[int] = mapped_column(Integer, nullable=False)
     signal_count: Mapped[int] = mapped_column(Integer, nullable=False)
     trade_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    closed_trade_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    open_at_end_count: Mapped[int] = mapped_column(Integer, nullable=False)
     winning_trade_count: Mapped[int] = mapped_column(Integer, nullable=False)
     losing_trade_count: Mapped[int] = mapped_column(Integer, nullable=False)
     flat_trade_count: Mapped[int] = mapped_column(Integer, nullable=False)
     overlapping_signal_count: Mapped[int] = mapped_column(Integer, nullable=False)
     insufficient_forward_signal_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    entry_unavailable_signal_count: Mapped[int] = mapped_column(Integer, nullable=False)
     equity_exhausted_signal_count: Mapped[int] = mapped_column(Integer, nullable=False)
     initial_equity: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)
     final_equity: Mapped[Decimal] = mapped_column(Numeric(38, 18), nullable=False)

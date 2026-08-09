@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document owns the current testing boundary, verification vocabulary, isolated full-stack E2E environment, Playwright workspace, and repository runner. A previous maintainer-requested full `pnpm e2e` pass exercised the then-current isolated stack and 65 browser cases successfully; the SEO public-route and monitor-entry additions in this change remain unverified, and this does not claim production-provider or broader runtime verification.
+This document owns the current testing boundary, verification vocabulary, isolated full-stack E2E environment, Playwright workspace, and repository runner. A previous maintainer-requested full `pnpm e2e` pass exercised the then-current isolated stack and 65 browser cases successfully; the SEO public-route, monitor-entry, and current historical open-position/report changes in this change remain unverified, and this does not claim production-provider or broader runtime verification.
 
 ## Verification Boundary
 
@@ -128,4 +128,4 @@ The runner does not print a ready state when any required service is unhealthy, 
 | Complete feature journey suite and route coverage map | Implemented | Verified |
 | Public SEO metadata, canonical, sitemap, robots, structured-data, link, and private noindex specification | Implemented | Unverified |
 
-The previous maintainer-requested full `pnpm e2e` pass ran the isolated Compose startup, migrations, deterministic seed, provider simulator, real application workers, Playwright browser journeys, artifact handling, and teardown: 65 passed, 0 failed, 0 skipped, and 0 timed out. That pass predates the public SEO and monitor-entry additions. No standalone unit tests, build, package-install, lint, format, or type-check command was run for this change, and no production provider or maintenance/reset pass was performed.
+The previous maintainer-requested full `pnpm e2e` pass ran the isolated Compose startup, migrations, deterministic seed, provider simulator, real application workers, Playwright browser journeys, artifact handling, and teardown: 65 passed, 0 failed, 0 skipped, and 0 timed out. That pass predates the public SEO, monitor-entry, and current historical open-position/report changes. No test, build, migration, package-install, lint, format, or type-check command was run for this change, and no production provider or maintenance/reset pass was performed.

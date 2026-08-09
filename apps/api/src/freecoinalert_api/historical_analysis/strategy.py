@@ -1,8 +1,8 @@
 """Immutable strategy contracts for historical-analysis runs.
 
 This module owns request normalization and the canonical representation used by
-run idempotency and persisted strategy snapshots. It deliberately does not
-execute a strategy; the simulation engine is owned by the following issue.
+run idempotency and persisted strategy snapshots. The versioned simulation
+engines consume the resulting immutable snapshot.
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ from typing import Any, Literal, TypeAlias
 STRATEGY_SNAPSHOT_SCHEMA_VERSION = "historical_strategy_snapshot_v1"
 LEGACY_STRATEGY_VERSION = "legacy_fixed_horizon_v1"
 CONFIGURABLE_STRATEGY_VERSION = "configurable_exit_v1"
-CONFIGURABLE_SIMULATION_VERSION = "historical_configurable_exit_v1"
-CONFIGURABLE_ASSUMPTION_VERSION = "configurable_exit_v1"
+CONFIGURABLE_SIMULATION_VERSION = "historical_configurable_exit_v2"
+CONFIGURABLE_ASSUMPTION_VERSION = "configurable_exit_v2"
 LEGACY_HOLDING_CANDLES = 6
 MAX_EXIT_RULES = 4
 MAX_HOLDING_CANDLES = 2_200
