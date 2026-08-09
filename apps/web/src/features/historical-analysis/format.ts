@@ -249,6 +249,16 @@ export function formatPositionState(positionState: string): string {
   return "Flat";
 }
 
+export function formatPositionDirection(direction: string): string {
+  if (direction === "synthetic_short") {
+    return "Synthetic short";
+  }
+  if (direction === "long") {
+    return "Long";
+  }
+  return direction.replaceAll("_", " ");
+}
+
 export function formatOutcome(outcome: string): string {
   if (outcome === "win") {
     return "Win";
