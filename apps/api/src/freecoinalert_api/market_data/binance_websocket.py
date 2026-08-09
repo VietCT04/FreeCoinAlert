@@ -25,6 +25,25 @@ def build_combined_stream_url(base_url: str, markets: dict[str, SupportedMarket]
     return f"{base_url}/stream?streams={streams}"
 
 
+def read_event_type(raw_message: str | bytes) -> str:
+    try:
+        payload = json.loads(raw_message)
+    except (TypeError, json.JSONDecodeError) as error:
+        raise BinanceWebSocketEventError("invalid_json") from error
+
+    if not isinstance(payload, dict):
+        raise BinanceWebSocketEventError("invalid_wrapper")
+
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise BinanceWebSocketEventError("invalid_wrapper")
+
+    event_type = data.get("e")
+    if not isinstance(event_type, str) or not event_type:
+        raise BinanceWebSocketEventError("invalid_event")
+    return event_type
+
+
 def parse_aggregate_trade(
     raw_message: str | bytes,
     *,
