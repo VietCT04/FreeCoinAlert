@@ -24,6 +24,31 @@ class PriceEvent:
 
 
 @dataclass(frozen=True, slots=True)
+class CanonicalOneMinuteCandleInput:
+    """Normalized closed 1m input shared by live and historical ingestion."""
+
+    exchange: Literal["binance"]
+    market_type: Literal["spot"]
+    supported_market_id: UUID
+    symbol: str
+    timeframe: Literal["1m"]
+    open_time: datetime
+    close_time: datetime
+    provider_close_time: datetime
+    open_price: Decimal
+    high_price: Decimal
+    low_price: Decimal
+    close_price: Decimal
+    base_volume: Decimal
+    quote_volume: Decimal
+    trade_count: int
+    first_trade_id: int | None
+    last_trade_id: int | None
+    provider_event_time: datetime | None
+    received_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class ClosedOneMinuteCandleEvent:
     exchange: Literal["binance"]
     market_type: Literal["spot"]

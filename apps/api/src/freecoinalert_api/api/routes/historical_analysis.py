@@ -22,6 +22,7 @@ from freecoinalert_api.historical_analysis.reports import (
 )
 from freecoinalert_api.historical_analysis.errors import request_invalid_error
 from freecoinalert_api.historical_analysis.service import (
+    coverage_response,
     configuration_response,
     historical_analysis_service,
     parse_run_id,
@@ -49,6 +50,33 @@ async def get_historical_analysis_configuration(
         limit=120,
     )
     response_body = configuration_response()
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=response_body.model_dump(mode="json", by_alias=True),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@historical_analysis_router.get("/historical-analysis/coverage")
+async def get_historical_analysis_coverage(
+    request: Request,
+    authenticated_principal: AuthenticatedPrincipal = Depends(
+        require_authenticated_principal
+    ),
+    database_session: AsyncSession = Depends(get_database_session),
+) -> JSONResponse:
+    await historical_analysis_rate_limiter.consume(
+        read_user_key(str(authenticated_principal.user_id)),
+        limit=120,
+    )
+    response_body = await coverage_response(
+        database_session,
+        exchange=request.query_params.get("exchange", ""),
+        market_type=request.query_params.get("market_type", ""),
+        symbol=request.query_params.get("symbol", ""),
+        preset_code=request.query_params.get("preset_code", ""),
+        preset_version=parse_positive_int(request.query_params.get("preset_version")),
+    )
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=response_body.model_dump(mode="json", by_alias=True),
@@ -256,6 +284,16 @@ async def create_request_body(request: Request) -> HistoricalAnalysisCreateReque
         return HistoricalAnalysisCreateRequest.model_validate(await request.json())
     except (ValueError, ValidationError):
         raise request_invalid_error() from None
+
+
+def parse_positive_int(value: str | None) -> int:
+    try:
+        parsed = int(value or "")
+    except ValueError:
+        raise request_invalid_error() from None
+    if parsed < 1:
+        raise request_invalid_error()
+    return parsed
 
 
 def run_response(

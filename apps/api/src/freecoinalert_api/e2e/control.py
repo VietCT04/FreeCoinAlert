@@ -573,7 +573,7 @@ async def _create_historical_fixture(
                     timeframe=bounds.timeframe,
                     start_open_time=bounds.warmup_start,
                     end_open_time=bounds.analysis_end,
-                    limit=2_501,
+                    limit=bounds.expected_total_candles + 1,
                 )
             )
             if len(candles) != bounds.expected_total_candles:

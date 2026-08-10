@@ -32,6 +32,7 @@ from freecoinalert_api.db.repositories.historical_analysis_runs import (
     get_historical_analysis_run_by_id,
 )
 from freecoinalert_api.historical_analysis.service import (
+    MAXIMUM_RANGE_DAYS,
     REQUIRED_WARMUP_CANDLES,
     SUPPORTED_CALCULATION_VERSIONS,
     TIMEFRAME_HOURS,
@@ -41,7 +42,6 @@ from freecoinalert_api.market_data.catalog import utc_now
 
 logger = logging.getLogger(__name__)
 
-MAX_HISTORICAL_DATASET_CANDLES = 2_500
 FINGERPRINT_SCHEMA_VERSION = "historical_dataset_fingerprint_v1"
 TIMEFRAME_DELTAS = {
     "1h": timedelta(hours=1),
@@ -71,6 +71,7 @@ class HistoricalDatasetBounds:
     required_warmup_candles: int
     expected_analysis_candles: int
     expected_total_candles: int
+    maximum_total_candles: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,7 +161,7 @@ async def prepare_historical_analysis_dataset(
                 replayed=False,
             )
 
-        if bounds.expected_total_candles > MAX_HISTORICAL_DATASET_CANDLES:
+        if bounds.expected_total_candles > bounds.maximum_total_candles:
             dataset = await _create_failed_dataset(
                 session,
                 run=run,
@@ -182,7 +183,7 @@ async def prepare_historical_analysis_dataset(
             timeframe=bounds.timeframe,
             start_open_time=bounds.warmup_start,
             end_open_time=bounds.analysis_end,
-            limit=MAX_HISTORICAL_DATASET_CANDLES + 1,
+            limit=bounds.expected_total_candles + 1,
         )
         failure_code = validate_historical_dataset_coverage(
             run,
@@ -433,6 +434,10 @@ def resolve_historical_dataset_bounds(
     if range_seconds % timeframe_seconds != 0:
         raise ValueError("The historical-analysis range is not aligned.")
     expected_analysis_candles = int(range_seconds // timeframe_seconds)
+    maximum_total_candles = maximum_historical_dataset_candles(
+        timeframe,
+        required_warmup_candles,
+    )
     warmup_start = analysis_start - required_warmup_candles * timeframe_delta
     return HistoricalDatasetBounds(
         timeframe=timeframe,
@@ -443,6 +448,7 @@ def resolve_historical_dataset_bounds(
         required_warmup_candles=required_warmup_candles,
         expected_analysis_candles=expected_analysis_candles,
         expected_total_candles=required_warmup_candles + expected_analysis_candles,
+        maximum_total_candles=maximum_total_candles,
     )
 
 
@@ -470,6 +476,10 @@ def bounds_from_dataset(
     ):
         raise ValueError("The dataset range is not aligned.")
     expected_analysis_candles = int(range_seconds // timeframe_seconds)
+    maximum_total_candles = maximum_historical_dataset_candles(
+        dataset.timeframe,
+        dataset.required_warmup_candles,
+    )
     return HistoricalDatasetBounds(
         timeframe=dataset.timeframe,
         timeframe_delta=timeframe_delta,
@@ -479,7 +489,18 @@ def bounds_from_dataset(
         required_warmup_candles=dataset.required_warmup_candles,
         expected_analysis_candles=expected_analysis_candles,
         expected_total_candles=dataset.total_candle_count,
+        maximum_total_candles=maximum_total_candles,
     )
+
+
+def maximum_historical_dataset_candles(
+    timeframe: str,
+    required_warmup_candles: int,
+) -> int:
+    timeframe_hours = TIMEFRAME_HOURS.get(timeframe)
+    if timeframe_hours is None or required_warmup_candles < 0:
+        raise ValueError("The historical-analysis dataset bounds are unsupported.")
+    return MAXIMUM_RANGE_DAYS * 24 // timeframe_hours + required_warmup_candles
 
 
 def validate_historical_dataset_coverage(
@@ -487,7 +508,7 @@ def validate_historical_dataset_coverage(
     bounds: HistoricalDatasetBounds,
     candles: Sequence[MarketCandle],
 ) -> HistoricalDatasetFailureCode | None:
-    if len(candles) > MAX_HISTORICAL_DATASET_CANDLES:
+    if len(candles) > bounds.maximum_total_candles:
         return "historical_dataset_too_large"
     if not candles:
         return "historical_dataset_insufficient_warmup"
@@ -753,7 +774,7 @@ async def _create_failed_dataset(
     failure_code: HistoricalDatasetFailureCode,
     candles: Sequence[MarketCandle],
 ) -> HistoricalAnalysisDataset:
-    if len(candles) > MAX_HISTORICAL_DATASET_CANDLES:
+    if len(candles) > bounds.maximum_total_candles:
         warmup_count = 0
         analysis_count = 0
     else:

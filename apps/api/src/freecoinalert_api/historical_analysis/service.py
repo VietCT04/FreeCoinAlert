@@ -25,6 +25,9 @@ from freecoinalert_api.db.repositories.signal_presets import (
     get_active_preset_by_code_version,
     get_preset_by_code_version,
 )
+from freecoinalert_api.db.repositories.market_candle_coverage import (
+    get_market_candle_coverage,
+)
 from freecoinalert_api.db.repositories.supported_markets import get_supported_market
 from freecoinalert_api.historical_analysis.engine import (
     ASSUMPTION_VERSION,
@@ -43,6 +46,9 @@ from freecoinalert_api.historical_analysis.errors import (
     strategy_invalid_error,
     unavailable_error,
 )
+from freecoinalert_api.historical_analysis.coverage import (
+    historical_analysis_coverage_service,
+)
 from freecoinalert_api.historical_analysis.strategy import (
     CONFIGURABLE_ASSUMPTION_VERSION,
     CONFIGURABLE_SIMULATION_VERSION,
@@ -53,9 +59,14 @@ from freecoinalert_api.historical_analysis.strategy import (
     normalize_strategy,
 )
 from freecoinalert_api.market_data.catalog import utc_now
+from freecoinalert_api.market_data.candles.constants import CANDLE_REQUIRED_RETENTION_DAYS
+from freecoinalert_api.market_data.candles.coverage import (
+    resolve_coverage_for_analysis,
+)
 from freecoinalert_api.schemas.historical_analysis import (
     HistoricalAnalysisAssumptionsResponse,
     HistoricalAnalysisConfigurationResponse,
+    HistoricalAnalysisCoverageResponse,
     HistoricalAnalysisCreateRequest,
     HistoricalAnalysisMarketSnapshotResponse,
     HistoricalAnalysisPresetParametersResponse,
@@ -70,7 +81,7 @@ from freecoinalert_api.schemas.auth import to_camel_case
 logger = logging.getLogger(__name__)
 
 MINIMUM_RANGE_DAYS = 7
-MAXIMUM_RANGE_DAYS = 90
+MAXIMUM_RANGE_DAYS = 730
 MAXIMUM_ACTIVE_RUNS = 2
 SIMULATION_VERSION = ENGINE_VERSION
 
@@ -96,6 +107,17 @@ class NormalizedHistoricalAnalysisRequest:
     analysis_start: datetime
     analysis_end: datetime
     strategy_payload: Mapping[str, object] | None
+
+
+@dataclass(frozen=True, slots=True)
+class HistoricalAnalysisRangeBounds:
+    timeframe: str
+    timeframe_delta: timedelta
+    analysis_start: datetime
+    analysis_end: datetime
+    warmup_start: datetime
+    required_warmup_candles: int
+    expected_analysis_candles: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,13 +217,25 @@ class HistoricalAnalysisService:
             calculation_version = resolve_calculation_version(preset)
             strategy = strategy_for_preset(normalized, preset, calculation_version)
             required_warmup_candles = resolve_required_warmup(preset)
-            validate_range(
+            range_bounds = validate_range(
                 normalized,
                 timeframe=preset.timeframe,
                 required_warmup_candles=required_warmup_candles,
                 current_time=utc_now(),
-                candle_retention_days=settings.candle_retention_days,
             )
+            coverage = await historical_analysis_coverage_service.resolve(
+                session,
+                supported_market_id=market.id,
+                timeframe=range_bounds.timeframe,
+                start_open_time=range_bounds.warmup_start,
+                end_open_time=range_bounds.analysis_end,
+                timeframe_delta=range_bounds.timeframe_delta,
+                expected_candle_count=(
+                    required_warmup_candles + range_bounds.expected_analysis_candles
+                ),
+            )
+            if not coverage.is_usable:
+                raise range_unavailable_error()
 
             active_count = await count_active_historical_analysis_runs(
                 session,
@@ -573,8 +607,7 @@ def validate_range(
     timeframe: str,
     required_warmup_candles: int,
     current_time: datetime,
-    candle_retention_days: int,
-) -> None:
+) -> HistoricalAnalysisRangeBounds:
     timeframe_hours = TIMEFRAME_HOURS.get(timeframe)
     if timeframe_hours is None:
         raise preset_unavailable_error()
@@ -598,9 +631,16 @@ def validate_range(
         raise range_unavailable_error()
 
     warmup_start = request.analysis_start - required_warmup_candles * timeframe_delta
-    retention_cutoff = current_time - timedelta(days=candle_retention_days)
-    if warmup_start < retention_cutoff:
-        raise range_unavailable_error()
+    expected_analysis_candles = int(visible_range // timeframe_delta)
+    return HistoricalAnalysisRangeBounds(
+        timeframe=timeframe,
+        timeframe_delta=timeframe_delta,
+        analysis_start=request.analysis_start,
+        analysis_end=request.analysis_end,
+        warmup_start=warmup_start,
+        required_warmup_candles=required_warmup_candles,
+        expected_analysis_candles=expected_analysis_candles,
+    )
 
 
 def is_timeframe_boundary(value: datetime, timeframe_hours: int) -> bool:
@@ -729,6 +769,110 @@ def configuration_response() -> HistoricalAnalysisConfigurationResponse:
             end_of_range="open_at_end_mark_to_market",
         ),
         strategy_capabilities=capabilities_payload(configurable_available=True),
+    )
+
+
+async def coverage_response(
+    session: AsyncSession,
+    *,
+    exchange: str,
+    market_type: str,
+    symbol: str,
+    preset_code: str,
+    preset_version: int,
+) -> HistoricalAnalysisCoverageResponse:
+    market = await get_supported_market(
+        session,
+        exchange=exchange,
+        market_type=market_type,
+        symbol=symbol,
+    )
+    if (
+        market is None
+        or not market.product_enabled
+        or market.base_asset is None
+        or market.quote_asset is None
+    ):
+        raise market_not_found_error()
+
+    preset = await get_active_preset_by_code_version(
+        session,
+        code=preset_code,
+        version=preset_version,
+    )
+    if preset is None:
+        known_preset = await get_preset_by_code_version(
+            session,
+            code=preset_code,
+            version=preset_version,
+        )
+        if known_preset is None:
+            raise preset_not_found_error()
+        raise preset_unavailable_error()
+
+    required_warmup_candles = resolve_required_warmup(preset)
+    timeframe_hours = TIMEFRAME_HOURS[preset.timeframe]
+    target_end = latest_fully_closed_boundary(utc_now(), timeframe_hours)
+    target_start = target_end - timedelta(days=CANDLE_REQUIRED_RETENTION_DAYS)
+    persisted = await get_market_candle_coverage(
+        session,
+        supported_market_id=market.id,
+        timeframe=preset.timeframe,
+    )
+
+    if persisted is None:
+        return HistoricalAnalysisCoverageResponse(
+            market={
+                "exchange": market.exchange,
+                "market_type": market.market_type,
+                "symbol": market.symbol,
+            },
+            preset={
+                "code": preset.code,
+                "version": preset.version,
+                "timeframe": preset.timeframe,
+            },
+            status="unavailable",
+            first_analysis_start=None,
+            last_analysis_end=None,
+            available_analysis_days=0,
+            minimum_range_days=MINIMUM_RANGE_DAYS,
+            maximum_range_days=MAXIMUM_RANGE_DAYS,
+            verified_at=None,
+            available_start=None,
+            available_end=None,
+            target_start=target_start,
+            target_end=target_end,
+            coverage_percent=0.0,
+        )
+
+    resolution = resolve_coverage_for_analysis(
+        persisted,
+        required_warmup_candles=required_warmup_candles,
+    )
+    return HistoricalAnalysisCoverageResponse(
+        market={
+            "exchange": market.exchange,
+            "market_type": market.market_type,
+            "symbol": market.symbol,
+        },
+        preset={
+            "code": preset.code,
+            "version": preset.version,
+            "timeframe": preset.timeframe,
+        },
+        status=resolution.status,
+        first_analysis_start=resolution.first_selectable_analysis_start,
+        last_analysis_end=resolution.latest_selectable_analysis_end,
+        available_analysis_days=resolution.available_analysis_days,
+        minimum_range_days=MINIMUM_RANGE_DAYS,
+        maximum_range_days=MAXIMUM_RANGE_DAYS,
+        verified_at=resolution.verified_at,
+        available_start=resolution.raw_contiguous_start,
+        available_end=resolution.raw_contiguous_end,
+        target_start=persisted.target_start,
+        target_end=persisted.target_end,
+        coverage_percent=float(persisted.coverage_percent),
     )
 
 

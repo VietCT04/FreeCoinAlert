@@ -2,6 +2,7 @@ from freecoinalert_api.db.models.alert_event import AlertEvent
 from freecoinalert_api.db.models.auth_session import AuthSession
 from freecoinalert_api.db.models.notification_outbox import NotificationOutbox
 from freecoinalert_api.db.models.price_alert import PriceAlert
+from freecoinalert_api.db.models.provider_rest_rate_state import ProviderRestRateState
 from freecoinalert_api.db.models.signal_preset import SignalPreset
 from freecoinalert_api.db.models.signal_subscription import SignalSubscription
 from freecoinalert_api.db.models.signal_subscription_state_event import SignalSubscriptionStateEvent
@@ -14,6 +15,8 @@ from freecoinalert_api.db.models.market_symbol_state import MarketSymbolState
 from freecoinalert_api.db.models.market_candle import MarketCandle
 from freecoinalert_api.db.models.candle_symbol_state import CandleSymbolState
 from freecoinalert_api.db.models.candle_sync_run import CandleSyncRun
+from freecoinalert_api.db.models.candle_backfill_checkpoint import CandleBackfillCheckpoint
+from freecoinalert_api.db.models.market_candle_coverage import MarketCandleCoverage
 from freecoinalert_api.db.models.historical_analysis_run import HistoricalAnalysisRun
 from freecoinalert_api.db.models.historical_analysis_dataset import HistoricalAnalysisDataset
 from freecoinalert_api.db.models.historical_analysis_dataset_candle import (
@@ -36,6 +39,8 @@ __all__ = [
     "MarketCandle",
     "CandleSymbolState",
     "CandleSyncRun",
+    "CandleBackfillCheckpoint",
+    "MarketCandleCoverage",
     "HistoricalAnalysisRun",
     "HistoricalAnalysisDataset",
     "HistoricalAnalysisDatasetCandle",
@@ -45,6 +50,7 @@ __all__ = [
     "AuthSession",
     "NotificationOutbox",
     "PriceAlert",
+    "ProviderRestRateState",
     "SignalPreset",
     "SignalSubscription",
     "SignalSubscriptionStateEvent",

@@ -1,4 +1,5 @@
 import type {
+  HistoricalAnalysisCoverage,
   HistoricalAnalysisExitRuleType,
   HistoricalAnalysisPreset,
   HistoricalAnalysisRun,
@@ -34,10 +35,16 @@ export function formatUtcDateInput(value: Date): string {
 export function getDefaultUtcDateRange(
   minimumRangeDays: number,
   maximumRangeDays: number,
+  lastAnalysisEnd?: string | null,
 ): { startDate: string; endDate: string } {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  const lastCompleteDay = new Date(today.getTime() - UTC_DAY_MS);
+  const latestCompleteEnd = getLatestCompleteUtcDayBoundary(lastAnalysisEnd);
+  const lastCompleteDay = latestCompleteEnd
+    ? new Date(Date.parse(latestCompleteEnd) - UTC_DAY_MS)
+    : (() => {
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
+        return new Date(today.getTime() - UTC_DAY_MS);
+      })();
   const rangeDays = Math.min(Math.max(30, minimumRangeDays), maximumRangeDays);
   const start = new Date(
     lastCompleteDay.getTime() - (rangeDays - 1) * UTC_DAY_MS,
@@ -47,6 +54,110 @@ export function getDefaultUtcDateRange(
     startDate: formatUtcDateInput(start),
     endDate: formatUtcDateInput(lastCompleteDay),
   };
+}
+
+export function getLatestCompleteUtcDayBoundary(
+  value: string | null | undefined,
+): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) {
+    return null;
+  }
+
+  date.setUTCHours(0, 0, 0, 0);
+  return date.toISOString().replace(".000Z", "Z");
+}
+
+export function getPresetUtcDateRange(
+  days: number,
+  lastAnalysisEnd: string | null | undefined,
+): { startDate: string; endDate: string } | null {
+  const latestCompleteEnd = getLatestCompleteUtcDayBoundary(lastAnalysisEnd);
+  if (!latestCompleteEnd || !Number.isInteger(days) || days < 1) {
+    return null;
+  }
+
+  const endExclusive = new Date(latestCompleteEnd);
+  const start = new Date(endExclusive.getTime() - days * UTC_DAY_MS);
+  const end = new Date(endExclusive.getTime() - UTC_DAY_MS);
+  return {
+    startDate: formatUtcDateInput(start),
+    endDate: formatUtcDateInput(end),
+  };
+}
+
+export function historicalCoverageBounds(
+  coverage: HistoricalAnalysisCoverage | null | undefined,
+): { firstAnalysisStart: string | null; lastAnalysisEnd: string | null } {
+  return {
+    firstAnalysisStart: coverage?.firstAnalysisStart ?? coverage?.availableStart ?? null,
+    lastAnalysisEnd: coverage?.lastAnalysisEnd ?? coverage?.availableEnd ?? null,
+  };
+}
+
+export function coverageCompleteDays(
+  coverage: HistoricalAnalysisCoverage | null | undefined,
+): number {
+  if (!coverage) {
+    return 0;
+  }
+
+  const { firstAnalysisStart, lastAnalysisEnd } = historicalCoverageBounds(coverage);
+  if (!firstAnalysisStart || !lastAnalysisEnd) {
+    return 0;
+  }
+
+  const first = Date.parse(firstAnalysisStart);
+  const last = Date.parse(getLatestCompleteUtcDayBoundary(lastAnalysisEnd) ?? "");
+  if (!Number.isFinite(first) || !Number.isFinite(last) || last <= first) {
+    return 0;
+  }
+
+  return Math.min(
+    coverage.availableAnalysisDays,
+    Math.floor((last - first) / UTC_DAY_MS),
+  );
+}
+
+export function formatUtcDateOnly(value: string | null | undefined): string {
+  if (!value) {
+    return "an unknown UTC date";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) {
+    return "an unknown UTC date";
+  }
+
+  return date.toLocaleDateString(undefined, {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+export function formatCoverageDateRange(
+  coverage: HistoricalAnalysisCoverage | null | undefined,
+): string | null {
+  const { firstAnalysisStart, lastAnalysisEnd } = historicalCoverageBounds(coverage);
+  if (!firstAnalysisStart || !lastAnalysisEnd) {
+    return null;
+  }
+
+  const latestCompleteEnd = getLatestCompleteUtcDayBoundary(lastAnalysisEnd);
+  if (!latestCompleteEnd) {
+    return null;
+  }
+
+  const lastCompleteDate = new Date(Date.parse(latestCompleteEnd) - UTC_DAY_MS);
+  return `${formatUtcDateOnly(firstAnalysisStart)} – ${formatUtcDateOnly(
+    lastCompleteDate.toISOString(),
+  )} UTC`;
 }
 
 export function dateInputToUtcBoundary(value: string): string | null {

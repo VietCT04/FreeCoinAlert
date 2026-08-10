@@ -12,6 +12,13 @@ type RequestOptions = {
   headers?: Record<string, string>;
 };
 
+type HistoricalAnalysisCoverageResponse = {
+  status: "backfilling" | "ready" | "degraded" | "partial" | "unavailable";
+  maximumRangeDays: number;
+  availableAnalysisDays: number;
+  coveragePercent: number;
+};
+
 function hasIdempotencyKey(headers: Record<string, string> | undefined): boolean {
   return Object.keys(headers ?? {}).some(
     (key) => key.toLowerCase() === "idempotency-key",
@@ -218,6 +225,22 @@ export class AppApi {
 
   getHistoricalConfiguration(): Promise<Record<string, unknown>> {
     return this.get<Record<string, unknown>>("/historical-analysis/configuration");
+  }
+
+  getHistoricalCoverage(input: {
+    symbol: string;
+    presetCode: string;
+    presetVersion: number;
+  }): Promise<HistoricalAnalysisCoverageResponse> {
+    return this.get<HistoricalAnalysisCoverageResponse>(
+      this.withQuery("/historical-analysis/coverage", {
+        exchange: "binance",
+        market_type: "spot",
+        symbol: input.symbol,
+        preset_code: input.presetCode,
+        preset_version: input.presetVersion,
+      }),
+    );
   }
 
   listHistoricalAnalyses(options: {

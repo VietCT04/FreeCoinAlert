@@ -6,6 +6,11 @@ from urllib.parse import urlparse
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from freecoinalert_api.market_data.candles.constants import (
+    CANDLE_REQUIRED_RETENTION_DAYS,
+    MAX_CANDLE_BOOTSTRAP_DAYS,
+    MIN_CANDLE_BOOTSTRAP_DAYS,
+)
 
 PRODUCTION_TELEGRAM_BOT_API_BASE_URL = "https://api.telegram.org/bot"
 PRODUCTION_TELEGRAM_BOT_FILE_BASE_URL = "https://api.telegram.org/file/bot"
@@ -29,6 +34,7 @@ class AuthenticationSettings(BaseSettings):
     telegram_bot_file_base_url: str = PRODUCTION_TELEGRAM_BOT_FILE_BASE_URL
     telegram_public_bot_base_url: str = PRODUCTION_TELEGRAM_PUBLIC_BOT_BASE_URL
     binance_spot_base_url: str = "https://api.binance.com"
+    binance_public_data_base_url: str = "https://data.binance.vision"
     market_catalog_max_age_seconds: int = Field(default=86400, gt=0)
     binance_spot_ws_base_url: str = "wss://stream.binance.com:9443"
     market_event_max_age_seconds: int = Field(default=10, gt=0)
@@ -36,13 +42,23 @@ class AuthenticationSettings(BaseSettings):
     market_catalog_refresh_seconds: int = Field(default=21600, gt=0)
     market_state_write_interval_seconds: int = Field(default=1, gt=0)
     market_stream_reconnect_max_seconds: int = Field(default=30, gt=0)
-    candle_retention_days: int = Field(default=180, gt=0)
+    candle_retention_days: int = Field(
+        default=CANDLE_REQUIRED_RETENTION_DAYS,
+        ge=CANDLE_REQUIRED_RETENTION_DAYS,
+    )
     candle_ws_max_age_seconds: int = Field(default=180, gt=0)
     candle_data_max_lag_seconds: int = Field(default=180, gt=0)
-    candle_bootstrap_days: int = Field(default=150, ge=35, le=180)
+    candle_bootstrap_days: int = Field(
+        default=MAX_CANDLE_BOOTSTRAP_DAYS,
+        ge=MIN_CANDLE_BOOTSTRAP_DAYS,
+        le=MAX_CANDLE_BOOTSTRAP_DAYS,
+    )
     candle_reconciliation_lookback_hours: int = Field(default=24, gt=0, le=168)
     candle_recent_reconciliation_seconds: int = Field(default=900, gt=0)
     candle_recent_reconciliation_hours: int = Field(default=6, gt=0, le=168)
+    candle_backfill_target_days: int = Field(default=765, ge=765, le=3650)
+    candle_backfill_maintenance_seconds: int = Field(default=900, ge=60, le=86400)
+    candle_backfill_chunk_pause_seconds: float = Field(default=0.1, ge=0, le=60)
     signal_live_catchup_max_days: int = Field(default=7, gt=0, le=7)
     signal_history_days: int = Field(default=90, gt=0, le=180)
     signal_event_retention_days: int = Field(default=365, gt=0)
@@ -65,6 +81,7 @@ class AuthenticationSettings(BaseSettings):
     e2e_clock_now: datetime | None = None
     e2e_control_token: str | None = None
     e2e_worker_gate_enabled: bool = False
+    e2e_candle_backfill_paused: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -120,12 +137,18 @@ class AuthenticationSettings(BaseSettings):
                 raise ValueError("E2E_CLOCK_NOW requires E2E_TEST_MODE=true.")
             if self.e2e_worker_gate_enabled:
                 raise ValueError("E2E_WORKER_GATE_ENABLED requires E2E_TEST_MODE=true.")
+            if self.e2e_candle_backfill_paused:
+                raise ValueError("E2E_CANDLE_BACKFILL_PAUSED requires E2E_TEST_MODE=true.")
             return self
 
         if self.e2e_clock_now is None:
             raise ValueError("E2E_CLOCK_NOW is required when E2E_TEST_MODE=true.")
         if not self.e2e_control_token:
             raise ValueError("E2E_CONTROL_TOKEN is required when E2E_TEST_MODE=true.")
+        if self.e2e_candle_backfill_paused and not self.e2e_worker_gate_enabled:
+            raise ValueError(
+                "E2E_CANDLE_BACKFILL_PAUSED requires E2E_WORKER_GATE_ENABLED=true."
+            )
         if self.telegram_bot_api_base_url != E2E_TELEGRAM_BOT_API_BASE_URL:
             raise ValueError("E2E Telegram API traffic must use provider-simulator.")
         if self.telegram_bot_file_base_url != E2E_TELEGRAM_BOT_FILE_BASE_URL:
@@ -136,6 +159,8 @@ class AuthenticationSettings(BaseSettings):
             raise ValueError("E2E Binance REST traffic must use provider-simulator.")
         if self.binance_spot_ws_base_url != E2E_BINANCE_SPOT_WS_BASE_URL:
             raise ValueError("E2E Binance WebSocket traffic must use provider-simulator.")
+        if self.binance_public_data_base_url != E2E_BINANCE_SPOT_BASE_URL:
+            raise ValueError("E2E Binance public-data traffic must use provider-simulator.")
         return self
 
 

@@ -33,6 +33,7 @@ const REQUIRED_SERVICES = [
   "provider-simulator",
   "market-catalog-init",
   "e2e-seed",
+  "candle-backfill-worker",
   "api",
   "web",
   "market-stream",
@@ -49,6 +50,7 @@ const SERVICE_KINDS = new Map([
   ["db-migrate", "completed"],
   ["provider-simulator", "healthy"],
   ["market-catalog-init", "completed"],
+  ["candle-backfill-worker", "running"],
   ["e2e-seed", "completed"],
   ["api", "healthy"],
   ["web", "healthy"],
@@ -65,6 +67,7 @@ const BUILD_SERVICES = [
   "api-prepare",
   "db-migrate",
   "market-catalog-init",
+  "candle-backfill-worker",
   "e2e-seed",
   "api",
   "web",
@@ -166,10 +169,12 @@ function validateE2EConfiguration(values) {
     "E2E_TEST_MODE",
     "E2E_CLOCK_NOW",
     "E2E_CONTROL_TOKEN",
+    "E2E_CANDLE_BACKFILL_PAUSED",
     "TELEGRAM_BOT_API_BASE_URL",
     "TELEGRAM_BOT_FILE_BASE_URL",
     "TELEGRAM_PUBLIC_BOT_BASE_URL",
     "BINANCE_SPOT_BASE_URL",
+    "BINANCE_PUBLIC_DATA_BASE_URL",
     "BINANCE_SPOT_WS_BASE_URL",
   ];
 
@@ -183,6 +188,12 @@ function validateE2EConfiguration(values) {
 
   if (values.SESSION_COOKIE_SECURE !== "false") {
     throw new RunnerError(".env.e2e must set SESSION_COOKIE_SECURE=false.");
+  }
+
+  if (values.E2E_CANDLE_BACKFILL_PAUSED !== "true") {
+    throw new RunnerError(
+      ".env.e2e must pause the candle backfill worker for deterministic startup.",
+    );
   }
 
   if (!values.POSTGRES_DB.endsWith("_e2e")) {
@@ -206,6 +217,7 @@ function validateE2EConfiguration(values) {
     "TELEGRAM_BOT_FILE_BASE_URL",
     "TELEGRAM_PUBLIC_BOT_BASE_URL",
     "BINANCE_SPOT_BASE_URL",
+    "BINANCE_PUBLIC_DATA_BASE_URL",
     "BINANCE_SPOT_WS_BASE_URL",
   ];
   for (const key of providerUrls) {

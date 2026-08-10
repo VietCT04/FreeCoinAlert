@@ -68,6 +68,34 @@ class HistoricalAnalysisConfigurationResponse(BaseModel):
     strategy_capabilities: HistoricalAnalysisStrategyCapabilitiesResponse
 
 
+HistoricalAnalysisCoverageStatus = Literal[
+    "backfilling",
+    "ready",
+    "degraded",
+    "partial",
+    "unavailable",
+]
+
+
+class HistoricalAnalysisCoverageResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
+
+    market: dict[str, str]
+    preset: dict[str, str | int]
+    status: HistoricalAnalysisCoverageStatus
+    first_analysis_start: datetime | None
+    last_analysis_end: datetime | None
+    available_analysis_days: int
+    minimum_range_days: int
+    maximum_range_days: int
+    verified_at: datetime | None
+    available_start: datetime | None
+    available_end: datetime | None
+    target_start: datetime
+    target_end: datetime
+    coverage_percent: float
+
+
 class HistoricalAnalysisMarketSnapshotResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel_case, populate_by_name=True)
 

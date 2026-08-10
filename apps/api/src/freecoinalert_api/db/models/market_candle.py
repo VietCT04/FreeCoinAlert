@@ -105,7 +105,7 @@ class MarketCandle(Base):
         ),
         CheckConstraint(
             "(source_kind = 'binance_kline' AND status IN ('complete', 'superseded') "
-            "AND provider_event_time IS NOT NULL AND provider_close_time IS NOT NULL "
+            "AND provider_close_time IS NOT NULL "
             "AND ((first_trade_id IS NULL AND last_trade_id IS NULL) "
             "OR (first_trade_id IS NOT NULL AND last_trade_id IS NOT NULL "
             "AND first_trade_id >= 0 AND last_trade_id >= first_trade_id))) "

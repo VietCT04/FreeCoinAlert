@@ -21,8 +21,10 @@ const REQUIRED_CONFIGURATION_KEYS = [
   "BINANCE_SPOT_BASE_URL",
   "BINANCE_SPOT_WS_BASE_URL",
   "LOCAL_ENABLE_TELEGRAM",
-  "LOCAL_CANDLE_BOOTSTRAP_DAYS",
   "LOCAL_STARTUP_TIMEOUT_SECONDS",
+  "CANDLE_BACKFILL_TARGET_DAYS",
+  "CANDLE_BACKFILL_MAINTENANCE_SECONDS",
+  "CANDLE_BACKFILL_CHUNK_PAUSE_SECONDS",
 ];
 
 const PORT_CONFIGURATION = [
@@ -67,10 +69,12 @@ const SERVICE_DEFINITIONS = [
     required: true,
   },
   {
-    name: "candle-bootstrap-init",
-    label: "Candle bootstrap",
-    kind: "completed",
-    required: true,
+    name: "candle-backfill-worker",
+    label: "Historical candle backfill",
+    kind: "running",
+    profile: "market",
+    blocking: false,
+    missingStatus: "failed",
   },
   {
     name: "market-stream",
@@ -223,6 +227,23 @@ function parseInteger(values, key, minimum, maximum, errors) {
   return parsed;
 }
 
+function parseNumber(values, key, minimum, maximum, errors) {
+  const value = values[key];
+
+  if (!hasValue(value)) {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < minimum || parsed > maximum) {
+    errors.push(`Set ${key} to a number from ${minimum} through ${maximum}.`);
+    return null;
+  }
+
+  return parsed;
+}
+
 function validateBoolean(values, key, errors) {
   const value = values[key];
 
@@ -325,11 +346,25 @@ function validateConfiguration(values) {
   }
 
   const telegramEnabled = validateBoolean(values, "LOCAL_ENABLE_TELEGRAM", errors);
-  const candleBootstrapDays = parseInteger(
+  const candleBackfillTargetDays = parseInteger(
     values,
-    "LOCAL_CANDLE_BOOTSTRAP_DAYS",
-    35,
-    180,
+    "CANDLE_BACKFILL_TARGET_DAYS",
+    765,
+    3650,
+    errors,
+  );
+  const candleBackfillMaintenanceSeconds = parseInteger(
+    values,
+    "CANDLE_BACKFILL_MAINTENANCE_SECONDS",
+    60,
+    86400,
+    errors,
+  );
+  const candleBackfillChunkPauseSeconds = parseNumber(
+    values,
+    "CANDLE_BACKFILL_CHUNK_PAUSE_SECONDS",
+    0,
+    60,
     errors,
   );
   const startupTimeoutSeconds = parseInteger(
@@ -348,7 +383,9 @@ function validateConfiguration(values) {
     errors,
     ports,
     telegramEnabled,
-    candleBootstrapDays,
+    candleBackfillTargetDays,
+    candleBackfillMaintenanceSeconds,
+    candleBackfillChunkPauseSeconds,
     startupTimeoutSeconds,
   };
 }
@@ -818,6 +855,10 @@ function serviceIsEnabled(context, definition) {
     return context.telegramEnabled;
   }
 
+  if (definition.profile === "market") {
+    return context.profiles.includes("market");
+  }
+
   return definition.profile === "historical-analysis" && context.historicalAvailable;
 }
 
@@ -826,6 +867,10 @@ function readinessFailures(context, statuses) {
 
   for (const definition of SERVICE_DEFINITIONS) {
     if (!serviceIsEnabled(context, definition)) {
+      continue;
+    }
+
+    if (definition.blocking === false) {
       continue;
     }
 
@@ -895,7 +940,7 @@ function printReadiness(context, statuses) {
     ["Database", "db"],
     ["Migrations", "db-migrate"],
     ["Market catalogue", "market-catalog-init"],
-    ["Candle bootstrap", "candle-bootstrap-init"],
+    ["Historical candle backfill", "candle-backfill-worker"],
     ["Market stream", "market-stream"],
     ["Telegram updates", "telegram-updates"],
     ["Notification worker", "notification-worker"],

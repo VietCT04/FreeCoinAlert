@@ -15,6 +15,10 @@ from freecoinalert_api.core.config import Settings, get_settings
 from freecoinalert_api.db.models.market_candle import MarketCandle
 from freecoinalert_api.db.models.supported_market import SupportedMarket
 from freecoinalert_api.db.repositories.market_candles import calculate_source_fingerprint
+from freecoinalert_api.db.repositories.market_candle_coverage import (
+    MarketCandleCoverageValues,
+    upsert_market_candle_coverage,
+)
 from freecoinalert_api.db.repositories.supported_markets import (
     list_product_markets,
     upsert_catalog_metadata,
@@ -27,13 +31,15 @@ from freecoinalert_api.market_data.catalog import (
     SUPPORTED_SYMBOLS,
     CatalogMetadata,
 )
+from freecoinalert_api.market_data.candles.constants import CANDLE_REQUIRED_RETENTION_DAYS
 
 
 E2E_SEED_NAMESPACE = uuid.UUID("6d0f8fd4-e8df-4cbf-9d91-e2e84ac2c89b")
-# Covers the 90-day analysis maximum, the 200-candle warm-up for 4h presets,
+# Covers the 730-day product path, the 200-candle warm-up for 4h presets,
 # and the completed-day gap used by the deterministic E2E clock.
 SEED_DAYS = 126
 SOURCE_BATCH_SIZE = 2_000
+LONG_RANGE_SYMBOL = "BTCUSDT"
 
 
 async def seed_database(settings: Settings) -> None:
@@ -107,6 +113,21 @@ async def _seed_market(
         and hourly_count == expected_hourly_count
         and four_hour_count == expected_four_hour_count
     ):
+        long_range_start = await _seed_long_range_derived_candles(
+            session,
+            market=market,
+            start_time=start_time,
+            end_time=end_time,
+            seed_clock=seed_clock,
+        )
+        await _seed_coverage(
+            session,
+            market_id=market.id,
+            start_time=start_time,
+            end_time=end_time,
+            seed_clock=seed_clock,
+            long_range_start=long_range_start,
+        )
         return
     if source_count or hourly_count or four_hour_count:
         raise RuntimeError("The E2E candle seed is partially present and cannot be resumed safely.")
@@ -137,6 +158,127 @@ async def _seed_market(
             pending_candles.clear()
 
     await _insert_candles(session, pending_candles)
+    long_range_start = await _seed_long_range_derived_candles(
+        session,
+        market=market,
+        start_time=start_time,
+        end_time=end_time,
+        seed_clock=seed_clock,
+    )
+    await _seed_coverage(
+        session,
+        market_id=market.id,
+        start_time=start_time,
+        end_time=end_time,
+        seed_clock=seed_clock,
+        long_range_start=long_range_start,
+    )
+
+
+async def _seed_coverage(
+    session,
+    *,
+    market_id: uuid.UUID,
+    start_time: datetime,
+    end_time: datetime,
+    seed_clock: datetime,
+    long_range_start: datetime | None,
+) -> None:
+    for timeframe in ("1m", "1h", "4h"):
+        coverage_start = (
+            long_range_start
+            if timeframe == "1h" and long_range_start is not None
+            else start_time
+        )
+        await upsert_market_candle_coverage(
+            session,
+            values=MarketCandleCoverageValues(
+                supported_market_id=market_id,
+                timeframe=timeframe,
+                target_start=coverage_start,
+                target_end=end_time,
+                latest_closed_boundary=end_time,
+                contiguous_start=coverage_start,
+                contiguous_end=end_time,
+                available_start=coverage_start,
+                available_end=end_time,
+                status="ready",
+                missing_range_count=0,
+                coverage_percent=Decimal("100"),
+                verified_at=seed_clock,
+                last_success_at=seed_clock,
+                last_error_category=None,
+            ),
+        )
+
+
+async def _seed_long_range_derived_candles(
+    session,
+    *,
+    market: SupportedMarket,
+    start_time: datetime,
+    end_time: datetime,
+    seed_clock: datetime,
+) -> datetime | None:
+    if market.symbol != LONG_RANGE_SYMBOL:
+        return None
+
+    long_range_start = end_time - timedelta(days=CANDLE_REQUIRED_RETENTION_DAYS)
+    expected_count = int((start_time - long_range_start) / timedelta(hours=1))
+    existing_count = await _count_current_candles(
+        session,
+        market_id=market.id,
+        timeframe="1h",
+        start_time=long_range_start,
+        end_time=start_time,
+    )
+    if existing_count == expected_count:
+        return long_range_start
+    if existing_count:
+        raise RuntimeError("The E2E long-range candle seed is partially present.")
+
+    pending: list[MarketCandle] = []
+    for index in range(expected_count):
+        open_time = long_range_start + timedelta(hours=index)
+        open_price = _price(market.symbol, index * 60)
+        close_price = _price(market.symbol, index * 60 + 60)
+        pending.append(
+            MarketCandle(
+                id=uuid.uuid5(E2E_SEED_NAMESPACE, f"{market.id}:1h:{open_time.isoformat()}"),
+                supported_market_id=market.id,
+                timeframe="1h",
+                open_time=open_time,
+                close_time=open_time + timedelta(hours=1),
+                source_kind="aggregate_1m",
+                status="complete",
+                status_reason=None,
+                revision=1,
+                is_current=True,
+                supersedes_candle_id=None,
+                source_candle_count=60,
+                expected_source_candle_count=60,
+                source_fingerprint=hashlib.sha256(
+                    f"e2e-derived:{market.id}:1h:{open_time.isoformat()}".encode("ascii")
+                ).hexdigest(),
+                open_price=open_price,
+                high_price=max(open_price, close_price) + Decimal("0.02"),
+                low_price=min(open_price, close_price) - Decimal("0.02"),
+                close_price=close_price,
+                base_volume=Decimal("60"),
+                quote_volume=close_price * Decimal("60"),
+                trade_count=60,
+                first_trade_id=None,
+                last_trade_id=None,
+                provider_event_time=None,
+                provider_close_time=None,
+                received_at=seed_clock,
+            )
+        )
+        if len(pending) >= SOURCE_BATCH_SIZE:
+            await _insert_candles(session, pending)
+            pending.clear()
+    await _insert_candles(session, pending)
+    return long_range_start
 
 
 async def _insert_candles(session, candles: Sequence[MarketCandle]) -> None:

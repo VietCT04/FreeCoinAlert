@@ -1,5 +1,6 @@
 import type {
   HistoricalAnalysisConfiguration,
+  HistoricalAnalysisCoverage,
   HistoricalAnalysisCreateRequest,
   HistoricalAnalysisEquityEnvelope,
   HistoricalAnalysisReportEnvelope,
@@ -91,6 +92,26 @@ async function requestHistoricalAnalysis<T>(
 export function getHistoricalAnalysisConfiguration(): Promise<HistoricalAnalysisConfiguration> {
   return requestHistoricalAnalysis<HistoricalAnalysisConfiguration>(
     "/historical-analysis/configuration",
+  );
+}
+
+export function getHistoricalAnalysisCoverage(
+  symbol: string,
+  presetCode: string,
+  presetVersion: number,
+  signal?: AbortSignal,
+): Promise<HistoricalAnalysisCoverage> {
+  const query = new URLSearchParams({
+    exchange: "binance",
+    market_type: "spot",
+    symbol,
+    preset_code: presetCode,
+    preset_version: String(presetVersion),
+  });
+
+  return requestHistoricalAnalysis<HistoricalAnalysisCoverage>(
+    `/historical-analysis/coverage?${query.toString()}`,
+    { signal },
   );
 }
 

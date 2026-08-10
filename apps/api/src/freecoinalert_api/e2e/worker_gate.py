@@ -65,11 +65,12 @@ def clear_gates(settings: Settings) -> None:
         _write_state({"gates": {}})
 
 
-async def wait_for_historical_worker_gate(
+async def wait_for_worker_gate(
     settings: Settings,
     *,
     gate_name: str,
     stop_event: asyncio.Event,
+    default_blocked: bool = False,
 ) -> None:
     if not settings.e2e_worker_gate_enabled:
         return
@@ -77,9 +78,27 @@ async def wait_for_historical_worker_gate(
     while not stop_event.is_set():
         state = _read_state()
         gates = state.get("gates")
-        if not isinstance(gates, dict) or gates.get(gate_name) is not False:
+        if not isinstance(gates, dict):
+            gates = {}
+        if gate_name not in gates:
+            if not default_blocked:
+                return
+        elif gates.get(gate_name) is not False:
             return
         try:
             await asyncio.wait_for(stop_event.wait(), timeout=0.25)
         except TimeoutError:
             continue
+
+
+async def wait_for_historical_worker_gate(
+    settings: Settings,
+    *,
+    gate_name: str,
+    stop_event: asyncio.Event,
+) -> None:
+    await wait_for_worker_gate(
+        settings,
+        gate_name=gate_name,
+        stop_event=stop_event,
+    )

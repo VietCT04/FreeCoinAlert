@@ -5,13 +5,18 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from freecoinalert_api.db.models.market_candle import MarketCandle
 
 
 TIMEFRAME_SOURCE_COUNTS = {"1m": 1, "1h": 60, "4h": 240}
+TIMEFRAME_DELTAS = {
+    "1m": timedelta(minutes=1),
+    "1h": timedelta(hours=1),
+    "4h": timedelta(hours=4),
+}
 
 
 @dataclass(frozen=True)
@@ -40,6 +45,35 @@ class MissingCandleRange:
     end_open_time: datetime
 
 
+@dataclass(frozen=True)
+class CandleCoverageStatistics:
+    timeframe: str
+    requested_start: datetime
+    requested_end: datetime
+    complete_count: int
+    first_open_time: datetime | None
+    last_close_time: datetime | None
+    has_no_gaps: bool
+
+    @property
+    def expected_count(self) -> int:
+        delta = timedelta(minutes=1)
+        if self.timeframe == "1h":
+            delta = timedelta(hours=1)
+        elif self.timeframe == "4h":
+            delta = timedelta(hours=4)
+        return int((self.requested_end - self.requested_start) / delta)
+
+    @property
+    def is_complete(self) -> bool:
+        return (
+            self.complete_count == self.expected_count
+            and self.first_open_time == self.requested_start
+            and self.last_close_time == self.requested_end
+            and self.has_no_gaps
+        )
+
+
 def calculate_source_fingerprint(candles: Sequence[MarketCandle]) -> str:
     source_identity = "|".join(f"{candle.id}:{candle.revision}" for candle in candles)
     return hashlib.sha256(source_identity.encode("ascii")).hexdigest()
@@ -59,6 +93,13 @@ def _validate_utc_range(start_open_time: datetime, end_open_time: datetime) -> N
         raise ValueError("Candle range end must align with a UTC minute boundary.")
 
 
+def _timeframe_delta(timeframe: str) -> timedelta:
+    try:
+        return TIMEFRAME_DELTAS[timeframe]
+    except KeyError as error:
+        raise ValueError("Unsupported candle timeframe.") from error
+
+
 def _canonical_values_match(candle: MarketCandle, values: CandleValues) -> bool:
     return (
         candle.close_time == values.close_time
@@ -74,7 +115,6 @@ def _canonical_values_match(candle: MarketCandle, values: CandleValues) -> bool:
         and candle.trade_count == values.trade_count
         and candle.first_trade_id == values.first_trade_id
         and candle.last_trade_id == values.last_trade_id
-        and candle.provider_event_time == values.provider_event_time
         and candle.provider_close_time == values.provider_close_time
     )
 
@@ -513,36 +553,230 @@ async def find_missing_one_minute_ranges(
     start_open_time: datetime,
     end_open_time: datetime,
 ) -> Sequence[MissingCandleRange]:
-    _validate_utc_range(start_open_time, end_open_time)
-    complete_candles = await list_complete_candles_ascending(
+    return await find_missing_candle_ranges(
         session,
         supported_market_id=supported_market_id,
         timeframe="1m",
         start_open_time=start_open_time,
         end_open_time=end_open_time,
-        limit=int((end_open_time - start_open_time) / timedelta(minutes=1)),
     )
-    known_open_times = {
-        candle.open_time.astimezone(UTC)
-        for candle in complete_candles
-    }
-    missing_ranges: list[MissingCandleRange] = []
-    missing_start: datetime | None = None
-    open_time = start_open_time.astimezone(UTC)
-    end_time = end_open_time.astimezone(UTC)
 
-    while open_time < end_time:
-        if open_time not in known_open_times and missing_start is None:
-            missing_start = open_time
-        elif open_time in known_open_times and missing_start is not None:
-            missing_ranges.append(MissingCandleRange(missing_start, open_time))
-            missing_start = None
-        open_time += timedelta(minutes=1)
 
-    if missing_start is not None:
-        missing_ranges.append(MissingCandleRange(missing_start, end_time))
+async def get_complete_candle_coverage(
+    session: AsyncSession,
+    *,
+    supported_market_id: uuid.UUID,
+    timeframe: str,
+    start_open_time: datetime,
+    end_open_time: datetime,
+) -> CandleCoverageStatistics:
+    _validate_utc_range(start_open_time, end_open_time)
+    delta_seconds = _timeframe_delta(timeframe).total_seconds()
+    row = (
+        await session.execute(
+            text(
+                """
+                WITH ordered AS (
+                    SELECT
+                        open_time,
+                        close_time,
+                        LAG(open_time) OVER (ORDER BY open_time) AS previous_open_time
+                    FROM market_candles
+                    WHERE supported_market_id = :supported_market_id
+                      AND timeframe = :timeframe
+                      AND is_current = true
+                      AND status = 'complete'
+                      AND open_time >= :start_open_time
+                      AND open_time < :end_open_time
+                )
+                SELECT
+                    COUNT(*) AS complete_count,
+                    MIN(open_time) AS first_open_time,
+                    MAX(close_time) AS last_close_time,
+                    COALESCE(
+                        BOOL_AND(
+                            previous_open_time IS NULL
+                            OR open_time = previous_open_time
+                                + (:delta_seconds * INTERVAL '1 second')
+                        ),
+                        true
+                    ) AS has_no_gaps
+                FROM ordered
+                """
+            ),
+            {
+                "supported_market_id": supported_market_id,
+                "timeframe": timeframe,
+                "start_open_time": start_open_time.astimezone(UTC),
+                "end_open_time": end_open_time.astimezone(UTC),
+                "delta_seconds": int(delta_seconds),
+            },
+        )
+    ).one()
+    return CandleCoverageStatistics(
+        timeframe=timeframe,
+        requested_start=start_open_time.astimezone(UTC),
+        requested_end=end_open_time.astimezone(UTC),
+        complete_count=int(row.complete_count),
+        first_open_time=(
+            None if row.first_open_time is None else row.first_open_time.astimezone(UTC)
+        ),
+        last_close_time=(
+            None if row.last_close_time is None else row.last_close_time.astimezone(UTC)
+        ),
+        has_no_gaps=bool(row.has_no_gaps),
+    )
 
-    return missing_ranges
+
+async def get_newest_contiguous_candle_range(
+    session: AsyncSession,
+    *,
+    supported_market_id: uuid.UUID,
+    timeframe: str,
+    start_open_time: datetime,
+    end_open_time: datetime,
+) -> tuple[datetime, datetime] | None:
+    """Find the newest complete run in a bounded range with DB-side windowing."""
+
+    _validate_utc_range(start_open_time, end_open_time)
+    delta_seconds = _timeframe_delta(timeframe).total_seconds()
+    row = (
+        await session.execute(
+            text(
+                """
+                WITH descending AS (
+                    SELECT
+                        open_time,
+                        close_time,
+                        LAG(open_time) OVER (ORDER BY open_time DESC) AS later_open_time
+                    FROM market_candles
+                    WHERE supported_market_id = :supported_market_id
+                      AND timeframe = :timeframe
+                      AND is_current = true
+                      AND status = 'complete'
+                      AND open_time >= :start_open_time
+                      AND open_time < :end_open_time
+                ),
+                marked AS (
+                    SELECT
+                        open_time,
+                        close_time,
+                        SUM(
+                            CASE
+                                WHEN later_open_time IS NOT NULL
+                                 AND later_open_time <> open_time
+                                    + (:delta_seconds * INTERVAL '1 second')
+                                THEN 1
+                                ELSE 0
+                            END
+                        ) OVER (ORDER BY open_time DESC ROWS UNBOUNDED PRECEDING) AS gap_group
+                    FROM descending
+                )
+                SELECT MIN(open_time) AS contiguous_start,
+                       MAX(close_time) AS contiguous_end
+                FROM marked
+                WHERE gap_group = 0
+                """
+            ),
+            {
+                "supported_market_id": supported_market_id,
+                "timeframe": timeframe,
+                "start_open_time": start_open_time.astimezone(UTC),
+                "end_open_time": end_open_time.astimezone(UTC),
+                "delta_seconds": int(delta_seconds),
+            },
+        )
+    ).one()
+    if row.contiguous_start is None or row.contiguous_end is None:
+        return None
+    return row.contiguous_start.astimezone(UTC), row.contiguous_end.astimezone(UTC)
+
+
+async def find_missing_candle_ranges(
+    session: AsyncSession,
+    *,
+    supported_market_id: uuid.UUID,
+    timeframe: str,
+    start_open_time: datetime,
+    end_open_time: datetime,
+) -> Sequence[MissingCandleRange]:
+    """Return gaps using indexed DB-side windowing, without loading the range."""
+
+    _validate_utc_range(start_open_time, end_open_time)
+    delta_seconds = _timeframe_delta(timeframe).total_seconds()
+    rows = (
+        await session.execute(
+            text(
+                """
+                WITH ordered AS (
+                    SELECT
+                        open_time,
+                        LEAD(open_time) OVER (ORDER BY open_time) AS next_open_time
+                    FROM market_candles
+                    WHERE supported_market_id = :supported_market_id
+                      AND timeframe = :timeframe
+                      AND is_current = true
+                      AND status = 'complete'
+                      AND open_time >= :start_open_time
+                      AND open_time < :end_open_time
+                ),
+                bounds AS (
+                    SELECT MIN(open_time) AS first_open_time,
+                           MAX(open_time) AS last_open_time
+                    FROM ordered
+                ),
+                gaps AS (
+                    SELECT :start_open_time AS gap_start,
+                           :end_open_time AS gap_end
+                    FROM bounds
+                    WHERE first_open_time IS NULL
+
+                    UNION ALL
+
+                    SELECT :start_open_time AS gap_start,
+                           first_open_time AS gap_end
+                    FROM bounds
+                    WHERE first_open_time > :start_open_time
+
+                    UNION ALL
+
+                    SELECT open_time + (:delta_seconds * INTERVAL '1 second') AS gap_start,
+                           next_open_time AS gap_end
+                    FROM ordered
+                    WHERE next_open_time > open_time
+                        + (:delta_seconds * INTERVAL '1 second')
+
+                    UNION ALL
+
+                    SELECT last_open_time + (:delta_seconds * INTERVAL '1 second') AS gap_start,
+                           :end_open_time AS gap_end
+                    FROM bounds
+                    WHERE last_open_time IS NOT NULL
+                      AND last_open_time + (:delta_seconds * INTERVAL '1 second')
+                          < :end_open_time
+                )
+                SELECT gap_start, gap_end
+                FROM gaps
+                WHERE gap_end > gap_start
+                ORDER BY gap_start
+                """
+            ),
+            {
+                "supported_market_id": supported_market_id,
+                "timeframe": timeframe,
+                "start_open_time": start_open_time.astimezone(UTC),
+                "end_open_time": end_open_time.astimezone(UTC),
+                "delta_seconds": int(delta_seconds),
+            },
+        )
+    ).all()
+    return tuple(
+        MissingCandleRange(
+            start_open_time=row.gap_start.astimezone(UTC),
+            end_open_time=row.gap_end.astimezone(UTC),
+        )
+        for row in rows
+    )
 
 
 async def find_changed_source_windows(

@@ -25,11 +25,19 @@ import {
 } from "../signals/errors";
 import type { SignalPreset } from "../signals/types";
 import { AnalysisForm } from "./analysis-form";
+import {
+  getHistoricalAnalysisCoverage,
+} from "./api";
+import {
+  historicalAnalysisErrorMessage,
+  isHistoricalAnalysisAuthenticationError,
+} from "./errors";
 import { formatTimeframe, formatUtcDateTime } from "./format";
 import { ReportSummary } from "./report-summary";
 import { RunList } from "./run-list";
 import { RunStatus } from "./run-status";
 import { useHistoricalAnalyses } from "./use-historical-analyses";
+import type { HistoricalAnalysisCoverage } from "./types";
 
 type AnalysisStep = "configure" | "processing" | "results";
 
@@ -99,10 +107,50 @@ export function HistoricalAnalysisPanel() {
   const [presetError, setPresetError] = useState<string | null>(null);
   const [presets, setPresets] = useState<SignalPreset[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [coverage, setCoverage] = useState<HistoricalAnalysisCoverage | null>(null);
+  const [coverageError, setCoverageError] = useState<string | null>(null);
+  const [coverageSelection, setCoverageSelection] = useState<{
+    symbol: string;
+    presetCode: string;
+    presetVersion: number;
+  } | null>(null);
+  const [isCoverageLoading, setIsCoverageLoading] = useState(false);
+  const [coverageRefreshKey, setCoverageRefreshKey] = useState(0);
+  const coverageRequestId = useRef(0);
   const [isConfirmingCancellation, setIsConfirmingCancellation] = useState(false);
   const [isRunsSheetOpen, setIsRunsSheetOpen] = useState(false);
   const selectedRunHeadingRef = useRef<HTMLHeadingElement>(null);
   const focusStatusAfterCreateRef = useRef(false);
+
+  const handleCoverageSelectionChange = useCallback(
+    (
+      selection: {
+        symbol: string;
+        presetCode: string;
+        presetVersion: number;
+      } | null,
+    ) => {
+      setCoverageSelection((current) => {
+        if (
+          current?.symbol === selection?.symbol &&
+          current?.presetCode === selection?.presetCode &&
+          current?.presetVersion === selection?.presetVersion
+        ) {
+          return current;
+        }
+        return selection;
+      });
+      setCoverage(null);
+      setCoverageError(null);
+    },
+    [],
+  );
+
+  const refreshCoverage = useCallback(() => {
+    setCoverage(null);
+    setCoverageError(null);
+    setCoverageRefreshKey((current) => current + 1);
+  }, []);
 
   const refreshPresets = useCallback(async () => {
     if (status !== "authenticated") {
@@ -135,6 +183,50 @@ export function HistoricalAnalysisPanel() {
 
     void refreshPresets();
   }, [refreshPresets, status]);
+
+  useEffect(() => {
+    const requestId = ++coverageRequestId.current;
+    if (status !== "authenticated" || !coverageSelection) {
+      setCoverage(null);
+      setCoverageError(null);
+      setIsCoverageLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsCoverageLoading(true);
+    setCoverageError(null);
+
+    async function loadCoverage() {
+      try {
+        const nextCoverage = await getHistoricalAnalysisCoverage(
+          coverageSelection.symbol,
+          coverageSelection.presetCode,
+          coverageSelection.presetVersion,
+          controller.signal,
+        );
+        if (requestId === coverageRequestId.current) {
+          setCoverage(nextCoverage);
+        }
+      } catch (requestError) {
+        if (controller.signal.aborted || requestId !== coverageRequestId.current) {
+          return;
+        }
+        if (isHistoricalAnalysisAuthenticationError(requestError)) {
+          await refreshSession();
+        }
+        setCoverage(null);
+        setCoverageError(historicalAnalysisErrorMessage(requestError));
+      } finally {
+        if (requestId === coverageRequestId.current) {
+          setIsCoverageLoading(false);
+        }
+      }
+    }
+
+    void loadCoverage();
+    return () => controller.abort();
+  }, [coverageRefreshKey, coverageSelection, refreshSession, status]);
 
   useEffect(() => {
     setIsConfirmingCancellation(false);
@@ -306,8 +398,13 @@ export function HistoricalAnalysisPanel() {
                     !presetUnavailable ? (
                       <AnalysisForm
                         configuration={currentConfiguration}
+                        coverage={coverage}
+                        coverageError={coverageError}
+                        isCoverageLoading={isCoverageLoading}
                         isSubmitting={isSubmitting}
                         markets={markets.markets}
+                        onCoverageRefresh={refreshCoverage}
+                        onSelectionChange={handleCoverageSelectionChange}
                         onSubmit={handleCreate}
                         presets={presets}
                       />

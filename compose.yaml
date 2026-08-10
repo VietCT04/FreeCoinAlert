@@ -221,25 +221,34 @@ services:
       <<: *api-environment
       BINANCE_SPOT_BASE_URL: ${BINANCE_SPOT_BASE_URL:-https://api.binance.com}
 
-  candle-bootstrap-init:
+  candle-backfill-worker:
     profiles: ["market"]
     <<: *api-common
-    command: uv run --frozen python -m freecoinalert_api.market_data.candles.bootstrap
-    restart: "no"
+    command: uv run --frozen python -m freecoinalert_api.market_data.candles.backfill_worker
+    restart: unless-stopped
     depends_on:
       market-catalog-init:
         condition: service_completed_successfully
     environment:
       <<: *api-environment
       BINANCE_SPOT_BASE_URL: ${BINANCE_SPOT_BASE_URL:-https://api.binance.com}
-      CANDLE_BOOTSTRAP_DAYS: ${LOCAL_CANDLE_BOOTSTRAP_DAYS:-35}
+      BINANCE_PUBLIC_DATA_BASE_URL: ${BINANCE_PUBLIC_DATA_BASE_URL:-https://data.binance.vision}
+      CANDLE_BACKFILL_TARGET_DAYS: ${CANDLE_BACKFILL_TARGET_DAYS:-765}
+      CANDLE_BACKFILL_MAINTENANCE_SECONDS: ${CANDLE_BACKFILL_MAINTENANCE_SECONDS:-900}
+      CANDLE_BACKFILL_CHUNK_PAUSE_SECONDS: ${CANDLE_BACKFILL_CHUNK_PAUSE_SECONDS:-0.1}
+    develop:
+      watch:
+        - *watch-api-core
+        - *watch-api-db
+        - *watch-api-market-data
+        - *watch-api-dockerfile
 
   market-stream:
     profiles: ["market"]
     <<: *api-common
     command: uv run --frozen python -m freecoinalert_api.market_data.stream
     depends_on:
-      candle-bootstrap-init:
+      market-catalog-init:
         condition: service_completed_successfully
     environment:
       <<: *api-environment
@@ -250,7 +259,7 @@ services:
       MARKET_CATALOG_REFRESH_SECONDS: ${MARKET_CATALOG_REFRESH_SECONDS:-21600}
       MARKET_STATE_WRITE_INTERVAL_SECONDS: ${MARKET_STATE_WRITE_INTERVAL_SECONDS:-1}
       MARKET_STREAM_RECONNECT_MAX_SECONDS: ${MARKET_STREAM_RECONNECT_MAX_SECONDS:-30}
-      CANDLE_RETENTION_DAYS: ${CANDLE_RETENTION_DAYS:-180}
+      CANDLE_RETENTION_DAYS: ${CANDLE_RETENTION_DAYS:-765}
       CANDLE_WS_MAX_AGE_SECONDS: ${CANDLE_WS_MAX_AGE_SECONDS:-180}
       CANDLE_DATA_MAX_LAG_SECONDS: ${CANDLE_DATA_MAX_LAG_SECONDS:-180}
       CANDLE_RECENT_RECONCILIATION_SECONDS: ${CANDLE_RECENT_RECONCILIATION_SECONDS:-900}
