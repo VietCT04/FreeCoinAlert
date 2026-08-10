@@ -838,7 +838,9 @@ test.describe("historical analysis configuration and reports", () => {
 
   test("persists an RSI open-at-end trade with a null outcome and final mark", async ({
     appApi,
+    authenticatedSession,
   }) => {
+    expect(authenticatedSession.csrfToken).not.toBe("");
     const response = await appApi.createHistoricalAnalysis({
       symbol: "BTCUSDT",
       presetCode: "rsi_14_cross_below_30_1h",
@@ -884,6 +886,7 @@ test.describe("historical analysis configuration and reports", () => {
     expect(openTrade).toBeDefined();
     expect(openTrade?.signalDirection).toBe("cross_below");
     expect(openTrade?.outcome).toBeNull();
+    expect(openTrade?.exitRule).toBeNull();
     expect(openTrade?.markPrice).toBe(finalCandle?.closePrice);
     expect(normalizeUtc(String(openTrade?.markCloseTime))).toBe(
       normalizeUtc(String(finalCandle?.candleCloseTime)),
