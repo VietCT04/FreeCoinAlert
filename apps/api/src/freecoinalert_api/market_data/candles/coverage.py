@@ -317,6 +317,9 @@ def resolve_coverage_for_analysis(
                 0,
                 int((available_end - first_selectable) / timedelta(days=1)),
             )
+    status = coverage.status
+    if status == "backfilling" and first_selectable is not None:
+        status = "partial"
     return CoverageResolution(
         raw_contiguous_start=available_start,
         raw_contiguous_end=available_end,
@@ -325,7 +328,7 @@ def resolve_coverage_for_analysis(
         latest_selectable_analysis_end=available_end,
         available_analysis_days=available_days,
         verified_at=coverage.verified_at,
-        status=coverage.status,
+        status=status,
     )
 
 
@@ -353,7 +356,7 @@ async def get_analysis_coverage_resolution(
 
 def latest_closed_1m_boundary(now: datetime) -> datetime:
     now = _utc(now)
-    return now.replace(second=0, microsecond=0)
+    return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def align_boundary(boundary: datetime, timeframe: str) -> datetime:

@@ -27,11 +27,11 @@ flowchart LR
   Analysis[historical-analysis worker module] --> DB
 ```
 
-The default Compose stack is web, API, and PostgreSQL. Its always-on initialization path is `api-prepare` followed by `db-migrate`; API startup waits for successful migration and web startup waits for API health. The `telegram` profile starts the Telegram update poller, signal Telegram dispatcher, and notification worker after migration. The `market` profile starts catalog and candle initialization before the market stream. The `historical-analysis` profile starts the real historical-analysis worker after migration.
+The default Compose stack is web, API, and PostgreSQL. Its always-on initialization path is `api-prepare` followed by `db-migrate`; API startup waits for successful migration and web startup waits for API health. The `telegram` profile starts the Telegram update poller, signal Telegram dispatcher, and notification worker after migration. The `market` profile starts catalog synchronization, a non-blocking candle backfill worker, and the market stream. The `historical-analysis` profile starts the real historical-analysis worker after migration.
 
-The isolated E2E overlay retains the real web/API/database and application workers while replacing only external Binance/Telegram endpoints and fixture preparation. It adds `provider-simulator`, `e2e-seed`, internal `e2e-control`, and an on-demand `e2e-tests` Playwright container, disables normal candle bootstrap, and uses a dedicated project, network, and volumes. The seed runs after migration and catalogue initialization; the market stream and historical-analysis worker wait for deterministic seed completion. The control service prepares named historical scenarios, synchronizes before-claim/after-claim worker gates, and creates owner-scoped signal invalidations for recovery; these are internal fixture boundaries and do not alter the public runtime topology. The browser container uses internal `web:3000` and `api:8000` origins, while the committed host-facing ports remain available for explicit local inspection. The simulator and control service have no host port, and the public API does not mount E2E control routes. The complete E2E service and runner contract is owned by [TESTING.md](TESTING.md).
+The isolated E2E overlay retains the real web/API/database and application workers while replacing only external Binance/Telegram endpoints and fixture preparation. It adds `provider-simulator`, `e2e-seed`, the running-but-gated `candle-backfill-worker`, internal `e2e-control`, and an on-demand `e2e-tests` Playwright container, disables normal candle bootstrap, and uses a dedicated project, network, and volumes. The seed runs after migration and catalogue initialization; the market stream and historical-analysis worker wait for deterministic seed completion. The backfill gate proves API/web readiness independently from deep coverage and can be released through the internal control boundary without restarting the worker. The control service prepares named historical scenarios, synchronizes before-claim/after-claim worker gates, and creates owner-scoped signal invalidations for recovery; these are internal fixture boundaries and do not alter the public runtime topology. The browser container uses internal `web:3000` and `api:8000` origins, while the committed host-facing ports remain available for explicit local inspection. The simulator and control service have no host port, and the public API does not mount E2E control routes. The complete E2E service and runner contract is owned by [TESTING.md](TESTING.md).
 
-Compose uses one API extension for the API image, source mount, persistent `api_venv` volume, database URL, and `init: true`. Initialization failures stop their dependent branches: migration blocks the API, web, Telegram, market, and historical-analysis services; catalog or candle initialization blocks the market stream. Re-running this graph preserves PostgreSQL and dependency volumes and uses the existing idempotent migration, catalog, and gap-based candle paths.
+Compose uses one API extension for the API image, source mount, persistent `api_venv` volume, database URL, and `init: true`. Initialization failures stop their dependent branches: migration blocks the API, web, Telegram, market, and historical-analysis services; catalog synchronization blocks the market stream and backfill worker. A backfill failure is observable but does not make API/web readiness depend on 765-day coverage. Re-running this graph preserves PostgreSQL and dependency volumes and resumes archive checkpoints and canonical gap work.
 
 ```mermaid
 flowchart TD
@@ -42,8 +42,8 @@ flowchart TD
   Migrate --> Telegram[Telegram profile]
   Migrate --> Analysis[historical-analysis profile]
   Migrate --> Catalog[market-catalog-init completed]
-  Catalog --> Bootstrap[candle-bootstrap-init completed]
-  Bootstrap --> Market[market-stream]
+  Catalog --> Backfill[candle-backfill-worker running]
+  Catalog --> Market[market-stream]
 ```
 
 ## Local Orchestration Boundary
@@ -62,7 +62,7 @@ The public web surface also owns a server-only SEO boundary under `src/lib/seo`:
 
 ## Process Ownership and Singleton Boundaries
 
-The market stream uses PostgreSQL advisory lock key `freecoinalert:market-stream:binance:spot` so only one instance owns live ingestion. Signal backfill imports and uses that same singleton boundary. Database rows and unique constraints provide idempotency for retries and restarts; no broker, Redis, or separate microservice is required.
+The market stream uses PostgreSQL advisory lock key `freecoinalert:market-stream:binance:spot` so only one instance owns live ingestion. The independent candle backfill worker uses `freecoinalert:candle-backfill:binance:spot`, archive checkpoints, and canonical unique/revision constraints so it can resume without competing with another backfill owner. Signal backfill imports and uses the market singleton boundary. Database rows and unique constraints provide idempotency for retries and restarts; no broker, Redis, or separate microservice is required.
 
 ## Primary Data Flows
 

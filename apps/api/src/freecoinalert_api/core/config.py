@@ -34,6 +34,7 @@ class AuthenticationSettings(BaseSettings):
     telegram_bot_file_base_url: str = PRODUCTION_TELEGRAM_BOT_FILE_BASE_URL
     telegram_public_bot_base_url: str = PRODUCTION_TELEGRAM_PUBLIC_BOT_BASE_URL
     binance_spot_base_url: str = "https://api.binance.com"
+    binance_public_data_base_url: str = "https://data.binance.vision"
     market_catalog_max_age_seconds: int = Field(default=86400, gt=0)
     binance_spot_ws_base_url: str = "wss://stream.binance.com:9443"
     market_event_max_age_seconds: int = Field(default=10, gt=0)
@@ -80,6 +81,7 @@ class AuthenticationSettings(BaseSettings):
     e2e_clock_now: datetime | None = None
     e2e_control_token: str | None = None
     e2e_worker_gate_enabled: bool = False
+    e2e_candle_backfill_paused: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -135,12 +137,18 @@ class AuthenticationSettings(BaseSettings):
                 raise ValueError("E2E_CLOCK_NOW requires E2E_TEST_MODE=true.")
             if self.e2e_worker_gate_enabled:
                 raise ValueError("E2E_WORKER_GATE_ENABLED requires E2E_TEST_MODE=true.")
+            if self.e2e_candle_backfill_paused:
+                raise ValueError("E2E_CANDLE_BACKFILL_PAUSED requires E2E_TEST_MODE=true.")
             return self
 
         if self.e2e_clock_now is None:
             raise ValueError("E2E_CLOCK_NOW is required when E2E_TEST_MODE=true.")
         if not self.e2e_control_token:
             raise ValueError("E2E_CONTROL_TOKEN is required when E2E_TEST_MODE=true.")
+        if self.e2e_candle_backfill_paused and not self.e2e_worker_gate_enabled:
+            raise ValueError(
+                "E2E_CANDLE_BACKFILL_PAUSED requires E2E_WORKER_GATE_ENABLED=true."
+            )
         if self.telegram_bot_api_base_url != E2E_TELEGRAM_BOT_API_BASE_URL:
             raise ValueError("E2E Telegram API traffic must use provider-simulator.")
         if self.telegram_bot_file_base_url != E2E_TELEGRAM_BOT_FILE_BASE_URL:
@@ -151,6 +159,8 @@ class AuthenticationSettings(BaseSettings):
             raise ValueError("E2E Binance REST traffic must use provider-simulator.")
         if self.binance_spot_ws_base_url != E2E_BINANCE_SPOT_WS_BASE_URL:
             raise ValueError("E2E Binance WebSocket traffic must use provider-simulator.")
+        if self.binance_public_data_base_url != E2E_BINANCE_SPOT_BASE_URL:
+            raise ValueError("E2E Binance public-data traffic must use provider-simulator.")
         return self
 
 

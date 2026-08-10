@@ -12,7 +12,7 @@ The product allowlist is seeded locally. `market:sync` fetches Spot `exchangeInf
 
 `market-stream` is the only long-running market process. It owns PostgreSQL advisory lock `freecoinalert:market-stream:binance:spot`; a second owner exits without streaming. It refreshes the catalog, opens one Binance combined WebSocket carrying every ready symbol's `@aggTrade` and `@kline_1m` streams, and routes accepted events through ordered bounded queues. Durable market-state recording precedes price-alert evaluation; confirmed-candle persistence, aggregation, and preset evaluation use the candle path. A full queue is backpressure: the connection is closed and reconnected rather than silently dropping an event.
 
-The isolated E2E overlay points both Binance REST and combined WebSocket traffic to `http://provider-simulator:9000` and `ws://provider-simulator:9000`. The simulator provides the fixed catalogue, klines, deterministic aggregate trades, open/closed one-minute klines, unavailable-market responses, and disconnect/reconnect controls without contacting Binance. The recovery journeys assert safe alert behavior across disconnect/reconnect and provider-unavailable boundaries; they do not claim that a stale or unavailable provider state is a production health guarantee. E2E mode uses a fixed UTC clock and a separate database; it is not a normal market-data provider or a substitute for production verification.
+The isolated E2E overlay points Binance REST, public archive, and combined WebSocket traffic to the provider simulator. The simulator provides the fixed catalogue, klines, deterministic aggregate trades, open/closed one-minute klines, compact archive fixtures, provider outcomes, request counters, unavailable-market responses, and disconnect/reconnect controls without contacting Binance. The recovery journeys assert safe alert behavior across disconnect/reconnect and provider-unavailable boundaries; they do not claim that a stale or unavailable provider state is a production health guarantee. E2E mode uses a fixed UTC clock and a separate database; it is not a normal market-data provider or a substitute for production verification.
 
 ## Live Aggregate-Trade Flow
 
@@ -28,7 +28,7 @@ The `market_candles` table is not populated by FastAPI startup or by aggregate-t
 
 | Trigger | Provider input | Persistence action |
 | --- | --- | --- |
-| Normal local initialization | Binance REST klines | The one-shot `candle-bootstrap-init` service runs after catalog synchronization and before `market-stream`; it fills missing rows in the configured bounded history. |
+| Historical coverage worker | Binance public-data archives, with bounded REST repair fallback | `candle-backfill-worker` runs after catalog synchronization, plans only missing canonical ranges, persists resumable checkpoints, and keeps application readiness independent from deep-history completion. |
 | Live market stream | A validated closed (`x=true`) Binance `@kline_1m` event | `market-stream` persists that one closed `1m` candle immediately. Open kline updates do not reach the persistence service. |
 | Recent reconciliation | Binance REST klines for detected missing ranges | The stream requests a bounded recent repair during initial setup and on its maintenance interval; `market:candles-reconcile` and `market:candles-bootstrap` invoke the same gap-based writer explicitly. |
 
@@ -56,11 +56,11 @@ The browser preset and historical-analysis surfaces consume only server-provided
 
 ## Bootstrap
 
-The normal local startup path invokes this as a separate one-shot service; it is not a FastAPI startup hook. Existing rows are used by the gap check, so initialization does not replay the full history on every restart.
+The normal local startup path does not wait for deep historical coverage and does not invoke candle persistence from FastAPI startup. The `candle-backfill-worker` is a separate long-running market-profile process. It starts after catalog synchronization, refreshes persisted coverage, and continues bounded archive work while the API, web app, and market stream remain usable.
 
-`market:candles-bootstrap` is an explicit one-shot, singleton-locked operator command. It fills missing rows for up to `CANDLE_BOOTSTRAP_DAYS` (default 150 for direct-host use; 35–180) using chronological pages of at most 1,000 minutes. The Compose `market` profile runs this same gap-based module through `candle-bootstrap-init`, maps `LOCAL_CANDLE_BOOTSTRAP_DAYS` to `CANDLE_BOOTSTRAP_DAYS`, and defaults the local bounded range to 35 days. It contacts Binance's public `/api/v3/klines` endpoint and writes through the same closed-candle boundary.
+`market:candles-bootstrap` remains an explicit bounded REST maintenance command for operators. Deep history is owned by `dev:candle-backfill` / `candle-backfill-worker`, which plans completed UTC archive periods from `data.binance.vision`, validates the archive checksum and complete CSV before writing, imports in bounded transactions, records the next incomplete open time in PostgreSQL, and falls back to daily archives or bounded REST repair when a monthly archive is unavailable. Re-running a completed archive is skipped by its checkpoint and canonical coverage; no user request starts an archive download.
 
-The isolated E2E overlay disables `candle-bootstrap-init`. After migration and catalogue initialization, the guarded `e2e-seed` module inserts deterministic fixed-UTC, exact-decimal canonical history and derived `1h`/`4h` rows idempotently. The market stream and historical-analysis worker wait for seed completion so live and historical paths consume the same stored canonical data. No synthetic missing candle is created and no production provider is contacted.
+The isolated E2E overlay disables normal live bootstrap. After migration and catalogue initialization, the guarded `e2e-seed` module inserts deterministic fixed-UTC, exact-decimal canonical history, persisted coverage rows, and a bounded derived `1h` range sufficient for the 730-day browser/API contract. The real candle backfill worker starts behind an E2E-only gate, so API/web readiness remains independent from deep history and the control service can release it without a worker restart. The market stream and historical-analysis worker wait for seed completion so live and historical paths consume the same stored canonical data. Public archive and REST controls remain inside the simulator; no production provider is contacted.
 
 ## Reconciliation and Gap Repair
 
@@ -76,28 +76,29 @@ The stream reads the combined-message `data.e` event type before dispatching. `a
 
 ## Retention and Cleanup
 
-`CANDLE_RETENTION_DAYS` defaults to 180. The repository has a cleanup boundary that deletes old candle revisions; no scheduler is implemented. Current complete data is not replaced by retention cleanup.
+`CANDLE_RETENTION_DAYS` defaults to 765, the required 730-day analysis range plus maximum warm-up and an operational buffer. The repository has a cleanup boundary that deletes old candle revisions and refreshes persisted coverage; no scheduler is implemented. Current complete data is not replaced by retention cleanup.
 
 ## Provider Retry and Rate-Limit Behavior
 
-REST kline calls use a ten-second timeout, one request at a time, and up to three attempts for network and server errors with bounded exponential backoff and jitter. A 429 retries once only with a numeric `Retry-After`; 418 becomes `binance_ip_banned`; malformed, invalid, and nonconsecutive responses fail safely. Catalog synchronization has one bounded retry when numeric `Retry-After` is supplied. There is no distributed limiter: coordination is process-local and relies on the singleton process.
+REST kline calls use a ten-second timeout, one request at a time, and up to three attempts for network and server errors with bounded exponential backoff and jitter. Every catalog/reconciliation consumer reserves against the shared PostgreSQL `provider_rest_rate_state` row; observed provider weight, local reservations, and provider blocks are shared across processes. A 429 persists a bounded `rate_limited` block and 418 persists `ip_banned`; blocked consumers fail locally without issuing another request. Archive downloads use checksum validation and bounded retry without treating a provider error as canonical data.
 
 ## Configuration
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `BINANCE_SPOT_BASE_URL` | `https://api.binance.com` | Public REST base URL. |
+| `BINANCE_PUBLIC_DATA_BASE_URL` | `https://data.binance.vision` | Public Binance Vision archive base URL used only by the background backfill worker. |
 | `BINANCE_SPOT_WS_BASE_URL` | `wss://stream.binance.com:9443` | Public WebSocket base URL. |
 | E2E provider URLs | See [TESTING.md](TESTING.md) | E2E mode requires both Binance URLs to point exactly to `provider-simulator:9000`; the simulator is isolated and has no host port. |
 | `MARKET_CATALOG_MAX_AGE_SECONDS` | `86400` | API alert/subscription catalog freshness requirement. The stream currently uses a hardcoded 24-hour maximum instead. |
 | `MARKET_EVENT_MAX_AGE_SECONDS` / `MARKET_EVENT_FUTURE_TOLERANCE_SECONDS` | `10` / `2` | Aggregate-trade time acceptance window. |
 | `MARKET_CATALOG_REFRESH_SECONDS` / `MARKET_STATE_WRITE_INTERVAL_SECONDS` | `21600` / `1` | Stream catalog refresh and snapshot write cadence. |
 | `MARKET_STREAM_RECONNECT_MAX_SECONDS` | `30` | Reconnect backoff cap. |
-| `CANDLE_*` settings / `LOCAL_CANDLE_BOOTSTRAP_DAYS` | See [OPERATIONS.md](OPERATIONS.md) | Candle freshness, bootstrap, repair, and retention bounds; the Compose market profile maps the local bootstrap setting into the API setting. |
+| `CANDLE_*` / `CANDLE_BACKFILL_*` settings | See [OPERATIONS.md](OPERATIONS.md) | Candle freshness, bounded REST repair, 765-day background target, worker pacing, and retention bounds. |
 
 ## Failure Handling and Recovery
 
-For stale data, inspect the market-symbol and candle-symbol operational state, restore the singleton stream, then run only the applicable explicit reconciliation command. For gaps, use the bounded reconciliation command; for a failed large history load, restart the explicit bootstrap within its bound. A 418 or persistent 429 requires stopping aggressive retries and reviewing provider limits. None of these paths have been runtime-verified.
+For stale data, inspect the market-symbol and candle-symbol operational state, restore the singleton stream, then run only the applicable explicit reconciliation command. For deep gaps, inspect coverage/checkpoint state and allow the background worker to resume; use bounded REST repair only for the approved small fallback range. A 418 or persistent 429 requires stopping aggressive retries and reviewing provider limits. These paths remain Unverified until a maintainer-requested verification pass.
 
 ## Not Supported
 
@@ -105,4 +106,4 @@ Futures, other exchanges, arbitrary symbols, raw-trade history, synthetic missin
 
 ## Verification Status
 
-The maintainer-requested local startup pass exercised Binance catalogue synchronization, REST candle bootstrap, and market-stream startup; the latest full isolated E2E pass exercised the simulator-backed catalogue, canonical seed, market stream, and disconnect/reconnect selection paths. Binance gap repair, correction behavior, retention, and production behavior remain unverified.
+An earlier maintainer-requested local startup pass exercised Binance catalogue synchronization, REST candle bootstrap, and market-stream startup; an earlier isolated E2E pass exercised the simulator-backed catalogue, canonical seed, market stream, and disconnect/reconnect selection paths. The archive importer, checksum/checkpoint recovery, shared REST budget, persisted coverage planner, 765-day backfill, correction behavior, retention, and production behavior remain unverified.

@@ -70,6 +70,15 @@ test.describe("historical analysis configuration and reports", () => {
     expect(serverAssumptions.signalTiming).toBe("confirmed_candle_close");
     expect(serverAssumptions.entryTiming).toBe("next_candle_open");
     expect(serverAssumptions.holdingPeriodCandles).toBe(6);
+    const coverage = await appApi.getHistoricalCoverage({
+      symbol: "BTCUSDT",
+      presetCode: "price_sma_200_cross_above_1h",
+      presetVersion: 1,
+    });
+    expect(coverage.status).toBe("ready");
+    expect(coverage.maximumRangeDays).toBe(730);
+    expect(coverage.availableAnalysisDays).toBeGreaterThanOrEqual(730);
+    expect(coverage.coveragePercent).toBe(100);
 
     await newAuthenticatedPage.locator("#historical-analysis-market").click();
     await newAuthenticatedPage.getByRole("option", { name: /BTCUSDT/ }).click();

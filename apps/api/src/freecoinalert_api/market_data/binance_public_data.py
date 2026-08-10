@@ -228,6 +228,8 @@ class BinancePublicDataArchiveClient:
                         continue
                     if response.status_code >= 400:
                         raise BinanceArchiveError("provider_response_invalid")
+                    destination.seek(0)
+                    destination.truncate(0)
                     digest = hashlib.sha256()
                     total_bytes = 0
                     async for block in response.aiter_bytes():
@@ -327,7 +329,9 @@ def _parse_rows(
     rows: list[CanonicalOneMinuteCandleInput] = []
     previous_open_time: datetime | None = None
     reader = csv.reader(text_stream)
-    for raw_row in reader:
+    for row_index, raw_row in enumerate(reader):
+        if row_index == 0 and tuple(raw_row) == BINANCE_SPOT_KLINE_COLUMNS:
+            continue
         if len(raw_row) != len(BINANCE_SPOT_KLINE_COLUMNS):
             raise BinanceArchiveError("archive_columns_invalid")
         open_time = _archive_timestamp(raw_row[0], timestamp_unit)

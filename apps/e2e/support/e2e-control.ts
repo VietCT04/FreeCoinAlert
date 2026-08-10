@@ -16,7 +16,8 @@ export type HistoricalFixtureScenario =
 export type HistoricalWorkerGate =
   | "historical_analysis_before_claim"
   | "historical_analysis_after_claim"
-  | "historical_analysis_before_run";
+  | "historical_analysis_before_run"
+  | "candle_backfill_before_run";
 
 export class E2EControl {
   private readonly baseUrl = "http://e2e-control:9100";
@@ -56,6 +57,18 @@ export class E2EControl {
   async releaseHistoricalWorkerAfterClaim() {
     return this.mutate("/__e2e/historical-worker/release", {
       names: ["historical_analysis_after_claim", "historical_analysis_before_run"],
+    });
+  }
+
+  async gateCandleBackfill() {
+    return this.mutate("/__e2e/historical-worker/gates", {
+      names: ["candle_backfill_before_run"],
+    });
+  }
+
+  async releaseCandleBackfill() {
+    return this.mutate("/__e2e/historical-worker/release", {
+      names: ["candle_backfill_before_run"],
     });
   }
 

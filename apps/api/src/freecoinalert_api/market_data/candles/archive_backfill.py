@@ -71,6 +71,8 @@ class BinanceCandleArchiveImporter:
             if error.category != "archive_not_available" or not candidate.daily_fallbacks:
                 raise
             for fallback in candidate.daily_fallbacks:
+                if await self._checkpoint_is_complete(fallback.archive_key):
+                    continue
                 self._log_planned(fallback)
                 try:
                     return await self.import_archive(
@@ -81,6 +83,12 @@ class BinanceCandleArchiveImporter:
                     if fallback_error.category != "archive_not_available":
                         raise
             raise error
+
+    @staticmethod
+    async def _checkpoint_is_complete(archive_key: str) -> bool:
+        async with get_async_session_factory()() as session:
+            checkpoint = await get_checkpoint(session, archive_key=archive_key)
+            return checkpoint is not None and checkpoint.status == "complete"
 
     async def import_archive(
         self,

@@ -24,6 +24,7 @@ from typing import Literal, Protocol, cast
 from sqlalchemy.exc import SQLAlchemyError
 
 from freecoinalert_api.core.config import Settings, get_settings
+from freecoinalert_api.e2e.worker_gate import wait_for_worker_gate
 
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ BACKFILL_FAILURE_BACKOFF_SECONDS = (5, 30, 120)
 
 BackfillCoverageState = Literal["backfilling", "ready", "degraded"]
 BackfillUnitState = Literal["committed", "deferred", "complete"]
+CANDLE_BACKFILL_BEFORE_RUN_GATE = "candle_backfill_before_run"
 
 
 @dataclass(frozen=True)
@@ -113,7 +115,7 @@ BackfillCoordinatorFactory = Callable[[Settings], BackfillCoordinator]
 
 
 class BackfillIntegrationUnavailable:
-    """Degraded no-op until the approved #151/#153 coordinator is available."""
+    """Degraded no-op when the canonical backfill adapter is unavailable."""
 
     async def get_coverage_status(self) -> BackfillCoverageStatus:
         return BackfillCoverageStatus(
@@ -153,9 +155,8 @@ class BackfillIntegrationUnavailable:
 def build_backfill_coordinator(settings: Settings) -> BackfillCoordinator:
     """Load the coordinator adapter without making app readiness depend on it.
 
-    #151/#153 may land in a separate change. A missing adapter therefore keeps
-    the background service alive and visibly degraded, while an adapter with an
-    invalid contract fails loudly during worker startup.
+    A missing adapter keeps the background service alive and visibly degraded,
+    while an adapter with an invalid contract fails loudly during worker startup.
     """
 
     try:
@@ -209,6 +210,14 @@ class CandleBackfillWorker:
         coordinator = self._coordinator_factory(self._settings)
 
         while not self._stop_event.is_set():
+            await wait_for_worker_gate(
+                self._settings,
+                gate_name=CANDLE_BACKFILL_BEFORE_RUN_GATE,
+                stop_event=self._stop_event,
+                default_blocked=self._settings.e2e_candle_backfill_paused,
+            )
+            if self._stop_event.is_set():
+                break
             coverage = await coordinator.get_coverage_status()
             self._log_coverage_status(coverage)
 
@@ -222,58 +231,66 @@ class CandleBackfillWorker:
                 await self._sleep_or_stop(BACKFILL_LOCK_RETRY_SECONDS)
                 continue
 
+            work_unit: BackfillWorkUnit | None = None
+            result: BackfillUnitResult | None = None
+            deferred = False
+            started_at = time.monotonic()
             async with lease:
                 work_unit = await coordinator.next_work_unit()
-                if work_unit is None:
-                    self._failure_attempt = 0
-                    await self._sleep_or_stop(
-                        self._settings.candle_backfill_maintenance_seconds
-                    )
-                    continue
+                if work_unit is not None:
+                    try:
+                        result = await coordinator.process_work_unit(
+                            work_unit,
+                            chunk_pause_seconds=(
+                                self._settings.candle_backfill_chunk_pause_seconds
+                            ),
+                        )
+                    except SQLAlchemyError:
+                        logger.exception(
+                            "market.candle.backfill.failed "
+                            "category=backfill_database_unavailable symbol=%s archive_key=%s",
+                            work_unit.symbol,
+                            work_unit.archive_key,
+                        )
+                        raise
+                    except Exception:
+                        self._failure_attempt += 1
+                        category = "backfill_unit_failed"
+                        logger.exception(
+                            "market.candle.backfill.failed category=%s symbol=%s "
+                            "archive_key=%s attempt=%s",
+                            category,
+                            work_unit.symbol,
+                            work_unit.archive_key,
+                            self._failure_attempt,
+                        )
+                        await coordinator.defer_work_unit(
+                            work_unit,
+                            failure_category=category,
+                        )
+                        deferred = True
 
-                try:
-                    started_at = time.monotonic()
-                    result = await coordinator.process_work_unit(
-                        work_unit,
-                        chunk_pause_seconds=(
-                            self._settings.candle_backfill_chunk_pause_seconds
-                        ),
-                    )
-                except SQLAlchemyError:
-                    logger.exception(
-                        "market.candle.backfill.failed "
-                        "category=backfill_database_unavailable symbol=%s archive_key=%s",
-                        work_unit.symbol,
-                        work_unit.archive_key,
-                    )
-                    raise
-                except Exception:
-                    self._failure_attempt += 1
-                    category = "backfill_unit_failed"
-                    logger.exception(
-                        "market.candle.backfill.failed category=%s symbol=%s "
-                        "archive_key=%s attempt=%s",
-                        category,
-                        work_unit.symbol,
-                        work_unit.archive_key,
-                        self._failure_attempt,
-                    )
-                    await coordinator.defer_work_unit(
-                        work_unit,
-                        failure_category=category,
-                    )
-                    await self._sleep_or_stop(self._failure_backoff_seconds())
-                    continue
-
+            if work_unit is None:
                 self._failure_attempt = 0
-                self._log_unit_result(
-                    work_unit,
-                    result,
-                    duration_seconds=time.monotonic() - started_at,
-                )
                 await self._sleep_or_stop(
-                    self._settings.candle_backfill_chunk_pause_seconds
+                    self._settings.candle_backfill_maintenance_seconds
                 )
+                continue
+            if deferred:
+                await self._sleep_or_stop(self._failure_backoff_seconds())
+                continue
+            if result is None:
+                raise RuntimeError("The backfill coordinator returned no unit result.")
+
+            self._failure_attempt = 0
+            self._log_unit_result(
+                work_unit,
+                result,
+                duration_seconds=time.monotonic() - started_at,
+            )
+            await self._sleep_or_stop(
+                self._settings.candle_backfill_chunk_pause_seconds
+            )
 
         logger.info("market.candle.backfill.stopped")
         return 0

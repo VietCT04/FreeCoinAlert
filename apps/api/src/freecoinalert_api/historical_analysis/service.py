@@ -25,6 +25,9 @@ from freecoinalert_api.db.repositories.signal_presets import (
     get_active_preset_by_code_version,
     get_preset_by_code_version,
 )
+from freecoinalert_api.db.repositories.market_candle_coverage import (
+    get_market_candle_coverage,
+)
 from freecoinalert_api.db.repositories.supported_markets import get_supported_market
 from freecoinalert_api.historical_analysis.engine import (
     ASSUMPTION_VERSION,
@@ -56,9 +59,14 @@ from freecoinalert_api.historical_analysis.strategy import (
     normalize_strategy,
 )
 from freecoinalert_api.market_data.catalog import utc_now
+from freecoinalert_api.market_data.candles.constants import CANDLE_REQUIRED_RETENTION_DAYS
+from freecoinalert_api.market_data.candles.coverage import (
+    resolve_coverage_for_analysis,
+)
 from freecoinalert_api.schemas.historical_analysis import (
     HistoricalAnalysisAssumptionsResponse,
     HistoricalAnalysisConfigurationResponse,
+    HistoricalAnalysisCoverageResponse,
     HistoricalAnalysisCreateRequest,
     HistoricalAnalysisMarketSnapshotResponse,
     HistoricalAnalysisPresetParametersResponse,
@@ -761,6 +769,110 @@ def configuration_response() -> HistoricalAnalysisConfigurationResponse:
             end_of_range="open_at_end_mark_to_market",
         ),
         strategy_capabilities=capabilities_payload(configurable_available=True),
+    )
+
+
+async def coverage_response(
+    session: AsyncSession,
+    *,
+    exchange: str,
+    market_type: str,
+    symbol: str,
+    preset_code: str,
+    preset_version: int,
+) -> HistoricalAnalysisCoverageResponse:
+    market = await get_supported_market(
+        session,
+        exchange=exchange,
+        market_type=market_type,
+        symbol=symbol,
+    )
+    if (
+        market is None
+        or not market.product_enabled
+        or market.base_asset is None
+        or market.quote_asset is None
+    ):
+        raise market_not_found_error()
+
+    preset = await get_active_preset_by_code_version(
+        session,
+        code=preset_code,
+        version=preset_version,
+    )
+    if preset is None:
+        known_preset = await get_preset_by_code_version(
+            session,
+            code=preset_code,
+            version=preset_version,
+        )
+        if known_preset is None:
+            raise preset_not_found_error()
+        raise preset_unavailable_error()
+
+    required_warmup_candles = resolve_required_warmup(preset)
+    timeframe_hours = TIMEFRAME_HOURS[preset.timeframe]
+    target_end = latest_fully_closed_boundary(utc_now(), timeframe_hours)
+    target_start = target_end - timedelta(days=CANDLE_REQUIRED_RETENTION_DAYS)
+    persisted = await get_market_candle_coverage(
+        session,
+        supported_market_id=market.id,
+        timeframe=preset.timeframe,
+    )
+
+    if persisted is None:
+        return HistoricalAnalysisCoverageResponse(
+            market={
+                "exchange": market.exchange,
+                "market_type": market.market_type,
+                "symbol": market.symbol,
+            },
+            preset={
+                "code": preset.code,
+                "version": preset.version,
+                "timeframe": preset.timeframe,
+            },
+            status="unavailable",
+            first_analysis_start=None,
+            last_analysis_end=None,
+            available_analysis_days=0,
+            minimum_range_days=MINIMUM_RANGE_DAYS,
+            maximum_range_days=MAXIMUM_RANGE_DAYS,
+            verified_at=None,
+            available_start=None,
+            available_end=None,
+            target_start=target_start,
+            target_end=target_end,
+            coverage_percent=0.0,
+        )
+
+    resolution = resolve_coverage_for_analysis(
+        persisted,
+        required_warmup_candles=required_warmup_candles,
+    )
+    return HistoricalAnalysisCoverageResponse(
+        market={
+            "exchange": market.exchange,
+            "market_type": market.market_type,
+            "symbol": market.symbol,
+        },
+        preset={
+            "code": preset.code,
+            "version": preset.version,
+            "timeframe": preset.timeframe,
+        },
+        status=resolution.status,
+        first_analysis_start=resolution.first_selectable_analysis_start,
+        last_analysis_end=resolution.latest_selectable_analysis_end,
+        available_analysis_days=resolution.available_analysis_days,
+        minimum_range_days=MINIMUM_RANGE_DAYS,
+        maximum_range_days=MAXIMUM_RANGE_DAYS,
+        verified_at=resolution.verified_at,
+        available_start=resolution.raw_contiguous_start,
+        available_end=resolution.raw_contiguous_end,
+        target_start=persisted.target_start,
+        target_end=persisted.target_end,
+        coverage_percent=float(persisted.coverage_percent),
     )
 
 

@@ -13,6 +13,18 @@ export type TelegramOutcome =
   | "rate_limited"
   | "uncertain";
 
+export type BinanceRestOutcome =
+  | "success"
+  | "rate_limited"
+  | "ip_banned"
+  | "server_error";
+
+export type BinanceArchiveOutcome =
+  | "available"
+  | "not_found"
+  | "checksum_mismatch"
+  | "server_error";
+
 export function telegramChatIdForUser(userId: string): number {
   const numericUserId = Number.parseInt(userId.replaceAll("-", "").slice(0, 12), 16);
   return 700_000_000 + (numericUserId % 9_000_000_000_000);
@@ -71,6 +83,26 @@ export class ProviderControl {
 
   async reconnectBinance() {
     return this.mutate("/__e2e/binance/reconnect");
+  }
+
+  async queueBinanceRestOutcomes(outcomes: BinanceRestOutcome[]) {
+    return this.mutate("/__e2e/binance/rest-outcomes", { outcomes });
+  }
+
+  async setBinanceArchiveOutcomes(
+    outcomes: Record<string, BinanceArchiveOutcome>,
+  ) {
+    return this.mutate("/__e2e/binance/archive-outcomes", { outcomes });
+  }
+
+  async getBinanceCounters(): Promise<Record<string, unknown>> {
+    const response = await this.request.get(`${this.baseUrl}/__e2e/binance/counters`, {
+      headers: this.headers(),
+    });
+    if (!response.ok()) {
+      throw new Error("The E2E Binance counter request failed.");
+    }
+    return (await response.json()) as Record<string, unknown>;
   }
 
   async queueTelegramStart(token: string, chatId = 700000001) {

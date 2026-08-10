@@ -1,4 +1,5 @@
 import http from "node:http";
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import { dirname } from "node:path";
 import { URL } from "node:url";
@@ -27,6 +28,8 @@ const OUTCOMES = new Set([
   "rate_limited",
   "uncertain",
 ]);
+const REST_OUTCOMES = new Set(["success", "rate_limited", "ip_banned", "server_error"]);
+const ARCHIVE_OUTCOMES = new Set(["available", "not_found", "checksum_mismatch", "server_error"]);
 
 const state = {
   sequence: 0,
@@ -42,6 +45,11 @@ const state = {
   telegramOutcomes: [],
   telegramMessages: [],
   browserVisits: [],
+  restOutcomes: [],
+  restRequestCounts: new Map(),
+  archiveOutcomes: new Map(),
+  archiveRequestCounts: new Map(),
+  archivePayloads: new Map(),
   workerGates: new Map(),
   eventTimeMs: E2E_CLOCK_NOW_MS - 1_000,
 };
@@ -96,6 +104,10 @@ async function routeHttpRequest(request, response) {
     await routeBinance(request, response, requestUrl);
     return;
   }
+  if (requestUrl.pathname.startsWith("/data/spot/")) {
+    await routePublicArchive(request, response, requestUrl);
+    return;
+  }
   if (requestUrl.pathname.startsWith("/bot") || requestUrl.pathname.startsWith("/file/bot")) {
     await routeTelegramApi(request, response, requestUrl);
     return;
@@ -117,6 +129,11 @@ async function routeControl(request, response, requestUrl) {
     state.telegramOutcomes = normalizeOutcomes(body.outcomes || []);
     state.telegramMessages = [];
     state.browserVisits = [];
+    state.restOutcomes = [];
+    state.restRequestCounts.clear();
+    state.archiveOutcomes.clear();
+    state.archiveRequestCounts.clear();
+    state.archivePayloads.clear();
     // Telegram update IDs are monotonic for the lifetime of a bot. Keep the
     // counter across fixture resets so the real poller's offset remains valid.
     state.nextMessageId = 1;
@@ -166,6 +183,28 @@ async function routeControl(request, response, requestUrl) {
     });
     return;
   }
+  if (request.method === "POST" && requestUrl.pathname === "/__e2e/binance/rest-outcomes") {
+    state.restOutcomes = normalizeRestOutcomes(body.outcomes);
+    sendJson(response, 200, { ...acknowledge(), outcomes: state.restOutcomes });
+    return;
+  }
+  if (request.method === "POST" && requestUrl.pathname === "/__e2e/binance/archive-outcomes") {
+    state.archiveOutcomes.clear();
+    for (const [archiveKey, outcome] of Object.entries(body.outcomes || {})) {
+      if (ARCHIVE_OUTCOMES.has(outcome)) {
+        state.archiveOutcomes.set(archiveKey, outcome);
+      }
+    }
+    sendJson(response, 200, { ...acknowledge(), outcomes: Object.fromEntries(state.archiveOutcomes) });
+    return;
+  }
+  if (request.method === "GET" && requestUrl.pathname === "/__e2e/binance/counters") {
+    sendJson(response, 200, {
+      rest: Object.fromEntries(state.restRequestCounts),
+      archives: Object.fromEntries(state.archiveRequestCounts),
+    });
+    return;
+  }
   if (request.method === "POST" && requestUrl.pathname === "/__e2e/historical-worker/gates") {
     const names = normalizeGateNames(body.names);
     for (const name of names) {
@@ -192,11 +231,36 @@ async function routeBinance(request, response, requestUrl) {
     sendJson(response, 405, { code: -1, msg: "method_not_allowed" });
     return;
   }
+  const route = requestUrl.pathname.slice("/api/v3/".length);
+  incrementCount(state.restRequestCounts, route);
+  const outcome = state.restOutcomes.shift() || "success";
+  if (outcome === "rate_limited" || outcome === "ip_banned") {
+    response.setHeader("Retry-After", "3600");
+    response.setHeader("X-MBX-USED-WEIGHT-1M", "1200");
+    sendJson(response, outcome === "rate_limited" ? 429 : 418, {
+      code: outcome === "rate_limited" ? -1003 : -1003,
+      msg: outcome,
+    });
+    return;
+  }
+  if (outcome === "server_error") {
+    sendJson(response, 503, { code: -1, msg: "server_error" });
+    return;
+  }
   if (requestUrl.pathname === "/api/v3/exchangeInfo") {
     const requested = parseSymbolsParameter(requestUrl.searchParams.get("symbols"));
+    response.setHeader("X-MBX-USED-WEIGHT-1M", "20");
     sendJson(response, 200, {
       timezone: "UTC",
       serverTime: simulatorTimeMs(),
+      rateLimits: [
+        {
+          rateLimitType: "REQUEST_WEIGHT",
+          interval: "MINUTE",
+          intervalNum: 1,
+          limit: 1200,
+        },
+      ],
       symbols: requested.map(exchangeInfoSymbol),
     });
     return;
@@ -218,10 +282,172 @@ async function routeBinance(request, response, requestUrl) {
     for (let openTime = startTime - (startTime % 60_000); openTime < endTime && rows.length < limit; openTime += 60_000) {
       rows.push(binanceKlineRow(binanceKline(symbol, openTime)));
     }
+    response.setHeader("X-MBX-USED-WEIGHT-1M", "2");
     sendJson(response, 200, rows);
     return;
   }
   sendJson(response, 404, { code: -1, msg: "not_found" });
+}
+
+async function routePublicArchive(request, response, requestUrl) {
+  if (request.method !== "GET") {
+    sendJson(response, 405, { code: -1, msg: "method_not_allowed" });
+    return;
+  }
+
+  const archiveKey = requestUrl.pathname.slice(1);
+  incrementCount(state.archiveRequestCounts, archiveKey);
+  const baseArchiveKey = archiveKey.endsWith(".CHECKSUM")
+    ? archiveKey.slice(0, -".CHECKSUM".length)
+    : archiveKey;
+  const outcome = state.archiveOutcomes.get(archiveKey)
+    || state.archiveOutcomes.get(baseArchiveKey)
+    || "available";
+  if (outcome === "server_error") {
+    sendJson(response, 503, { code: -1, msg: "server_error" });
+    return;
+  }
+
+  const fixture = getArchiveFixture(archiveKey);
+  if (fixture === null || outcome === "not_found") {
+    sendJson(response, 404, { code: -1, msg: "not_found" });
+    return;
+  }
+  if (archiveKey.endsWith(".CHECKSUM")) {
+    const checksum = outcome === "checksum_mismatch"
+      ? "0".repeat(64)
+      : fixture.checksum;
+    response.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+    response.end(`${checksum}  ${fixture.filename}\n`);
+    return;
+  }
+  response.writeHead(200, { "content-type": "application/zip" });
+  response.end(fixture.bytes);
+}
+
+function getArchiveFixture(archiveKey) {
+  const checksumKey = archiveKey.endsWith(".CHECKSUM")
+    ? archiveKey.slice(0, -".CHECKSUM".length)
+    : archiveKey;
+  const cached = state.archivePayloads.get(checksumKey);
+  if (cached) return cached;
+
+  const match = checksumKey.match(
+    /^data\/spot\/(monthly|daily)\/klines\/([A-Z0-9]+)\/1m\/([^/]+\.zip)$/,
+  );
+  if (!match) return null;
+  const [, granularity, symbol, filename] = match;
+  const supportedFixture = (
+    granularity === "monthly" && symbol === "ETHUSDT" && filename === "ETHUSDT-1m-2025-01.zip"
+  ) || (
+    granularity === "daily" && symbol === "BTCUSDT" && filename === "BTCUSDT-1m-2024-12-31.zip"
+  ) || (
+    granularity === "daily" && symbol === "ETHUSDT" && filename === "ETHUSDT-1m-2025-01-02.zip"
+  );
+  if (!supportedFixture) return null;
+
+  const periodLabel = filename.slice(`${symbol}-1m-`.length, -".zip".length);
+  const periodStart = granularity === "monthly"
+    ? Date.parse(`${periodLabel}-01T00:00:00.000Z`)
+    : Date.parse(`${periodLabel}T00:00:00.000Z`);
+  const periodEnd = granularity === "monthly"
+    ? Date.UTC(new Date(periodStart).getUTCFullYear(), new Date(periodStart).getUTCMonth() + 1, 1)
+    : periodStart + 24 * 60 * 60 * 1000;
+  const timestampMultiplier = periodStart < Date.UTC(2025, 0, 1) ? 1 : 1000;
+  const rowCount = Math.round((periodEnd - periodStart) / 60_000);
+  const rows = [];
+  for (let index = 0; index < rowCount; index += 1) {
+    const openTime = periodStart + index * 60_000;
+    const open = 100 + (index % 600) / 100;
+    const close = open + 0.01;
+    const high = close + 0.02;
+    const low = open - 0.02;
+    const rawOpenTime = Math.round(openTime * timestampMultiplier);
+    const rawCloseTime = Math.round((openTime + 59_999) * timestampMultiplier);
+    rows.push([
+      rawOpenTime,
+      open.toFixed(6),
+      high.toFixed(6),
+      low.toFixed(6),
+      close.toFixed(6),
+      "1.000000",
+      rawCloseTime,
+      close.toFixed(6),
+      1,
+      0,
+      1,
+      0,
+    ].join(","));
+  }
+  const csv = Buffer.from(`${rows.join("\n")}\n`, "utf8");
+  const bytes = createStoredZip(filename.replace(".zip", ".csv"), csv);
+  const fixture = {
+    filename,
+    bytes,
+    checksum: crypto.createHash("sha256").update(bytes).digest("hex"),
+  };
+  state.archivePayloads.set(checksumKey, fixture);
+  return fixture;
+}
+
+function createStoredZip(filename, content) {
+  const name = Buffer.from(filename, "utf8");
+  const checksum = crc32(content);
+  const local = Buffer.alloc(30 + name.length);
+  local.writeUInt32LE(0x04034b50, 0);
+  local.writeUInt16LE(20, 4);
+  local.writeUInt32LE(0, 6);
+  local.writeUInt16LE(0, 8);
+  local.writeUInt16LE(0, 10);
+  local.writeUInt16LE(0, 12);
+  local.writeUInt32LE(checksum, 14);
+  local.writeUInt32LE(content.length, 18);
+  local.writeUInt32LE(content.length, 22);
+  local.writeUInt16LE(name.length, 26);
+  local.writeUInt16LE(0, 28);
+  name.copy(local, 30);
+
+  const central = Buffer.alloc(46 + name.length);
+  central.writeUInt32LE(0x02014b50, 0);
+  central.writeUInt16LE(20, 4);
+  central.writeUInt16LE(20, 6);
+  central.writeUInt32LE(0, 8);
+  central.writeUInt16LE(0, 10);
+  central.writeUInt16LE(0, 12);
+  central.writeUInt16LE(0, 14);
+  central.writeUInt32LE(checksum, 16);
+  central.writeUInt32LE(content.length, 20);
+  central.writeUInt32LE(content.length, 24);
+  central.writeUInt16LE(name.length, 28);
+  central.writeUInt16LE(0, 30);
+  central.writeUInt16LE(0, 32);
+  central.writeUInt16LE(0, 34);
+  central.writeUInt16LE(0, 36);
+  central.writeUInt32LE(0, 38);
+  central.writeUInt32LE(0, 42);
+  name.copy(central, 46);
+
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(0, 4);
+  end.writeUInt16LE(0, 6);
+  end.writeUInt16LE(1, 8);
+  end.writeUInt16LE(1, 10);
+  end.writeUInt32LE(central.length, 12);
+  end.writeUInt32LE(local.length + content.length, 16);
+  end.writeUInt16LE(0, 20);
+  return Buffer.concat([local, content, central, end]);
+}
+
+function crc32(buffer) {
+  let value = 0xffffffff;
+  for (const byte of buffer) {
+    value ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      value = (value >>> 1) ^ (value & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (value ^ 0xffffffff) >>> 0;
 }
 
 async function routeTelegramApi(request, response, requestUrl) {
@@ -535,6 +761,16 @@ function normalizeSymbols(value) {
 
 function normalizeOutcomes(value) {
   return Array.isArray(value) ? value.filter((outcome) => OUTCOMES.has(outcome)) : [];
+}
+
+function normalizeRestOutcomes(value) {
+  return Array.isArray(value)
+    ? value.filter((outcome) => REST_OUTCOMES.has(outcome))
+    : [];
+}
+
+function incrementCount(counts, key) {
+  counts.set(key, (counts.get(key) || 0) + 1);
 }
 
 function normalizeGateNames(value) {
