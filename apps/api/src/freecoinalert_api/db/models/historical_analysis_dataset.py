@@ -17,6 +17,10 @@ from sqlalchemy.sql import func
 from freecoinalert_api.db.base import Base
 
 
+MAXIMUM_ANALYSIS_CANDLES_BY_TIMEFRAME = {"1h": 17_520, "4h": 4_380}
+MAXIMUM_REQUIRED_WARMUP_CANDLES = 200
+
+
 class HistoricalAnalysisDataset(Base):
     __tablename__ = "historical_analysis_datasets"
     __table_args__ = (
@@ -45,7 +49,11 @@ class HistoricalAnalysisDataset(Base):
             "AND warmup_candle_count >= 0 "
             "AND analysis_candle_count >= 0 "
             "AND total_candle_count >= 0 "
-            "AND total_candle_count <= 2500",
+            f"AND required_warmup_candles <= {MAXIMUM_REQUIRED_WARMUP_CANDLES} "
+            "AND ((timeframe = '1h' AND total_candle_count <= "
+            f"{MAXIMUM_ANALYSIS_CANDLES_BY_TIMEFRAME['1h']} + required_warmup_candles) "
+            "OR (timeframe = '4h' AND total_candle_count <= "
+            f"{MAXIMUM_ANALYSIS_CANDLES_BY_TIMEFRAME['4h']} + required_warmup_candles))",
             name="ck_historical_analysis_datasets_counts_nonnegative",
         ),
         CheckConstraint(

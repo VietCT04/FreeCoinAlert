@@ -43,6 +43,9 @@ from freecoinalert_api.historical_analysis.errors import (
     strategy_invalid_error,
     unavailable_error,
 )
+from freecoinalert_api.historical_analysis.coverage import (
+    historical_analysis_coverage_service,
+)
 from freecoinalert_api.historical_analysis.strategy import (
     CONFIGURABLE_ASSUMPTION_VERSION,
     CONFIGURABLE_SIMULATION_VERSION,
@@ -70,7 +73,7 @@ from freecoinalert_api.schemas.auth import to_camel_case
 logger = logging.getLogger(__name__)
 
 MINIMUM_RANGE_DAYS = 7
-MAXIMUM_RANGE_DAYS = 90
+MAXIMUM_RANGE_DAYS = 730
 MAXIMUM_ACTIVE_RUNS = 2
 SIMULATION_VERSION = ENGINE_VERSION
 
@@ -96,6 +99,17 @@ class NormalizedHistoricalAnalysisRequest:
     analysis_start: datetime
     analysis_end: datetime
     strategy_payload: Mapping[str, object] | None
+
+
+@dataclass(frozen=True, slots=True)
+class HistoricalAnalysisRangeBounds:
+    timeframe: str
+    timeframe_delta: timedelta
+    analysis_start: datetime
+    analysis_end: datetime
+    warmup_start: datetime
+    required_warmup_candles: int
+    expected_analysis_candles: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,13 +209,25 @@ class HistoricalAnalysisService:
             calculation_version = resolve_calculation_version(preset)
             strategy = strategy_for_preset(normalized, preset, calculation_version)
             required_warmup_candles = resolve_required_warmup(preset)
-            validate_range(
+            range_bounds = validate_range(
                 normalized,
                 timeframe=preset.timeframe,
                 required_warmup_candles=required_warmup_candles,
                 current_time=utc_now(),
-                candle_retention_days=settings.candle_retention_days,
             )
+            coverage = await historical_analysis_coverage_service.resolve(
+                session,
+                supported_market_id=market.id,
+                timeframe=range_bounds.timeframe,
+                start_open_time=range_bounds.warmup_start,
+                end_open_time=range_bounds.analysis_end,
+                timeframe_delta=range_bounds.timeframe_delta,
+                expected_candle_count=(
+                    required_warmup_candles + range_bounds.expected_analysis_candles
+                ),
+            )
+            if not coverage.is_usable:
+                raise range_unavailable_error()
 
             active_count = await count_active_historical_analysis_runs(
                 session,
@@ -573,8 +599,7 @@ def validate_range(
     timeframe: str,
     required_warmup_candles: int,
     current_time: datetime,
-    candle_retention_days: int,
-) -> None:
+) -> HistoricalAnalysisRangeBounds:
     timeframe_hours = TIMEFRAME_HOURS.get(timeframe)
     if timeframe_hours is None:
         raise preset_unavailable_error()
@@ -598,9 +623,16 @@ def validate_range(
         raise range_unavailable_error()
 
     warmup_start = request.analysis_start - required_warmup_candles * timeframe_delta
-    retention_cutoff = current_time - timedelta(days=candle_retention_days)
-    if warmup_start < retention_cutoff:
-        raise range_unavailable_error()
+    expected_analysis_candles = int(visible_range // timeframe_delta)
+    return HistoricalAnalysisRangeBounds(
+        timeframe=timeframe,
+        timeframe_delta=timeframe_delta,
+        analysis_start=request.analysis_start,
+        analysis_end=request.analysis_end,
+        warmup_start=warmup_start,
+        required_warmup_candles=required_warmup_candles,
+        expected_analysis_candles=expected_analysis_candles,
+    )
 
 
 def is_timeframe_boundary(value: datetime, timeframe_hours: int) -> bool:

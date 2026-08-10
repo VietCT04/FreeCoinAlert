@@ -64,7 +64,7 @@ test.describe("historical analysis configuration and reports", () => {
     await infoDialog.getByRole("button", { name: "Close", exact: true }).click();
     const configuration = await appApi.getHistoricalConfiguration();
     expect(configuration.minimumRangeDays).toBe(7);
-    expect(configuration.maximumRangeDays).toBe(90);
+    expect(configuration.maximumRangeDays).toBe(730);
     expect(configuration.maximumActiveRuns).toBe(2);
     const serverAssumptions = configuration.assumptions as Record<string, unknown>;
     expect(serverAssumptions.signalTiming).toBe("confirmed_candle_close");
@@ -95,10 +95,19 @@ test.describe("historical analysis configuration and reports", () => {
     await review.click();
     await expect(newAuthenticatedPage.getByText("Choose at least", { exact: false })).toBeVisible();
 
-    await start.fill("2026-04-01");
+    await start.fill("2024-08-01");
     await end.fill("2026-08-02");
     await review.click();
     await expect(newAuthenticatedPage.getByText("Choose no more than", { exact: false })).toBeVisible();
+
+    await start.fill("2024-08-02");
+    await end.fill("2026-08-02");
+    await review.click();
+    await expect(newAuthenticatedPage.getByRole("dialog", { name: "Review analysis" })).toBeVisible();
+    await newAuthenticatedPage
+      .getByRole("dialog", { name: "Review analysis" })
+      .getByRole("button", { name: "Back", exact: true })
+      .click();
 
     await start.fill("2026-07-20");
     await end.fill("2026-08-02");
