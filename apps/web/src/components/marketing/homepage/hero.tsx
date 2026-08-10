@@ -10,7 +10,7 @@ export function Hero() {
     <section
       aria-labelledby="homepage-hero-heading"
       className="marketing-homepage__hero relative isolate overflow-hidden border-b"
-      id="product-showcase"
+      id="homepage-hero"
     >
       <div aria-hidden="true" className="marketing-homepage__hero-depth" />
       <div className="relative mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)] lg:items-center lg:px-8 lg:py-28">

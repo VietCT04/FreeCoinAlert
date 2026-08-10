@@ -14,6 +14,8 @@ The public educational content surface is a server-rendered `/guides` hub and a 
 
 The public acquisition surface also includes seven explicit server-rendered landing pages: `/crypto-backtesting`, `/crypto-strategy-tester`, `/bitcoin-backtest`, `/rsi-backtest`, `/sma-backtest`, `/tp-sl-backtest`, and `/strategy-alerts`. Each owns a distinct supported product intent, example configuration, limitation boundary, breadcrumb, related links, and backtesting CTA. These pages explain the controlled Binance Spot catalogue, confirmed-candle/next-open assumptions, and the boundary between historical exits and live entry-only monitoring; they do not claim rankings, predictions, profitability, or live trade execution. The public SEO metadata, canonical, robots, sitemap, and Search Console operating contract is owned by [SEO.md](SEO.md).
 
+The public homepage is a focused backtest-to-alert story: a product-oriented hero with a static strategy preview, a proof strip, a Build/Backtest/Monitor flow, a strategy-and-report showcase, three product differentiators, a methodology disclosure, a concise FAQ, and one final CTA. Its global public navigation keeps Backtest, Alerts, Guides, Sign in, and Start free available across public routes; the mobile navigation uses an accessible sheet. The preview is illustrative only and does not claim live market data or performance.
+
 ## Current User Journeys
 
 - Register or sign in with an email address and password, restore the browser session, and sign out.
