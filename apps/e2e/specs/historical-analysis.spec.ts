@@ -835,6 +835,63 @@ test.describe("historical analysis configuration and reports", () => {
       await loadTrades.click();
     }
   });
+
+  test("persists an RSI open-at-end trade with a null outcome and final mark", async ({
+    appApi,
+  }) => {
+    const response = await appApi.createHistoricalAnalysis({
+      symbol: "BTCUSDT",
+      presetCode: "rsi_14_cross_below_30_1h",
+      presetVersion: 1,
+      analysisStart: "2026-07-20T00:00:00Z",
+      analysisEnd: "2026-08-03T00:00:00Z",
+      strategy: {
+        position_direction: "long",
+        exit_rules: [{ type: "max_holding_candles", candles: 2_200 }],
+      },
+    });
+    const runId = String((response.run as { id: string }).id);
+    await waitForHistoricalStatus(appApi, runId, "succeeded");
+
+    const reportResponse = await appApi.getHistoricalReport(runId);
+    const report = reportResponse.report as {
+      analysisEnd: string;
+      candlePreview: Array<{
+        candleCloseTime: string;
+        closePrice: string;
+      }>;
+      strategy: {
+        entryPresetCode: string;
+      };
+      summary: {
+        openAtEndCount: number;
+      };
+    };
+    expect(report.strategy.entryPresetCode).toBe("rsi_14_cross_below_30_1h");
+    expect(report.summary.openAtEndCount).toBeGreaterThan(0);
+    const finalCandle = report.candlePreview.at(-1);
+    expect(finalCandle).toBeDefined();
+
+    const trades: Array<Record<string, unknown>> = [];
+    let tradeCursor: string | undefined;
+    do {
+      const page = await appApi.getHistoricalTrades(runId, tradeCursor);
+      trades.push(...((page.trades as Array<Record<string, unknown>> | undefined) ?? []));
+      tradeCursor = (page.nextCursor as string | null | undefined) ?? undefined;
+    } while (tradeCursor);
+
+    const openTrade = trades.find((trade) => trade.tradeStatus === "open_at_end");
+    expect(openTrade).toBeDefined();
+    expect(openTrade?.signalDirection).toBe("cross_below");
+    expect(openTrade?.outcome).toBeNull();
+    expect(openTrade?.markPrice).toBe(finalCandle?.closePrice);
+    expect(normalizeUtc(String(openTrade?.markCloseTime))).toBe(
+      normalizeUtc(String(finalCandle?.candleCloseTime)),
+    );
+    expect(normalizeUtc(String(openTrade?.markCloseTime))).toBe(
+      normalizeUtc(report.analysisEnd),
+    );
+  });
 });
 
 function expectMetricCount(
