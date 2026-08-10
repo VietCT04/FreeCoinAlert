@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document owns the current testing boundary, verification vocabulary, isolated full-stack E2E environment, Playwright workspace, and repository runner. A previous maintainer-requested full `pnpm e2e` pass exercised the then-current isolated stack and 65 browser cases successfully; the SEO public-route, monitor-entry, and current historical open-position/report changes in this change remain unverified, and this does not claim production-provider or broader runtime verification.
+This document owns the current testing boundary, verification vocabulary, isolated full-stack E2E environment, Playwright workspace, and repository runner. Local verification covers the current historical open-at-end persistence path; the focused E2E regression remains unverified after its authentication-fixture correction, and this does not claim production-provider or broader runtime verification.
 
 ## Verification Boundary
 
@@ -28,7 +28,7 @@ The normal candle bootstrap is disabled. After migration and catalogue initializ
 
 ## Playwright Workspace
 
-The `apps/e2e` workspace pins `@playwright/test` to `1.62.0`, uses `mcr.microsoft.com/playwright:v1.62.0-noble`, and pins `@axe-core/playwright` to `4.12.1`. The package and image versions must remain equal for Playwright. The image activates pnpm `11.4.0`, uses the repository lockfile, runs trusted repository tests only, and sets `init: true` and `ipc: host` in Compose. Browser binaries are never installed on the developer host by the E2E commands. The web service installs only the web workspace and its workspace dependencies, and the E2E web override allows five minutes for the fresh dependency volume to finish that locked install before health checks can fail.
+The `apps/e2e` workspace pins `@playwright/test` to `1.62.0`, uses `mcr.microsoft.com/playwright:v1.62.0-noble`, and pins `@axe-core/playwright` to `4.12.1`. The package and image versions must remain equal for Playwright. The image activates pnpm `11.4.0`, uses the repository lockfile, runs trusted repository tests only, and sets `init: true` and `ipc: host` in Compose. Browser binaries are never installed on the developer host by the E2E commands. The web service installs only the web workspace and its workspace dependencies, and the E2E web override allows fifteen minutes for the fresh dependency volume to finish that locked install before health checks can fail.
 
 The configuration has two deterministic projects:
 
@@ -128,4 +128,4 @@ The runner does not print a ready state when any required service is unhealthy, 
 | Complete feature journey suite and route coverage map | Implemented | Verified |
 | Public SEO metadata, canonical, sitemap, robots, structured-data, social-image, link, mobile-navigation, and private noindex specifications | Implemented | Unverified |
 
-The previous maintainer-requested full `pnpm e2e` pass ran the isolated Compose startup, migrations, deterministic seed, provider simulator, real application workers, Playwright browser journeys, artifact handling, and teardown: 65 passed, 0 failed, 0 skipped, and 0 timed out. That pass predates the public SEO, monitor-entry, and current historical open-position/report changes. No test, build, migration, package-install, lint, format, or type-check command was run for this change, and no production provider or maintenance/reset pass was performed.
+The previous maintainer-requested full `pnpm e2e` pass ran the isolated Compose startup, migrations, deterministic seed, provider simulator, real application workers, Playwright browser journeys, artifact handling, and teardown: 65 passed, 0 failed, 0 skipped, and 0 timed out. That pass predates the public SEO, monitor-entry, and current historical open-position/report changes. For the current open-at-end persistence change, local Compose startup, Alembic application to an existing volume, and a fresh successful report were verified. The focused E2E regression was corrected after its first run exposed a missing authenticated-session fixture, but was not rerun; production-provider, maintenance, reset, and full-suite behavior remain unverified.

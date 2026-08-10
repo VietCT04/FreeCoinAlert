@@ -168,7 +168,7 @@ class HistoricalAnalysisTrade(Base):
     exit_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
     exit_price_basis: Mapped[str | None] = mapped_column(String(64), nullable=True)
     exit_rule_snapshot: Mapped[dict[str, object] | None] = mapped_column(
-        JSONB,
+        JSONB(none_as_null=True),
         nullable=True,
     )
     mark_candle_id: Mapped[uuid.UUID | None] = mapped_column(
