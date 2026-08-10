@@ -285,7 +285,7 @@ export function CandleChart({
     );
   }
 
-  const tradeCount = Math.floor(plotData.markers.length / 2);
+  const tradeCount = new Set(plotData.markers.map((marker) => marker.sequence)).size;
   const chartLabel = `Candlestick chart for ${symbol} with ${tradeCount} hypothetical trades and buy and sell markers`;
   const chartCanvas = (
     <div

@@ -726,7 +726,7 @@ def configuration_response() -> HistoricalAnalysisConfigurationResponse:
             slippage_bps_per_side="5",
             position_sizing="one_position_full_equity",
             overlapping_signals="ignored",
-            end_of_range="incomplete_trade_not_opened",
+            end_of_range="open_at_end_mark_to_market",
         ),
         strategy_capabilities=capabilities_payload(configurable_available=True),
     )

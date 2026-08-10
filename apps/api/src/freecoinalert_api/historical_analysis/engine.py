@@ -21,12 +21,22 @@ from freecoinalert_api.strategies.decimal_math import CALCULATION_PRECISION
 from freecoinalert_api.strategies.errors import StrategyCalculationError
 
 
-ENGINE_VERSION = "historical_fixed_preset_v1"
-ASSUMPTION_VERSION = "fixed_horizon_v1"
-RESULT_FINGERPRINT_SCHEMA_VERSION = "historical_simulation_result_v1"
-CONFIGURABLE_ENGINE_VERSION = "historical_configurable_exit_v1"
-CONFIGURABLE_ASSUMPTION_VERSION = "configurable_exit_v1"
-CONFIGURABLE_RESULT_FINGERPRINT_SCHEMA_VERSION = "historical_simulation_result_v2"
+LEGACY_ENGINE_VERSION = "historical_fixed_preset_v1"
+LEGACY_ASSUMPTION_VERSION = "fixed_horizon_v1"
+LEGACY_RESULT_FINGERPRINT_SCHEMA_VERSION = "historical_simulation_result_v1"
+ENGINE_VERSION = "historical_fixed_preset_v2"
+ASSUMPTION_VERSION = "fixed_horizon_v2"
+RESULT_FINGERPRINT_SCHEMA_VERSION = "historical_simulation_result_v3"
+LEGACY_CONFIGURABLE_ENGINE_VERSION = "historical_configurable_exit_v1"
+LEGACY_CONFIGURABLE_ASSUMPTION_VERSION = "configurable_exit_v1"
+LEGACY_CONFIGURABLE_RESULT_FINGERPRINT_SCHEMA_VERSION = "historical_simulation_result_v2"
+CONFIGURABLE_ENGINE_VERSION = "historical_configurable_exit_v2"
+CONFIGURABLE_ASSUMPTION_VERSION = "configurable_exit_v2"
+CONFIGURABLE_RESULT_FINGERPRINT_SCHEMA_VERSION = "historical_simulation_result_v3"
+CONFIGURABLE_ENGINE_VERSIONS = frozenset(
+    {LEGACY_CONFIGURABLE_ENGINE_VERSION, CONFIGURABLE_ENGINE_VERSION}
+)
+FIXED_ENGINE_VERSIONS = frozenset({LEGACY_ENGINE_VERSION, ENGINE_VERSION})
 
 MAX_TOTAL_CANDLES = 2_500
 MAX_ANALYSIS_CANDLES = 2_200
@@ -41,6 +51,7 @@ SignalDirection = Literal["cross_above", "cross_below"]
 PositionDirection = Literal["long", "synthetic_short"]
 PositionState = Literal["flat", "long", "synthetic_short"]
 TradeOutcome = Literal["win", "loss", "flat"]
+TradeStatus = Literal["closed", "open_at_end"]
 
 SimulationStatus = Literal[
     "success",
@@ -223,7 +234,7 @@ class HistoricalPresetSnapshot:
 
 @dataclass(frozen=True, slots=True)
 class FixedHorizonAssumptions:
-    """The complete server-controlled ``fixed_horizon_v1`` contract."""
+    """The complete server-controlled fixed-horizon v1/v2 contract."""
 
     initial_equity: Decimal
     signal_timing: Literal["confirmed_candle_close"]
@@ -239,14 +250,17 @@ class FixedHorizonAssumptions:
     stop_loss: None
     take_profit: None
     early_exit: None
-    end_of_range: Literal["incomplete_trade_not_opened"]
+    end_of_range: Literal[
+        "incomplete_trade_not_opened",
+        "open_at_end_mark_to_market",
+    ]
     compounding: Literal["prior_net_closing_equity"]
     short_loss_cap: Literal["allocated_equity"]
 
 
 @dataclass(frozen=True, slots=True)
 class ConfigurableExitAssumptions:
-    """The shared execution assumptions for ``configurable_exit_v1``."""
+    """The shared execution assumptions for configurable-exit v1/v2."""
 
     initial_equity: Decimal
     signal_timing: Literal["confirmed_candle_close"]
@@ -259,7 +273,10 @@ class ConfigurableExitAssumptions:
     exit_slippage_rate: Decimal
     fee_rate: Decimal
     same_candle_exit_priority: tuple[str, ...]
-    end_of_range: Literal["incomplete_trade_not_opened"]
+    end_of_range: Literal[
+        "incomplete_trade_not_opened",
+        "open_at_end_mark_to_market",
+    ]
     compounding: Literal["prior_net_closing_equity"]
 
 
@@ -279,6 +296,27 @@ FIXED_HORIZON_V1_ASSUMPTIONS = FixedHorizonAssumptions(
     take_profit=None,
     early_exit=None,
     end_of_range="incomplete_trade_not_opened",
+    compounding="prior_net_closing_equity",
+    short_loss_cap="allocated_equity",
+)
+
+
+FIXED_HORIZON_V2_ASSUMPTIONS = FixedHorizonAssumptions(
+    initial_equity=INITIAL_EQUITY,
+    signal_timing="confirmed_candle_close",
+    entry_timing="next_candle_open",
+    holding_period_candles=HOLDING_PERIOD_CANDLES,
+    position_direction="cross_above_long_cross_below_synthetic_short",
+    position_sizing="one_position_full_equity",
+    concurrent_positions=1,
+    overlapping_signals="ignored",
+    entry_slippage_rate=SLIPPAGE_RATE,
+    exit_slippage_rate=SLIPPAGE_RATE,
+    fee_rate=FEE_RATE,
+    stop_loss=None,
+    take_profit=None,
+    early_exit=None,
+    end_of_range="open_at_end_mark_to_market",
     compounding="prior_net_closing_equity",
     short_loss_cap="allocated_equity",
 )
@@ -306,6 +344,28 @@ CONFIGURABLE_EXIT_V1_ASSUMPTIONS = ConfigurableExitAssumptions(
 )
 
 
+CONFIGURABLE_EXIT_V2_ASSUMPTIONS = ConfigurableExitAssumptions(
+    initial_equity=INITIAL_EQUITY,
+    signal_timing="confirmed_candle_close",
+    entry_timing="next_candle_open",
+    position_direction="long",
+    position_sizing="one_position_full_equity",
+    concurrent_positions=1,
+    overlapping_signals="ignored",
+    entry_slippage_rate=SLIPPAGE_RATE,
+    exit_slippage_rate=SLIPPAGE_RATE,
+    fee_rate=FEE_RATE,
+    same_candle_exit_priority=(
+        "stop_loss_percent",
+        "take_profit_percent",
+        "rsi_threshold_cross",
+        "max_holding_candles",
+    ),
+    end_of_range="open_at_end_mark_to_market",
+    compounding="prior_net_closing_equity",
+)
+
+
 @dataclass(frozen=True, slots=True)
 class HistoricalSimulationInput:
     """Pure immutable input for one market, preset, and dataset simulation."""
@@ -318,11 +378,12 @@ class HistoricalSimulationInput:
     candles: tuple[HistoricalSimulationCandle, ...]
     engine_version: str = ENGINE_VERSION
     assumption_version: str = ASSUMPTION_VERSION
-    assumptions: FixedHorizonAssumptions = FIXED_HORIZON_V1_ASSUMPTIONS
+    assumptions: FixedHorizonAssumptions = FIXED_HORIZON_V2_ASSUMPTIONS
 
 
 @dataclass(frozen=True, slots=True)
 class HistoricalSimulationTrade:
+    trade_status: TradeStatus
     sequence: int
     signal_candle_id: UUID
     signal_candle_revision: int
@@ -335,11 +396,11 @@ class HistoricalSimulationTrade:
     entry_open_time: datetime
     entry_raw_price: Decimal
     entry_fill_price: Decimal
-    exit_candle_id: UUID
-    exit_candle_revision: int
-    exit_close_time: datetime
-    exit_raw_price: Decimal
-    exit_fill_price: Decimal
+    exit_candle_id: UUID | None
+    exit_candle_revision: int | None
+    exit_close_time: datetime | None
+    exit_raw_price: Decimal | None
+    exit_fill_price: Decimal | None
     holding_candle_count: int
     fee_rate: Decimal
     slippage_rate: Decimal
@@ -349,10 +410,16 @@ class HistoricalSimulationTrade:
     gross_pnl: Decimal
     net_pnl: Decimal
     equity_after: Decimal
-    outcome: TradeOutcome
-    exit_reason: str = "max_holding_candles"
-    exit_price_basis: str = "confirmed_candle_close"
-    exit_rule_snapshot: dict[str, object] = field(
+    outcome: TradeOutcome | None
+    mark_candle_id: UUID | None
+    mark_candle_revision: int | None
+    mark_close_time: datetime | None
+    mark_price: Decimal | None
+    unrealized_return: Decimal | None
+    unrealized_pnl: Decimal | None
+    exit_reason: str | None = "max_holding_candles"
+    exit_price_basis: str | None = "confirmed_candle_close"
+    exit_rule_snapshot: dict[str, object] | None = field(
         default_factory=lambda: {
             "type": "max_holding_candles",
             "candles": HOLDING_PERIOD_CANDLES,
@@ -383,7 +450,10 @@ class HistoricalSimulationSummary:
     flat_trade_count: int
     overlapping_signal_count: int
     insufficient_forward_window_signal_count: int
+    entry_unavailable_signal_count: int
     equity_exhausted_signal_count: int
+    closed_trade_count: int
+    open_at_end_count: int
     initial_equity: Decimal
     final_equity: Decimal
     gross_return: Decimal
@@ -433,19 +503,29 @@ class HistoricalSimulationResult:
             "analysis_end": _optional_utc_z(self.analysis_end),
             "assumptions": _assumptions_payload(self.assumptions),
             "trades": [
-                _configurable_trade_payload(trade)
-                if self.engine_version == CONFIGURABLE_ENGINE_VERSION
-                else _trade_payload(trade)
+                _configurable_trade_payload(
+                    trade,
+                    include_end_state=self.engine_version == CONFIGURABLE_ENGINE_VERSION,
+                )
+                if self.engine_version in CONFIGURABLE_ENGINE_VERSIONS
+                else _trade_payload(
+                    trade,
+                    include_end_state=self.engine_version == ENGINE_VERSION,
+                )
                 for trade in self.trades
             ],
             "equity_series": [
                 _equity_point_payload(point) for point in self.equity_series
             ],
-            "summary": _summary_payload(self.summary),
+            "summary": _summary_payload(
+                self.summary,
+                include_end_state=self.engine_version
+                in {ENGINE_VERSION, CONFIGURABLE_ENGINE_VERSION},
+            ),
             "safety_disclosures": list(self.safety_disclosures),
             "result_fingerprint": self.result_fingerprint,
         }
-        if self.engine_version == CONFIGURABLE_ENGINE_VERSION:
+        if self.engine_version in CONFIGURABLE_ENGINE_VERSIONS:
             payload.update(
                 {
                     "strategy_version": self.strategy_version,
@@ -466,6 +546,8 @@ class _ValidatedSimulationInput:
     analysis_start: datetime
     analysis_end: datetime
     candles: tuple[HistoricalSimulationCandle, ...]
+    engine_version: str
+    assumption_version: str
     assumptions: FixedHorizonAssumptions
 
 
@@ -487,7 +569,7 @@ class _PendingTrade:
     sequence: int
     signal: _SignalObservation
     entry_index: int
-    exit_index: int
+    exit_index: int | None
     equity_before: Decimal
 
 
@@ -526,17 +608,27 @@ def simulate_fixed_preset(
 def _validate_input(input: HistoricalSimulationInput) -> _ValidatedSimulationInput:
     if not isinstance(input, HistoricalSimulationInput):
         raise _ValidationFailure("invalid_input", "input_type_invalid")
-    if input.engine_version != ENGINE_VERSION:
+    if input.engine_version not in FIXED_ENGINE_VERSIONS:
         raise _ValidationFailure(
             "unsupported_engine_version",
             "calculation_invariant",
         )
-    if input.assumption_version != ASSUMPTION_VERSION:
+    expected_assumption_version = (
+        LEGACY_ASSUMPTION_VERSION
+        if input.engine_version == LEGACY_ENGINE_VERSION
+        else ASSUMPTION_VERSION
+    )
+    expected_assumptions = (
+        FIXED_HORIZON_V1_ASSUMPTIONS
+        if input.engine_version == LEGACY_ENGINE_VERSION
+        else FIXED_HORIZON_V2_ASSUMPTIONS
+    )
+    if input.assumption_version != expected_assumption_version:
         raise _ValidationFailure(
             "unsupported_assumption_version",
             "calculation_invariant",
         )
-    if input.assumptions != FIXED_HORIZON_V1_ASSUMPTIONS:
+    if input.assumptions != expected_assumptions:
         raise _ValidationFailure(
             "unsupported_assumption_version",
             "calculation_invariant",
@@ -616,6 +708,8 @@ def _validate_input(input: HistoricalSimulationInput) -> _ValidatedSimulationInp
         analysis_start=analysis_start,
         analysis_end=analysis_end,
         candles=candles,
+        engine_version=input.engine_version,
+        assumption_version=input.assumption_version,
         assumptions=input.assumptions,
     )
 
@@ -931,6 +1025,7 @@ def _simulate(
     input: _ValidatedSimulationInput,
     observations: tuple[_SignalObservation, ...],
 ) -> HistoricalSimulationResult:
+    legacy_behavior = input.engine_version == LEGACY_ENGINE_VERSION
     current_equity = input.assumptions.initial_equity
     gross_growth = Decimal("1")
     running_peak = current_equity
@@ -941,6 +1036,7 @@ def _simulate(
     signal_count = 0
     overlapping_signal_count = 0
     insufficient_forward_window_signal_count = 0
+    entry_unavailable_signal_count = 0
     equity_exhausted_signal_count = 0
     winning_trade_count = 0
     losing_trade_count = 0
@@ -961,7 +1057,11 @@ def _simulate(
             else:
                 flat_trade_count += 1
             active = None
-        elif active is not None and active.pending.exit_index < candle_index:
+        elif (
+            active is not None
+            and active.pending.exit_index is not None
+            and active.pending.exit_index < candle_index
+        ):
             raise _ValidationFailure("invalid_input", "calculation_invariant")
 
         if pending is not None:
@@ -1009,16 +1109,28 @@ def _simulate(
             continue
         signal_count += 1
         entry_index = candle_index + 1
-        exit_index = entry_index + input.assumptions.holding_period_candles - 1
-        if not _execution_window_inside_range(
+        if legacy_behavior:
+            exit_index = entry_index + input.assumptions.holding_period_candles - 1
+            entry_available = _execution_window_inside_range(
+                input.candles,
+                entry_index=entry_index,
+                exit_index=exit_index,
+                analysis_start=input.analysis_start,
+                analysis_end=input.analysis_end,
+            )
+            if not entry_available:
+                insufficient_forward_window_signal_count += 1
+                continue
+        elif not _entry_candle_inside_range(
             input.candles,
             entry_index=entry_index,
-            exit_index=exit_index,
             analysis_start=input.analysis_start,
             analysis_end=input.analysis_end,
         ):
-            insufficient_forward_window_signal_count += 1
-        elif active is not None or pending is not None:
+            entry_unavailable_signal_count += 1
+            continue
+
+        if active is not None or pending is not None:
             overlapping_signal_count += 1
         elif current_equity <= Decimal("0"):
             equity_exhausted_signal_count += 1
@@ -1027,12 +1139,27 @@ def _simulate(
                 sequence=len(trades) + 1,
                 signal=observation,
                 entry_index=entry_index,
-                exit_index=exit_index,
+                exit_index=(
+                    entry_index + input.assumptions.holding_period_candles - 1
+                    if legacy_behavior
+                    else None
+                ),
                 equity_before=current_equity,
             )
 
-    if active is not None or pending is not None:
+    if pending is not None:
         raise _ValidationFailure("invalid_input", "calculation_invariant")
+    if active is not None:
+        if legacy_behavior:
+            raise _ValidationFailure("invalid_input", "calculation_invariant")
+        final_candle = observations[-1].candle
+        open_trade = _mark_to_market_trade(active, final_candle, input.assumptions)
+        trades.append(open_trade)
+        current_equity = open_trade.equity_after
+        gross_growth = _multiply(
+            gross_growth,
+            Decimal("1") + open_trade.gross_return,
+        )
 
     summary = _summary(
         analysis_candle_count=len(observations),
@@ -1040,6 +1167,7 @@ def _simulate(
         trades=tuple(trades),
         overlapping_signal_count=overlapping_signal_count,
         insufficient_forward_window_signal_count=insufficient_forward_window_signal_count,
+        entry_unavailable_signal_count=entry_unavailable_signal_count,
         equity_exhausted_signal_count=equity_exhausted_signal_count,
         initial_equity=input.assumptions.initial_equity,
         final_equity=current_equity,
@@ -1053,8 +1181,8 @@ def _simulate(
         preset_code=input.preset.code,
         preset_version=input.preset.version,
         calculation_version=input.calculation_version,
-        engine_version=ENGINE_VERSION,
-        assumption_version=ASSUMPTION_VERSION,
+        engine_version=input.engine_version,
+        assumption_version=input.assumption_version,
         analysis_start=input.analysis_start,
         analysis_end=input.analysis_end,
         assumptions=input.assumptions,
@@ -1143,6 +1271,7 @@ def _close_trade(
     else:
         outcome = "flat"
     return HistoricalSimulationTrade(
+        trade_status="closed",
         sequence=active.pending.sequence,
         signal_candle_id=signal.candle.candle_id,
         signal_candle_revision=signal.candle.candle_revision,
@@ -1170,6 +1299,12 @@ def _close_trade(
         net_pnl=net_pnl,
         equity_after=equity_after,
         outcome=outcome,
+        mark_candle_id=None,
+        mark_candle_revision=None,
+        mark_close_time=None,
+        mark_price=None,
+        unrealized_return=None,
+        unrealized_pnl=None,
     )
 
 
@@ -1178,29 +1313,46 @@ def _mark_to_market_equity(
     close_price: Decimal,
     assumptions: FixedHorizonAssumptions,
 ) -> Decimal:
-    if active.pending.signal.signal_direction == "cross_above":
-        exit_fill_price = _multiply(
-            close_price,
-            Decimal("1") - assumptions.exit_slippage_rate,
-        )
+    if assumptions.end_of_range == "incomplete_trade_not_opened":
+        if active.pending.signal.signal_direction == "cross_above":
+            mark_fill_price = _multiply(
+                close_price,
+                Decimal("1") - assumptions.exit_slippage_rate,
+            )
+            net_return_before_cap = _subtract(
+                _subtract(
+                    _divide(mark_fill_price, active.entry_fill_price),
+                    Decimal("1"),
+                ),
+                _multiply(Decimal("2"), assumptions.fee_rate),
+            )
+        else:
+            mark_fill_price = _multiply(
+                close_price,
+                Decimal("1") + assumptions.exit_slippage_rate,
+            )
+            net_return_before_cap = _subtract(
+                _subtract(
+                    Decimal("1"),
+                    _divide(mark_fill_price, active.entry_fill_price),
+                ),
+                _multiply(Decimal("2"), assumptions.fee_rate),
+            )
+    elif active.pending.signal.signal_direction == "cross_above":
         net_return_before_cap = _subtract(
             _subtract(
-                _divide(exit_fill_price, active.entry_fill_price),
+                _divide(close_price, active.entry_fill_price),
                 Decimal("1"),
             ),
-            _multiply(Decimal("2"), assumptions.fee_rate),
+            assumptions.fee_rate,
         )
     else:
-        exit_fill_price = _multiply(
-            close_price,
-            Decimal("1") + assumptions.exit_slippage_rate,
-        )
         net_return_before_cap = _subtract(
             _subtract(
                 Decimal("1"),
-                _divide(exit_fill_price, active.entry_fill_price),
+                _divide(close_price, active.entry_fill_price),
             ),
-            _multiply(Decimal("2"), assumptions.fee_rate),
+            assumptions.fee_rate,
         )
     net_return = max(Decimal("-1"), net_return_before_cap)
     return max(
@@ -1209,6 +1361,87 @@ def _mark_to_market_equity(
             active.pending.equity_before,
             _multiply(active.pending.equity_before, net_return),
         ),
+    )
+
+
+def _mark_to_market_trade(
+    active: _OpenTrade,
+    mark_candle: HistoricalSimulationCandle,
+    assumptions: FixedHorizonAssumptions,
+) -> HistoricalSimulationTrade:
+    signal = active.pending.signal
+    long_position = signal.signal_direction == "cross_above"
+    if long_position:
+        gross_return = _subtract(
+            _divide(mark_candle.close_price, active.entry_candle.open_price),
+            Decimal("1"),
+        )
+        net_return_before_cap = _subtract(
+            _subtract(
+                _divide(mark_candle.close_price, active.entry_fill_price),
+                Decimal("1"),
+            ),
+            assumptions.fee_rate,
+        )
+        position_direction: PositionDirection = "long"
+    else:
+        gross_return = _subtract(
+            Decimal("1"),
+            _divide(mark_candle.close_price, active.entry_candle.open_price),
+        )
+        net_return_before_cap = _subtract(
+            _subtract(
+                Decimal("1"),
+                _divide(mark_candle.close_price, active.entry_fill_price),
+            ),
+            assumptions.fee_rate,
+        )
+        position_direction = "synthetic_short"
+    net_return = max(Decimal("-1"), net_return_before_cap)
+    equity_before = active.pending.equity_before
+    net_pnl = _multiply(equity_before, net_return)
+    equity_after = max(Decimal("0"), _add(equity_before, net_pnl))
+    gross_pnl = _multiply(equity_before, gross_return)
+    return HistoricalSimulationTrade(
+        trade_status="open_at_end",
+        sequence=active.pending.sequence,
+        signal_candle_id=signal.candle.candle_id,
+        signal_candle_revision=signal.candle.candle_revision,
+        signal_open_time=signal.candle.open_time,
+        signal_close_time=signal.candle.close_time,
+        signal_direction=signal.signal_direction,
+        position_direction=position_direction,
+        entry_candle_id=active.entry_candle.candle_id,
+        entry_candle_revision=active.entry_candle.candle_revision,
+        entry_open_time=active.entry_candle.open_time,
+        entry_raw_price=active.entry_candle.open_price,
+        entry_fill_price=active.entry_fill_price,
+        exit_candle_id=None,
+        exit_candle_revision=None,
+        exit_close_time=None,
+        exit_raw_price=None,
+        exit_fill_price=None,
+        holding_candle_count=(
+            mark_candle.position - active.entry_candle.position + 1
+        ),
+        fee_rate=assumptions.fee_rate,
+        slippage_rate=assumptions.entry_slippage_rate,
+        equity_before=equity_before,
+        gross_return=gross_return,
+        net_return=net_return,
+        gross_pnl=gross_pnl,
+        net_pnl=net_pnl,
+        equity_after=equity_after,
+        outcome=None,
+        mark_candle_id=mark_candle.candle_id,
+        mark_candle_revision=mark_candle.candle_revision,
+        mark_close_time=mark_candle.close_time,
+        mark_price=mark_candle.close_price,
+        unrealized_return=net_return,
+        unrealized_pnl=net_pnl,
+        exit_reason=None,
+        exit_price_basis=None,
+        exit_rule_snapshot=None,
     )
 
 
@@ -1231,6 +1464,22 @@ def _execution_window_inside_range(
     )
 
 
+def _entry_candle_inside_range(
+    candles: tuple[HistoricalSimulationCandle, ...],
+    *,
+    entry_index: int,
+    analysis_start: datetime,
+    analysis_end: datetime,
+) -> bool:
+    if entry_index < 0 or entry_index >= len(candles):
+        return False
+    entry_candle = candles[entry_index]
+    return (
+        analysis_start <= entry_candle.open_time < analysis_end
+        and entry_candle.close_time <= analysis_end
+    )
+
+
 def _summary(
     *,
     analysis_candle_count: int,
@@ -1238,22 +1487,25 @@ def _summary(
     trades: tuple[HistoricalSimulationTrade, ...],
     overlapping_signal_count: int,
     insufficient_forward_window_signal_count: int,
+    entry_unavailable_signal_count: int,
     equity_exhausted_signal_count: int,
     initial_equity: Decimal,
     final_equity: Decimal,
     gross_return: Decimal,
     equity_series: tuple[HistoricalSimulationEquityPoint, ...],
 ) -> HistoricalSimulationSummary:
+    closed_trades = tuple(trade for trade in trades if trade.trade_status == "closed")
+    open_at_end_count = sum(trade.trade_status == "open_at_end" for trade in trades)
     positive_pnl = _sum_decimals(
-        trade.net_pnl for trade in trades if trade.net_pnl > Decimal("0")
+        trade.net_pnl for trade in closed_trades if trade.net_pnl > Decimal("0")
     )
     negative_pnl = _sum_decimals(
-        trade.net_pnl for trade in trades if trade.net_pnl < Decimal("0")
+        trade.net_pnl for trade in closed_trades if trade.net_pnl < Decimal("0")
     )
-    if trades:
+    if closed_trades:
         win_rate = _divide(
-            Decimal(sum(trade.outcome == "win" for trade in trades)),
-            Decimal(len(trades)),
+            Decimal(sum(trade.outcome == "win" for trade in closed_trades)),
+            Decimal(len(closed_trades)),
         )
         win_rate_reason = None
         if negative_pnl < Decimal("0"):
@@ -1275,12 +1527,15 @@ def _summary(
         analysis_candle_count=analysis_candle_count,
         signal_count=signal_count,
         executed_trade_count=len(trades),
-        winning_trade_count=sum(trade.outcome == "win" for trade in trades),
-        losing_trade_count=sum(trade.outcome == "loss" for trade in trades),
-        flat_trade_count=sum(trade.outcome == "flat" for trade in trades),
+        winning_trade_count=sum(trade.outcome == "win" for trade in closed_trades),
+        losing_trade_count=sum(trade.outcome == "loss" for trade in closed_trades),
+        flat_trade_count=sum(trade.outcome == "flat" for trade in closed_trades),
         overlapping_signal_count=overlapping_signal_count,
         insufficient_forward_window_signal_count=insufficient_forward_window_signal_count,
+        entry_unavailable_signal_count=entry_unavailable_signal_count,
         equity_exhausted_signal_count=equity_exhausted_signal_count,
+        closed_trade_count=len(closed_trades),
+        open_at_end_count=open_at_end_count,
         initial_equity=initial_equity,
         final_equity=final_equity,
         gross_return=gross_return,
@@ -1348,7 +1603,11 @@ def _failure_result(
 
 def _result_fingerprint(result: HistoricalSimulationResult) -> str:
     payload = {
-        "schema_version": RESULT_FINGERPRINT_SCHEMA_VERSION,
+        "schema_version": (
+            LEGACY_RESULT_FINGERPRINT_SCHEMA_VERSION
+            if result.engine_version == LEGACY_ENGINE_VERSION
+            else RESULT_FINGERPRINT_SCHEMA_VERSION
+        ),
         "dataset_fingerprint": result.dataset_fingerprint,
         "preset_code": result.preset_code,
         "preset_version": result.preset_version,
@@ -1358,11 +1617,20 @@ def _result_fingerprint(result: HistoricalSimulationResult) -> str:
         "analysis_start": _optional_utc_z(result.analysis_start),
         "analysis_end": _optional_utc_z(result.analysis_end),
         "assumptions": _assumptions_payload(result.assumptions),
-        "trades": [_trade_payload(trade) for trade in result.trades],
+        "trades": [
+            _trade_payload(
+                trade,
+                include_end_state=result.engine_version == ENGINE_VERSION,
+            )
+            for trade in result.trades
+        ],
         "equity_series": [
             _equity_point_payload(point) for point in result.equity_series
         ],
-        "summary": _summary_payload(result.summary),
+        "summary": _summary_payload(
+            result.summary,
+            include_end_state=result.engine_version == ENGINE_VERSION,
+        ),
     }
     serialized = json.dumps(
         payload,
@@ -1422,8 +1690,12 @@ def _assumptions_payload(
     }
 
 
-def _trade_payload(trade: HistoricalSimulationTrade) -> dict[str, object]:
-    return {
+def _trade_payload(
+    trade: HistoricalSimulationTrade,
+    *,
+    include_end_state: bool = True,
+) -> dict[str, object]:
+    payload = {
         "sequence": trade.sequence,
         "signal_candle_id": str(trade.signal_candle_id),
         "signal_candle_revision": trade.signal_candle_revision,
@@ -1436,11 +1708,13 @@ def _trade_payload(trade: HistoricalSimulationTrade) -> dict[str, object]:
         "entry_open_time": _utc_z(trade.entry_open_time),
         "entry_raw_price": _display_decimal(trade.entry_raw_price),
         "entry_fill_price": _display_decimal(trade.entry_fill_price),
-        "exit_candle_id": str(trade.exit_candle_id),
+        "exit_candle_id": (
+            None if trade.exit_candle_id is None else str(trade.exit_candle_id)
+        ),
         "exit_candle_revision": trade.exit_candle_revision,
-        "exit_close_time": _utc_z(trade.exit_close_time),
-        "exit_raw_price": _display_decimal(trade.exit_raw_price),
-        "exit_fill_price": _display_decimal(trade.exit_fill_price),
+        "exit_close_time": _optional_utc_z(trade.exit_close_time),
+        "exit_raw_price": _optional_display_decimal(trade.exit_raw_price),
+        "exit_fill_price": _optional_display_decimal(trade.exit_fill_price),
         "holding_candle_count": trade.holding_candle_count,
         "fee_rate": _display_decimal(trade.fee_rate),
         "slippage_rate": _display_decimal(trade.slippage_rate),
@@ -1452,12 +1726,31 @@ def _trade_payload(trade: HistoricalSimulationTrade) -> dict[str, object]:
         "equity_after": _display_decimal(trade.equity_after),
         "outcome": trade.outcome,
     }
+    if include_end_state:
+        payload.update(
+            {
+                "trade_status": trade.trade_status,
+                "mark_candle_id": (
+                    None if trade.mark_candle_id is None else str(trade.mark_candle_id)
+                ),
+                "mark_candle_revision": trade.mark_candle_revision,
+                "mark_close_time": _optional_utc_z(trade.mark_close_time),
+                "mark_price": _optional_display_decimal(trade.mark_price),
+                "unrealized_return": _optional_display_decimal(
+                    trade.unrealized_return
+                ),
+                "unrealized_pnl": _optional_display_decimal(trade.unrealized_pnl),
+            }
+        )
+    return payload
 
 
 def _configurable_trade_payload(
     trade: HistoricalSimulationTrade,
+    *,
+    include_end_state: bool = True,
 ) -> dict[str, object]:
-    payload = _trade_payload(trade)
+    payload = _trade_payload(trade, include_end_state=include_end_state)
     payload.update(
         {
             "exit_reason": trade.exit_reason,
@@ -1500,10 +1793,14 @@ def _equity_point_payload(point: HistoricalSimulationEquityPoint) -> dict[str, o
     }
 
 
-def _summary_payload(summary: HistoricalSimulationSummary | None) -> dict[str, object] | None:
+def _summary_payload(
+    summary: HistoricalSimulationSummary | None,
+    *,
+    include_end_state: bool = True,
+) -> dict[str, object] | None:
     if summary is None:
         return None
-    return {
+    payload = {
         "analysis_candle_count": summary.analysis_candle_count,
         "signal_count": summary.signal_count,
         "executed_trade_count": summary.executed_trade_count,
@@ -1525,6 +1822,15 @@ def _summary_payload(summary: HistoricalSimulationSummary | None) -> dict[str, o
         "profit_factor": _optional_display_decimal(summary.profit_factor),
         "profit_factor_undefined_reason": summary.profit_factor_undefined_reason,
     }
+    if include_end_state:
+        payload.update(
+            {
+                "entry_unavailable_signal_count": summary.entry_unavailable_signal_count,
+                "closed_trade_count": summary.closed_trade_count,
+                "open_at_end_count": summary.open_at_end_count,
+            }
+        )
+    return payload
 
 
 def _normalize_utc_datetime(value: datetime) -> datetime:

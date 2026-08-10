@@ -316,11 +316,14 @@ def _report_response(
             analysis_candle_count=report.analysis_candle_count,
             signal_count=report.signal_count,
             trade_count=report.trade_count,
+            closed_trade_count=report.closed_trade_count,
+            open_at_end_count=report.open_at_end_count,
             winning_trade_count=report.winning_trade_count,
             losing_trade_count=report.losing_trade_count,
             flat_trade_count=report.flat_trade_count,
             overlapping_signal_count=report.overlapping_signal_count,
             insufficient_forward_signal_count=report.insufficient_forward_signal_count,
+            entry_unavailable_signal_count=report.entry_unavailable_signal_count,
             equity_exhausted_signal_count=report.equity_exhausted_signal_count,
             initial_equity=_decimal(report.initial_equity),
             final_equity=_decimal(report.final_equity),
@@ -360,6 +363,7 @@ def _report_response(
 def _trade_response(row: HistoricalAnalysisTrade) -> HistoricalAnalysisTradeResponse:
     return HistoricalAnalysisTradeResponse(
         sequence=row.sequence,
+        trade_status=row.trade_status,
         signal_candle_id=row.signal_candle_id,
         signal_candle_revision=row.signal_candle_revision,
         signal_open_time=row.signal_open_time,
@@ -374,11 +378,15 @@ def _trade_response(row: HistoricalAnalysisTrade) -> HistoricalAnalysisTradeResp
         exit_candle_id=row.exit_candle_id,
         exit_candle_revision=row.exit_candle_revision,
         exit_close_time=row.exit_close_time,
-        exit_raw_price=_decimal(row.exit_raw_price),
-        exit_fill_price=_decimal(row.exit_fill_price),
+        exit_raw_price=(None if row.exit_raw_price is None else _decimal(row.exit_raw_price)),
+        exit_fill_price=(None if row.exit_fill_price is None else _decimal(row.exit_fill_price)),
         exit_reason=row.exit_reason,
         exit_price_basis=row.exit_price_basis,
-        exit_rule=_camelize_snapshot(row.exit_rule_snapshot or {}),
+        exit_rule=(
+            None
+            if row.exit_rule_snapshot is None
+            else _camelize_snapshot(row.exit_rule_snapshot)
+        ),
         holding_candle_count=row.holding_candle_count,
         fee_rate=_decimal(row.fee_rate),
         slippage_rate=_decimal(row.slippage_rate),
@@ -389,6 +397,18 @@ def _trade_response(row: HistoricalAnalysisTrade) -> HistoricalAnalysisTradeResp
         net_pnl=_decimal(row.net_pnl),
         equity_after=_decimal(row.equity_after),
         outcome=row.outcome,
+        mark_candle_id=row.mark_candle_id,
+        mark_candle_revision=row.mark_candle_revision,
+        mark_close_time=row.mark_close_time,
+        mark_price=(None if row.mark_price is None else _decimal(row.mark_price)),
+        unrealized_return=(
+            None
+            if row.unrealized_return is None
+            else _decimal(row.unrealized_return)
+        ),
+        unrealized_pnl=(
+            None if row.unrealized_pnl is None else _decimal(row.unrealized_pnl)
+        ),
     )
 
 
@@ -430,32 +450,41 @@ def _trade_marker_responses(
     markers: list[HistoricalAnalysisTradeMarkerResponse] = []
     for trade in trades:
         entry_open_time = candle_open_times.get(trade.entry_candle_id)
-        exit_open_time = candle_open_times.get(trade.exit_candle_id)
-        if entry_open_time is None or exit_open_time is None:
+        if entry_open_time is None:
             continue
         entry_side = "buy" if trade.position_direction == "long" else "sell"
+        markers.append(
+            HistoricalAnalysisTradeMarkerResponse(
+                sequence=trade.sequence,
+                marker_type="entry",
+                side=entry_side,
+                position_direction=trade.position_direction,
+                candle_open_time=entry_open_time,
+                price=_decimal(trade.entry_fill_price),
+            )
+        )
+        if trade.trade_status != "closed":
+            continue
+        exit_open_time = candle_open_times.get(trade.exit_candle_id)
+        if (
+            exit_open_time is None
+            or trade.exit_fill_price is None
+            or trade.exit_reason is None
+            or trade.exit_price_basis is None
+        ):
+            continue
         exit_side = "sell" if trade.position_direction == "long" else "buy"
-        markers.extend(
-            (
-                HistoricalAnalysisTradeMarkerResponse(
-                    sequence=trade.sequence,
-                    marker_type="entry",
-                    side=entry_side,
-                    position_direction=trade.position_direction,
-                    candle_open_time=entry_open_time,
-                    price=_decimal(trade.entry_fill_price),
-                ),
-                HistoricalAnalysisTradeMarkerResponse(
-                    sequence=trade.sequence,
-                    marker_type="exit",
-                    side=exit_side,
-                    position_direction=trade.position_direction,
-                    candle_open_time=exit_open_time,
-                    price=_decimal(trade.exit_fill_price),
-                    exit_reason=trade.exit_reason,
-                    exit_price_basis=trade.exit_price_basis,
-                    exit_rule=_camelize_snapshot(trade.exit_rule_snapshot or {}),
-                ),
+        markers.append(
+            HistoricalAnalysisTradeMarkerResponse(
+                sequence=trade.sequence,
+                marker_type="exit",
+                side=exit_side,
+                position_direction=trade.position_direction,
+                candle_open_time=exit_open_time,
+                price=_decimal(trade.exit_fill_price),
+                exit_reason=trade.exit_reason,
+                exit_price_basis=trade.exit_price_basis,
+                exit_rule=_camelize_snapshot(trade.exit_rule_snapshot or {}),
             )
         )
     return markers
@@ -495,7 +524,11 @@ def _chart_candle_preview(
     preview = {candle.candle_id: candle for candle in _bounded_candles(candles)}
     candles_by_id = {candle.candle_id: candle for candle in candles}
     for trade in trades:
-        for candle_id in (trade.entry_candle_id, trade.exit_candle_id):
+        for candle_id in (
+            trade.entry_candle_id,
+            trade.exit_candle_id,
+            trade.mark_candle_id,
+        ):
             candle = candles_by_id.get(candle_id)
             if candle is not None:
                 preview[candle.candle_id] = candle

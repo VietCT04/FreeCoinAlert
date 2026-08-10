@@ -13,8 +13,16 @@ from typing import Literal
 from freecoinalert_api.historical_analysis.engine import (
     CONFIGURABLE_ASSUMPTION_VERSION,
     CONFIGURABLE_ENGINE_VERSION,
+    CONFIGURABLE_ENGINE_VERSIONS,
+    ConfigurableExitAssumptions,
+    CONFIGURABLE_EXIT_V2_ASSUMPTIONS,
     CONFIGURABLE_EXIT_V1_ASSUMPTIONS,
     CONFIGURABLE_RESULT_FINGERPRINT_SCHEMA_VERSION,
+    LEGACY_ASSUMPTION_VERSION,
+    LEGACY_CONFIGURABLE_ASSUMPTION_VERSION,
+    LEGACY_CONFIGURABLE_ENGINE_VERSION,
+    LEGACY_CONFIGURABLE_RESULT_FINGERPRINT_SCHEMA_VERSION,
+    LEGACY_ENGINE_VERSION,
     FIXED_HORIZON_V1_ASSUMPTIONS,
     HistoricalDatasetManifest,
     HistoricalPresetSnapshot,
@@ -31,6 +39,7 @@ from freecoinalert_api.historical_analysis.engine import (
     _configurable_trade_payload,
     _equity_point_payload,
     _execution_window_inside_range,
+    _entry_candle_inside_range,
     _is_fingerprint,
     _normalize_utc_datetime,
     _observation,
@@ -69,7 +78,7 @@ ExitPriceBasis = Literal[
 
 @dataclass(frozen=True, slots=True)
 class ConfigurableSimulationInput:
-    """Immutable input for one ``configurable_exit_v1`` simulation."""
+    """Immutable input for one versioned configurable-exit simulation."""
 
     dataset: HistoricalDatasetManifest
     preset: HistoricalPresetSnapshot
@@ -149,12 +158,17 @@ def _validate_configurable_input(
 ]:
     if not isinstance(input, ConfigurableSimulationInput):
         raise _ValidationFailure("invalid_input", "input_type_invalid")
-    if input.engine_version != CONFIGURABLE_ENGINE_VERSION:
+    if input.engine_version not in CONFIGURABLE_ENGINE_VERSIONS:
         raise _ValidationFailure(
             "unsupported_engine_version",
             "calculation_invariant",
         )
-    if input.assumption_version != CONFIGURABLE_ASSUMPTION_VERSION:
+    expected_assumption_version = (
+        LEGACY_CONFIGURABLE_ASSUMPTION_VERSION
+        if input.engine_version == LEGACY_CONFIGURABLE_ENGINE_VERSION
+        else CONFIGURABLE_ASSUMPTION_VERSION
+    )
+    if input.assumption_version != expected_assumption_version:
         raise _ValidationFailure(
             "unsupported_assumption_version",
             "calculation_invariant",
@@ -167,8 +181,8 @@ def _validate_configurable_input(
         analysis_start=input.analysis_start,
         analysis_end=input.analysis_end,
         candles=input.candles,
-        engine_version="historical_fixed_preset_v1",
-        assumption_version="fixed_horizon_v1",
+        engine_version=LEGACY_ENGINE_VERSION,
+        assumption_version=LEGACY_ASSUMPTION_VERSION,
         assumptions=FIXED_HORIZON_V1_ASSUMPTIONS,
     )
     validated = _validate_input(legacy_input)
@@ -424,7 +438,13 @@ def _simulate_configurable(
     rules: tuple[_ExitRule, ...],
     strategy_snapshot: dict[str, object],
 ) -> HistoricalSimulationResult:
-    current_equity = CONFIGURABLE_EXIT_V1_ASSUMPTIONS.initial_equity
+    legacy_behavior = input.engine_version == LEGACY_CONFIGURABLE_ENGINE_VERSION
+    assumptions = (
+        CONFIGURABLE_EXIT_V1_ASSUMPTIONS
+        if legacy_behavior
+        else CONFIGURABLE_EXIT_V2_ASSUMPTIONS
+    )
+    current_equity = assumptions.initial_equity
     gross_growth = Decimal("1")
     running_peak = current_equity
     active: _OpenTrade | None = None
@@ -434,6 +454,7 @@ def _simulate_configurable(
     signal_count = 0
     overlapping_signal_count = 0
     insufficient_forward_window_signal_count = 0
+    entry_unavailable_signal_count = 0
     equity_exhausted_signal_count = 0
     max_holding = next(
         rule.candles for rule in rules if rule.type == "max_holding_candles"
@@ -448,7 +469,7 @@ def _simulate_configurable(
             if pending.entry_index == candle_index:
                 if active is not None:
                     raise _ValidationFailure("invalid_input", "calculation_invariant")
-                active = _open_trade(pending, candle)
+                active = _open_trade(pending, candle, assumptions)
                 pending = None
 
         if active is not None:
@@ -466,7 +487,13 @@ def _simulate_configurable(
                 rules=rules,
             )
             if decision is not None:
-                trade = _close_trade(active, candle, holding_count, decision)
+                trade = _close_trade(
+                    active,
+                    candle,
+                    holding_count,
+                    decision,
+                    assumptions,
+                )
                 trades.append(trade)
                 current_equity = trade.equity_after
                 gross_growth = _multiply(gross_growth, Decimal("1") + trade.gross_return)
@@ -477,7 +504,11 @@ def _simulate_configurable(
             position_state = "flat"
             active_trade_sequence = None
         else:
-            point_equity = _mark_to_market_equity(active, candle.close_price)
+            point_equity = _mark_to_market_equity(
+                active,
+                candle.close_price,
+                assumptions,
+            )
             position_state = "long"
             active_trade_sequence = active.pending.sequence
         running_peak = max(running_peak, point_equity)
@@ -500,16 +531,27 @@ def _simulate_configurable(
             continue
         signal_count += 1
         entry_index = candle_index + 1
-        exit_index = entry_index + max_holding - 1
-        if not _execution_window_inside_range(
+        if legacy_behavior:
+            exit_index = entry_index + max_holding - 1
+            if not _execution_window_inside_range(
+                input.candles,
+                entry_index=entry_index,
+                exit_index=exit_index,
+                analysis_start=validated.analysis_start,
+                analysis_end=validated.analysis_end,
+            ):
+                insufficient_forward_window_signal_count += 1
+                continue
+        elif not _entry_candle_inside_range(
             input.candles,
             entry_index=entry_index,
-            exit_index=exit_index,
             analysis_start=validated.analysis_start,
             analysis_end=validated.analysis_end,
         ):
-            insufficient_forward_window_signal_count += 1
-        elif active is not None or pending is not None:
+            entry_unavailable_signal_count += 1
+            continue
+
+        if active is not None or pending is not None:
             overlapping_signal_count += 1
         elif current_equity <= Decimal("0"):
             equity_exhausted_signal_count += 1
@@ -521,8 +563,19 @@ def _simulate_configurable(
                 equity_before=current_equity,
             )
 
-    if active is not None or pending is not None:
+    if pending is not None:
         raise _ValidationFailure("invalid_input", "calculation_invariant")
+    if active is not None:
+        if legacy_behavior:
+            raise _ValidationFailure("invalid_input", "calculation_invariant")
+        final_candle = observations[-1].candle
+        open_trade = _mark_to_market_trade(active, final_candle, assumptions)
+        trades.append(open_trade)
+        current_equity = open_trade.equity_after
+        gross_growth = _multiply(
+            gross_growth,
+            Decimal("1") + open_trade.gross_return,
+        )
 
     summary = _summary(
         analysis_candle_count=len(observations),
@@ -530,8 +583,9 @@ def _simulate_configurable(
         trades=tuple(trades),
         overlapping_signal_count=overlapping_signal_count,
         insufficient_forward_window_signal_count=insufficient_forward_window_signal_count,
+        entry_unavailable_signal_count=entry_unavailable_signal_count,
         equity_exhausted_signal_count=equity_exhausted_signal_count,
-        initial_equity=CONFIGURABLE_EXIT_V1_ASSUMPTIONS.initial_equity,
+        initial_equity=assumptions.initial_equity,
         final_equity=current_equity,
         gross_return=_subtract(gross_growth, Decimal("1")),
         equity_series=tuple(equity_series),
@@ -543,11 +597,11 @@ def _simulate_configurable(
         preset_code=input.preset.code,
         preset_version=input.preset.version,
         calculation_version=input.calculation_version,
-        engine_version=CONFIGURABLE_ENGINE_VERSION,
-        assumption_version=CONFIGURABLE_ASSUMPTION_VERSION,
+        engine_version=input.engine_version,
+        assumption_version=input.assumption_version,
         analysis_start=input.analysis_start,
         analysis_end=input.analysis_end,
-        assumptions=CONFIGURABLE_EXIT_V1_ASSUMPTIONS,
+        assumptions=assumptions,
         trades=tuple(trades),
         equity_series=tuple(equity_series),
         summary=summary,
@@ -624,13 +678,17 @@ def _exit_decision(
     return None
 
 
-def _open_trade(pending: _PendingTrade, candle: HistoricalSimulationCandle) -> _OpenTrade:
+def _open_trade(
+    pending: _PendingTrade,
+    candle: HistoricalSimulationCandle,
+    assumptions: ConfigurableExitAssumptions,
+) -> _OpenTrade:
     return _OpenTrade(
         pending=pending,
         entry_candle=candle,
         entry_fill_price=_multiply(
             candle.open_price,
-            Decimal("1") + CONFIGURABLE_EXIT_V1_ASSUMPTIONS.entry_slippage_rate,
+            Decimal("1") + assumptions.entry_slippage_rate,
         ),
     )
 
@@ -640,12 +698,13 @@ def _close_trade(
     candle: HistoricalSimulationCandle,
     holding_count: int,
     decision: tuple[ExitReason, ExitPriceBasis, Decimal, dict[str, object]],
+    assumptions: ConfigurableExitAssumptions,
 ) -> HistoricalSimulationTrade:
     exit_reason, exit_price_basis, exit_raw_price, exit_rule_snapshot = decision
     entry_raw_price = active.entry_candle.open_price
     exit_fill_price = _multiply(
         exit_raw_price,
-        Decimal("1") - CONFIGURABLE_EXIT_V1_ASSUMPTIONS.exit_slippage_rate,
+        Decimal("1") - assumptions.exit_slippage_rate,
     )
     gross_return = _subtract(_divide(exit_raw_price, entry_raw_price), Decimal("1"))
     net_return_before_cap = _subtract(
@@ -653,7 +712,7 @@ def _close_trade(
             _divide(exit_fill_price, active.entry_fill_price),
             Decimal("1"),
         ),
-        _multiply(Decimal("2"), CONFIGURABLE_EXIT_V1_ASSUMPTIONS.fee_rate),
+        _multiply(Decimal("2"), assumptions.fee_rate),
     )
     net_return = max(Decimal("-1"), net_return_before_cap)
     equity_before = active.pending.equity_before
@@ -668,6 +727,7 @@ def _close_trade(
         outcome = "flat"
     signal = active.pending.signal
     return HistoricalSimulationTrade(
+        trade_status="closed",
         sequence=active.pending.sequence,
         signal_candle_id=signal.candle.candle_id,
         signal_candle_revision=signal.candle.candle_revision,
@@ -686,8 +746,8 @@ def _close_trade(
         exit_raw_price=exit_raw_price,
         exit_fill_price=exit_fill_price,
         holding_candle_count=holding_count,
-        fee_rate=CONFIGURABLE_EXIT_V1_ASSUMPTIONS.fee_rate,
-        slippage_rate=CONFIGURABLE_EXIT_V1_ASSUMPTIONS.entry_slippage_rate,
+        fee_rate=assumptions.fee_rate,
+        slippage_rate=assumptions.entry_slippage_rate,
         equity_before=equity_before,
         gross_return=gross_return,
         net_return=net_return,
@@ -695,24 +755,43 @@ def _close_trade(
         net_pnl=net_pnl,
         equity_after=equity_after,
         outcome=outcome,
+        mark_candle_id=None,
+        mark_candle_revision=None,
+        mark_close_time=None,
+        mark_price=None,
+        unrealized_return=None,
+        unrealized_pnl=None,
         exit_reason=exit_reason,
         exit_price_basis=exit_price_basis,
         exit_rule_snapshot=exit_rule_snapshot,
     )
 
 
-def _mark_to_market_equity(active: _OpenTrade, close_price: Decimal) -> Decimal:
-    exit_fill_price = _multiply(
-        close_price,
-        Decimal("1") - CONFIGURABLE_EXIT_V1_ASSUMPTIONS.exit_slippage_rate,
-    )
-    net_return_before_cap = _subtract(
-        _subtract(
-            _divide(exit_fill_price, active.entry_fill_price),
-            Decimal("1"),
-        ),
-        _multiply(Decimal("2"), CONFIGURABLE_EXIT_V1_ASSUMPTIONS.fee_rate),
-    )
+def _mark_to_market_equity(
+    active: _OpenTrade,
+    close_price: Decimal,
+    assumptions: ConfigurableExitAssumptions,
+) -> Decimal:
+    if assumptions.end_of_range == "incomplete_trade_not_opened":
+        mark_fill_price = _multiply(
+            close_price,
+            Decimal("1") - assumptions.exit_slippage_rate,
+        )
+        net_return_before_cap = _subtract(
+            _subtract(
+                _divide(mark_fill_price, active.entry_fill_price),
+                Decimal("1"),
+            ),
+            _multiply(Decimal("2"), assumptions.fee_rate),
+        )
+    else:
+        net_return_before_cap = _subtract(
+            _subtract(
+                _divide(close_price, active.entry_fill_price),
+                Decimal("1"),
+            ),
+            assumptions.fee_rate,
+        )
     net_return = max(Decimal("-1"), net_return_before_cap)
     return max(
         Decimal("0"),
@@ -723,9 +802,79 @@ def _mark_to_market_equity(active: _OpenTrade, close_price: Decimal) -> Decimal:
     )
 
 
+def _mark_to_market_trade(
+    active: _OpenTrade,
+    mark_candle: HistoricalSimulationCandle,
+    assumptions: ConfigurableExitAssumptions,
+) -> HistoricalSimulationTrade:
+    entry_raw_price = active.entry_candle.open_price
+    gross_return = _subtract(
+        _divide(mark_candle.close_price, entry_raw_price),
+        Decimal("1"),
+    )
+    net_return_before_cap = _subtract(
+        _subtract(
+            _divide(mark_candle.close_price, active.entry_fill_price),
+            Decimal("1"),
+        ),
+        assumptions.fee_rate,
+    )
+    net_return = max(Decimal("-1"), net_return_before_cap)
+    equity_before = active.pending.equity_before
+    net_pnl = _multiply(equity_before, net_return)
+    equity_after = max(Decimal("0"), _add(equity_before, net_pnl))
+    gross_pnl = _multiply(equity_before, gross_return)
+    signal = active.pending.signal
+    return HistoricalSimulationTrade(
+        trade_status="open_at_end",
+        sequence=active.pending.sequence,
+        signal_candle_id=signal.candle.candle_id,
+        signal_candle_revision=signal.candle.candle_revision,
+        signal_open_time=signal.candle.open_time,
+        signal_close_time=signal.candle.close_time,
+        signal_direction=signal.signal_direction,
+        position_direction="long",
+        entry_candle_id=active.entry_candle.candle_id,
+        entry_candle_revision=active.entry_candle.candle_revision,
+        entry_open_time=active.entry_candle.open_time,
+        entry_raw_price=entry_raw_price,
+        entry_fill_price=active.entry_fill_price,
+        exit_candle_id=None,
+        exit_candle_revision=None,
+        exit_close_time=None,
+        exit_raw_price=None,
+        exit_fill_price=None,
+        holding_candle_count=(
+            mark_candle.position - active.entry_candle.position + 1
+        ),
+        fee_rate=assumptions.fee_rate,
+        slippage_rate=assumptions.entry_slippage_rate,
+        equity_before=equity_before,
+        gross_return=gross_return,
+        net_return=net_return,
+        gross_pnl=gross_pnl,
+        net_pnl=net_pnl,
+        equity_after=equity_after,
+        outcome=None,
+        mark_candle_id=mark_candle.candle_id,
+        mark_candle_revision=mark_candle.candle_revision,
+        mark_close_time=mark_candle.close_time,
+        mark_price=mark_candle.close_price,
+        unrealized_return=net_return,
+        unrealized_pnl=net_pnl,
+        exit_reason=None,
+        exit_price_basis=None,
+        exit_rule_snapshot=None,
+    )
+
+
 def _result_fingerprint_v2(result: HistoricalSimulationResult) -> str:
     payload = {
-        "schema_version": CONFIGURABLE_RESULT_FINGERPRINT_SCHEMA_VERSION,
+        "schema_version": (
+            LEGACY_CONFIGURABLE_RESULT_FINGERPRINT_SCHEMA_VERSION
+            if result.engine_version == LEGACY_CONFIGURABLE_ENGINE_VERSION
+            else CONFIGURABLE_RESULT_FINGERPRINT_SCHEMA_VERSION
+        ),
         "dataset_fingerprint": result.dataset_fingerprint,
         "preset_code": result.preset_code,
         "preset_version": result.preset_version,
@@ -738,9 +887,18 @@ def _result_fingerprint_v2(result: HistoricalSimulationResult) -> str:
         "analysis_start": _optional_utc_z(result.analysis_start),
         "analysis_end": _optional_utc_z(result.analysis_end),
         "assumptions": _assumptions_payload(result.assumptions),
-        "trades": [_configurable_trade_payload(trade) for trade in result.trades],
+        "trades": [
+            _configurable_trade_payload(
+                trade,
+                include_end_state=result.engine_version == CONFIGURABLE_ENGINE_VERSION,
+            )
+            for trade in result.trades
+        ],
         "equity_series": [_equity_point_payload(point) for point in result.equity_series],
-        "summary": _summary_payload(result.summary),
+        "summary": _summary_payload(
+            result.summary,
+            include_end_state=result.engine_version == CONFIGURABLE_ENGINE_VERSION,
+        ),
     }
     serialized = json.dumps(
         payload,

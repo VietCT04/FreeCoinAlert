@@ -71,15 +71,16 @@ export function TradeTable({
             <TableHeader>
               <TableRow>
                 <TableHead scope="col">Sequence</TableHead>
+                <TableHead scope="col">Status</TableHead>
                 <TableHead scope="col">Signal time</TableHead>
                 <TableHead scope="col">Direction</TableHead>
                 <TableHead scope="col">Entry time / fill</TableHead>
-                <TableHead scope="col">Exit time / fill</TableHead>
+                <TableHead scope="col">Exit or mark</TableHead>
                 <TableHead scope="col">Exit reason</TableHead>
                 <TableHead scope="col">Holding candles</TableHead>
                 <TableHead scope="col">Gross return</TableHead>
                 <TableHead scope="col">Net return</TableHead>
-                <TableHead scope="col">Net PnL</TableHead>
+                <TableHead scope="col">Net PnL / unrealized PnL</TableHead>
                 <TableHead scope="col">Outcome</TableHead>
               </TableRow>
             </TableHeader>
@@ -87,6 +88,9 @@ export function TradeTable({
               {trades.map((trade) => (
                 <TableRow key={trade.sequence}>
                   <TableCell>{trade.sequence}</TableCell>
+                  <TableCell>
+                    {trade.tradeStatus === "open_at_end" ? "Open at end" : "Closed"}
+                  </TableCell>
                   <TableCell>{formatUtcDateTime(trade.signalCloseTime)}</TableCell>
                   <TableCell>
                     <div>{formatDirection(trade.signalDirection)}</div>
@@ -100,15 +104,38 @@ export function TradeTable({
                     {trade.entryFillPrice}
                   </TableCell>
                   <TableCell>
-                    {formatUtcDateTime(trade.exitCloseTime)}
-                    <br />
-                    {trade.exitFillPrice}
+                    {trade.tradeStatus === "open_at_end" ? (
+                      <>
+                        Open at end
+                        <br />
+                        Mark: {trade.markPrice ?? "Not available"}
+                      </>
+                    ) : (
+                      <>
+                        {formatUtcDateTime(trade.exitCloseTime)}
+                        <br />
+                        {trade.exitFillPrice}
+                      </>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <div>{formatExitReason(trade.exitReason, trade.exitRule)}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {formatExitPriceBasis(trade.exitPriceBasis)}
-                    </div>
+                    {trade.tradeStatus === "open_at_end" ? (
+                      <>
+                        <div>Open at end</div>
+                        <div className="text-xs text-muted-foreground">
+                          No exit occurred
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          {formatExitReason(trade.exitReason ?? "", trade.exitRule)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatExitPriceBasis(trade.exitPriceBasis ?? "")}
+                        </div>
+                      </>
+                    )}
                   </TableCell>
                   <TableCell>{trade.holdingCandleCount}</TableCell>
                   <TableCell>
@@ -117,8 +144,18 @@ export function TradeTable({
                   <TableCell>
                     {formatFixedSignedPercent(trade.netReturn)}
                   </TableCell>
-                  <TableCell>{formatFixedDecimal(trade.netPnl)}</TableCell>
-                  <TableCell>{formatOutcome(trade.outcome)}</TableCell>
+                  <TableCell>
+                    {trade.tradeStatus === "open_at_end"
+                      ? `Unrealized: ${formatFixedDecimal(
+                          trade.unrealizedPnl ?? trade.netPnl,
+                        )}`
+                      : formatFixedDecimal(trade.netPnl)}
+                  </TableCell>
+                  <TableCell>
+                    {trade.tradeStatus === "open_at_end"
+                      ? "Open at end"
+                      : formatOutcome(trade.outcome ?? "")}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

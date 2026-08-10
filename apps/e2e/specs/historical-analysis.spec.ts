@@ -246,7 +246,7 @@ test.describe("historical analysis configuration and reports", () => {
           (total, count) => total + count,
           0,
         ),
-      ).toBe(Number(report.summary.tradeCount));
+      ).toBe(Number(report.summary.closedTradeCount));
       expect(report.assumptions.signalTiming).toBe("confirmed_candle_close");
       expect(report.assumptions.entryTiming).toBe("next_candle_open");
       expect(report.safetyDisclosures.length).toBeGreaterThan(0);
@@ -284,7 +284,7 @@ test.describe("historical analysis configuration and reports", () => {
         "Maximum drawdown",
         "Win rate",
         "Profit factor",
-        "Executed trades",
+        "Positions opened",
         "Strategy",
         "Exit reasons",
         "Price action",
@@ -364,6 +364,7 @@ test.describe("historical analysis configuration and reports", () => {
       strategyFingerprint: string;
       summary: {
         tradeCount: string | number;
+        closedTradeCount: string | number;
         exitReasonCounts: Record<string, number>;
       };
     };
@@ -382,11 +383,11 @@ test.describe("historical analysis configuration and reports", () => {
         (total, count) => total + count,
         0,
       ),
-    ).toBe(Number(report.summary.tradeCount));
+    ).toBe(Number(report.summary.closedTradeCount));
 
     const trades = await appApi.getHistoricalTrades(runId);
     const firstTrade = (trades.trades as Array<Record<string, unknown>> | undefined)?.[0];
-    if (firstTrade) {
+    if (firstTrade?.tradeStatus === "closed") {
       expect(firstTrade.exitReason).toEqual(expect.any(String));
       expect(firstTrade.exitPriceBasis).toEqual(expect.any(String));
       expect(firstTrade.exitRule).toEqual(expect.any(Object));
@@ -757,15 +758,23 @@ test.describe("historical analysis configuration and reports", () => {
     do {
       const page = await appApi.getHistoricalTrades(runId, tradeCursor);
       const pageTrades = (page.trades as Array<Record<string, unknown>> | undefined) ?? [];
-      if (pageTrades.length > 0) {
-        expect(pageTrades[0].exitReason).toBe("max_holding_candles");
-        expect(pageTrades[0].exitPriceBasis).toBe("confirmed_candle_close");
-        expect(pageTrades[0].exitRule).toEqual(
-          expect.objectContaining({
-            type: "max_holding_candles",
-            candles: 6,
-          }),
-        );
+      for (const trade of pageTrades) {
+        if (trade.tradeStatus === "closed") {
+          expect(trade.exitReason).toBe("max_holding_candles");
+          expect(trade.exitPriceBasis).toBe("confirmed_candle_close");
+          expect(trade.exitRule).toEqual(
+            expect.objectContaining({
+              type: "max_holding_candles",
+              candles: 6,
+            }),
+          );
+        } else {
+          expect(trade.tradeStatus).toBe("open_at_end");
+          expect(trade.exitReason).toBeNull();
+          expect(trade.exitPriceBasis).toBeNull();
+          expect(trade.markPrice).toEqual(expect.any(String));
+          expect(trade.unrealizedPnl).toEqual(expect.any(String));
+        }
       }
       tradeSequences.push(
         ...(pageTrades as Array<{ sequence: number }>).map(

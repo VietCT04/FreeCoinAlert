@@ -15,7 +15,9 @@ export type HistoricalAnalysisAssumptionsConfiguration = {
   slippageBpsPerSide: string;
   positionSizing: "one_position_full_equity";
   overlappingSignals: "ignored";
-  endOfRange: "incomplete_trade_not_opened";
+  endOfRange:
+    | "incomplete_trade_not_opened"
+    | "open_at_end_mark_to_market";
 };
 
 export type HistoricalAnalysisExitRuleType =
@@ -166,11 +168,14 @@ export type HistoricalAnalysisReportSummary = {
   analysisCandleCount: number;
   signalCount: number;
   tradeCount: number;
+  closedTradeCount: number;
+  openAtEndCount: number;
   winningTradeCount: number;
   losingTradeCount: number;
   flatTradeCount: number;
   overlappingSignalCount: number;
   insufficientForwardSignalCount: number;
+  entryUnavailableSignalCount: number;
   equityExhaustedSignalCount: number;
   initialEquity: string;
   finalEquity: string;
@@ -222,6 +227,7 @@ export type HistoricalAnalysisTradeMarker = {
 
 export type HistoricalAnalysisTrade = {
   sequence: number;
+  tradeStatus: "closed" | "open_at_end";
   signalCandleId: string;
   signalCandleRevision: number;
   signalOpenTime: string;
@@ -233,14 +239,14 @@ export type HistoricalAnalysisTrade = {
   entryOpenTime: string;
   entryRawPrice: string;
   entryFillPrice: string;
-  exitCandleId: string;
-  exitCandleRevision: number;
-  exitCloseTime: string;
-  exitRawPrice: string;
-  exitFillPrice: string;
-  exitReason: string;
-  exitPriceBasis: string;
-  exitRule: HistoricalAnalysisStrategyExitRule;
+  exitCandleId: string | null;
+  exitCandleRevision: number | null;
+  exitCloseTime: string | null;
+  exitRawPrice: string | null;
+  exitFillPrice: string | null;
+  exitReason: string | null;
+  exitPriceBasis: string | null;
+  exitRule: HistoricalAnalysisStrategyExitRule | null;
   holdingCandleCount: number;
   feeRate: string;
   slippageRate: string;
@@ -250,7 +256,13 @@ export type HistoricalAnalysisTrade = {
   grossPnl: string;
   netPnl: string;
   equityAfter: string;
-  outcome: string;
+  outcome: string | null;
+  markCandleId: string | null;
+  markCandleRevision: number | null;
+  markCloseTime: string | null;
+  markPrice: string | null;
+  unrealizedReturn: string | null;
+  unrealizedPnl: string | null;
 };
 
 export type HistoricalAnalysisReport = {

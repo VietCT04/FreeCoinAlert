@@ -66,7 +66,10 @@ from freecoinalert_api.historical_analysis.engine import (
     HistoricalSimulationCandle,
     HistoricalSimulationInput,
     HistoricalSimulationResult,
-    CONFIGURABLE_ENGINE_VERSION,
+    CONFIGURABLE_ENGINE_VERSIONS,
+    FIXED_HORIZON_V1_ASSUMPTIONS,
+    FIXED_HORIZON_V2_ASSUMPTIONS,
+    LEGACY_ENGINE_VERSION,
     simulate_fixed_preset,
 )
 from freecoinalert_api.market_data.catalog import utc_now
@@ -259,7 +262,7 @@ class HistoricalAnalysisWorker:
 
         simulation_input = _simulation_input(run, dataset, snapshots)
         try:
-            if run.simulation_version == CONFIGURABLE_ENGINE_VERSION:
+            if run.simulation_version in CONFIGURABLE_ENGINE_VERSIONS:
                 result = simulate_configurable_exit(
                     _configurable_simulation_input(run, dataset, snapshots)
                 )
@@ -578,11 +581,14 @@ async def _create_report_rows(
         analysis_candle_count=summary.analysis_candle_count,
         signal_count=summary.signal_count,
         trade_count=summary.executed_trade_count,
+        closed_trade_count=summary.closed_trade_count,
+        open_at_end_count=summary.open_at_end_count,
         winning_trade_count=summary.winning_trade_count,
         losing_trade_count=summary.losing_trade_count,
         flat_trade_count=summary.flat_trade_count,
         overlapping_signal_count=summary.overlapping_signal_count,
         insufficient_forward_signal_count=summary.insufficient_forward_window_signal_count,
+        entry_unavailable_signal_count=summary.entry_unavailable_signal_count,
         equity_exhausted_signal_count=summary.equity_exhausted_signal_count,
         initial_equity=summary.initial_equity,
         final_equity=summary.final_equity,
@@ -621,9 +627,13 @@ async def _create_report_rows(
 
 
 def _exit_reason_counts(result: HistoricalSimulationResult) -> dict[str, int]:
-    counts = Counter(trade.exit_reason for trade in result.trades)
-    if sum(counts.values()) != (result.summary.executed_trade_count if result.summary else -1):
-        raise ValueError("Exit-reason counts must equal the executed trade count.")
+    counts = Counter(
+        trade.exit_reason
+        for trade in result.trades
+        if trade.trade_status == "closed" and trade.exit_reason is not None
+    )
+    if sum(counts.values()) != (result.summary.closed_trade_count if result.summary else -1):
+        raise ValueError("Exit-reason counts must equal the closed trade count.")
     return dict(sorted((str(reason), int(count)) for reason, count in counts.items()))
 
 
@@ -684,6 +694,11 @@ def _simulation_input(
         )
         for snapshot in snapshots
     )
+    assumptions = (
+        FIXED_HORIZON_V1_ASSUMPTIONS
+        if run.simulation_version == LEGACY_ENGINE_VERSION
+        else FIXED_HORIZON_V2_ASSUMPTIONS
+    )
     return HistoricalSimulationInput(
         dataset=manifest,
         preset=preset,
@@ -693,6 +708,7 @@ def _simulation_input(
         candles=candles,
         engine_version=run.simulation_version,
         assumption_version=run.assumption_version,
+        assumptions=assumptions,
     )
 
 

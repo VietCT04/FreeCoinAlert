@@ -184,7 +184,7 @@ export function formatStrategyExitRule(
     case "stop_loss_percent":
       return `SL -${rule.percent ?? "?"}%`;
     case "rsi_threshold_cross":
-      return `RSI ${rule.direction === "cross_above" ? ">" : "<"}${rule.threshold ?? "?"} exit`;
+      return `RSI crosses ${rule.direction === "cross_above" ? "above" : "below"} ${rule.threshold ?? "?"} exit`;
     case "max_holding_candles":
       return `max ${rule.candles ?? "?"} candles`;
     default:
@@ -521,5 +521,9 @@ export function formatAssumptionValue(key: string, value: unknown): string {
 }
 
 export function formatTradeTime(trade: HistoricalAnalysisTrade): string {
-  return `${formatUtcDateTime(trade.signalCloseTime)} → ${formatUtcDateTime(trade.exitCloseTime)}`;
+  return `${formatUtcDateTime(trade.signalCloseTime)} → ${
+    trade.exitCloseTime
+      ? formatUtcDateTime(trade.exitCloseTime)
+      : "open at end"
+  }`;
 }
