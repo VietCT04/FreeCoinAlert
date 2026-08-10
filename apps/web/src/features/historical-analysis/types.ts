@@ -97,6 +97,38 @@ export type HistoricalAnalysisConfiguration = {
   strategyCapabilities?: HistoricalAnalysisStrategyCapabilities;
 };
 
+export type HistoricalAnalysisCoverageStatus =
+  | "backfilling"
+  | "ready"
+  | "degraded"
+  | "partial"
+  | "unavailable";
+
+export type HistoricalAnalysisCoverage = {
+  market: {
+    exchange: string;
+    marketType: string;
+    symbol: string;
+  };
+  preset: {
+    code: string;
+    version: number;
+    timeframe: string;
+  };
+  status: HistoricalAnalysisCoverageStatus;
+  firstAnalysisStart?: string | null;
+  lastAnalysisEnd?: string | null;
+  availableAnalysisDays: number;
+  minimumRangeDays: number;
+  maximumRangeDays: number;
+  verifiedAt?: string | null;
+  availableStart: string | null;
+  availableEnd: string | null;
+  targetStart: string;
+  targetEnd: string;
+  coveragePercent: number;
+};
+
 export type HistoricalAnalysisMarket = {
   exchange: string;
   marketType: string;

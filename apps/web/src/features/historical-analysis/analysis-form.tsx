@@ -19,17 +19,23 @@ import { HistoricalAnalysisApiError } from "./api";
 import { historicalAnalysisErrorMessage } from "./errors";
 import {
   formatBasisPoints,
+  coverageCompleteDays,
+  formatCoverageDateRange,
   formatDirection,
   formatExitRuleType,
   formatStrategyType,
   formatTimeframe,
+  formatUtcDateOnly,
   getDefaultUtcDateRange,
+  getPresetUtcDateRange,
+  historicalCoverageBounds,
   inclusiveDateRangeToApiRange,
   inclusiveRangeDays,
 } from "./format";
 import type {
   AvailableHistoricalPreset,
   HistoricalAnalysisConfiguration,
+  HistoricalAnalysisCoverage,
   HistoricalAnalysisCreateRequest,
   HistoricalAnalysisExitRuleType,
   HistoricalAnalysisRun,
@@ -40,8 +46,19 @@ import type {
 
 type AnalysisFormProps = {
   configuration: HistoricalAnalysisConfiguration;
+  coverage: HistoricalAnalysisCoverage | null;
+  coverageError: string | null;
+  isCoverageLoading: boolean;
   isSubmitting: boolean;
   markets: SupportedMarket[];
+  onCoverageRefresh: () => void;
+  onSelectionChange: (
+    selection: {
+      symbol: string;
+      presetCode: string;
+      presetVersion: number;
+    } | null,
+  ) => void;
   onSubmit: (
     request: HistoricalAnalysisCreateRequest,
     idempotencyKey: string,
@@ -76,6 +93,16 @@ const OPTIONAL_RULE_TYPES: HistoricalAnalysisExitRuleType[] = [
   "rsi_threshold_cross",
 ];
 
+const PERIOD_PRESETS = [
+  { label: "30D", days: 30 },
+  { label: "90D", days: 90 },
+  { label: "6M", days: 180 },
+  { label: "1Y", days: 365 },
+  { label: "2Y", days: 730 },
+] as const;
+
+type SelectedPeriod = (typeof PERIOD_PRESETS)[number]["days"] | "custom";
+
 function presetKey(preset: AvailableHistoricalPreset): string {
   return `${preset.code}:${preset.version}`;
 }
@@ -84,6 +111,7 @@ function validateDateRange(
   startDate: string,
   endDate: string,
   configuration: HistoricalAnalysisConfiguration,
+  coverage: HistoricalAnalysisCoverage | null,
 ): string | null {
   const range = inclusiveDateRangeToApiRange(startDate, endDate);
   const days = inclusiveRangeDays(startDate, endDate);
@@ -100,11 +128,33 @@ function validateDateRange(
   if (endDate >= todayValue) {
     return "The UTC end date must be a completed day and cannot be in the future.";
   }
-  if (days < configuration.minimumRangeDays) {
-    return `Choose at least ${configuration.minimumRangeDays} complete UTC days.`;
+  const minimumRangeDays = coverage?.minimumRangeDays ?? configuration.minimumRangeDays;
+  const maximumRangeDays = coverage?.maximumRangeDays ?? configuration.maximumRangeDays;
+  if (days < minimumRangeDays) {
+    return `Choose at least ${minimumRangeDays} complete UTC days.`;
   }
-  if (days > configuration.maximumRangeDays) {
-    return `Choose no more than ${configuration.maximumRangeDays} complete UTC days.`;
+  if (days > maximumRangeDays) {
+    return `Choose no more than ${maximumRangeDays} complete UTC days.`;
+  }
+
+  if (!coverage) {
+    return "Historical data coverage is still loading. Please wait and try again.";
+  }
+
+  if (
+    coverage.status === "unavailable" ||
+    coverageCompleteDays(coverage) < minimumRangeDays
+  ) {
+    return "Historical data is not yet sufficient for this strategy and market.";
+  }
+
+  const { firstAnalysisStart, lastAnalysisEnd } = historicalCoverageBounds(coverage);
+  if (firstAnalysisStart && Date.parse(range.analysisStart) < Date.parse(firstAnalysisStart)) {
+    return `Historical data for this strategy is currently available from ${formatUtcDateOnly(firstAnalysisStart)} UTC.`;
+  }
+  if (lastAnalysisEnd && Date.parse(range.analysisEnd) > Date.parse(lastAnalysisEnd)) {
+    const lastDate = getPresetUtcDateRange(1, lastAnalysisEnd)?.endDate;
+    return `Choose an end date on or before ${formatUtcDateOnly(lastDate)} UTC.`;
   }
 
   return null;
@@ -425,8 +475,13 @@ function FieldError({ id, message }: { id: string; message?: string }) {
 
 export function AnalysisForm({
   configuration,
+  coverage,
+  coverageError,
+  isCoverageLoading,
   isSubmitting,
   markets,
+  onCoverageRefresh,
+  onSelectionChange,
   onSubmit,
   presets,
 }: AnalysisFormProps) {
@@ -448,6 +503,7 @@ export function AnalysisForm({
   const [selectedPresetKey, setSelectedPresetKey] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [selectedPeriod, setSelectedPeriod] = useState<SelectedPeriod>("custom");
   const [strategyDraft, setStrategyDraft] = useState<StrategyDraft>(() =>
     initialStrategyDraft(configuration),
   );
@@ -456,6 +512,7 @@ export function AnalysisForm({
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const idempotencyKey = useRef<string | null>(null);
   const rangeInitialized = useRef(false);
+  const selectionKeyRef = useRef("");
   const strategyInitialized = useRef(false);
   const submittedRuleTypes = useRef<HistoricalAnalysisExitRuleType[]>([]);
 
@@ -482,14 +539,30 @@ export function AnalysisForm({
       return;
     }
 
+    if (!coverage) {
+      return;
+    }
+
+    const availableDays = coverageCompleteDays(coverage);
+    if (availableDays < coverage.minimumRangeDays) {
+      return;
+    }
+
     const defaultRange = getDefaultUtcDateRange(
-      configuration.minimumRangeDays,
-      configuration.maximumRangeDays,
+      coverage.minimumRangeDays,
+      Math.min(coverage.maximumRangeDays, availableDays),
+      historicalCoverageBounds(coverage).lastAnalysisEnd,
     );
     setStartDate(defaultRange.startDate);
     setEndDate(defaultRange.endDate);
+    const defaultDays = inclusiveRangeDays(defaultRange.startDate, defaultRange.endDate);
+    setSelectedPeriod(
+      PERIOD_PRESETS.some((preset) => preset.days === defaultDays)
+        ? (defaultDays as SelectedPeriod)
+        : "custom",
+    );
     rangeInitialized.current = true;
-  }, [configuration.maximumRangeDays, configuration.minimumRangeDays]);
+  }, [coverage]);
 
   useEffect(() => {
     if (strategyInitialized.current) {
@@ -505,6 +578,32 @@ export function AnalysisForm({
   const selectedPreset = availablePresets.find(
     (preset) => presetKey(preset) === selectedPresetKey,
   );
+
+  useEffect(() => {
+    const selectionKey = `${selectedSymbol}:${selectedPresetKey}`;
+    if (selectionKeyRef.current && selectionKeyRef.current !== selectionKey) {
+      rangeInitialized.current = false;
+      setSelectedPeriod("custom");
+    }
+    selectionKeyRef.current = selectionKey;
+  }, [selectedPresetKey, selectedSymbol]);
+
+  useEffect(() => {
+    onSelectionChange(
+      selectedMarket && selectedPreset
+        ? {
+            symbol: selectedMarket.symbol,
+            presetCode: selectedPreset.code,
+            presetVersion: selectedPreset.version,
+          }
+        : null,
+    );
+  }, [
+    onSelectionChange,
+    selectedMarket?.symbol,
+    selectedPreset?.code,
+    selectedPreset?.version,
+  ]);
   const strategyCapabilities = configuration.strategyCapabilities;
   const configurableStrategyAvailable =
     strategyCapabilities?.configurableStrategyAvailable === true;
@@ -536,7 +635,7 @@ export function AnalysisForm({
       return;
     }
 
-    const rangeError = validateDateRange(startDate, endDate, configuration);
+    const rangeError = validateDateRange(startDate, endDate, configuration, coverage);
     if (rangeError) {
       setFormError(rangeError);
       return;
@@ -557,8 +656,12 @@ export function AnalysisForm({
       isSubmitting ||
       !selectedMarket ||
       !selectedPreset ||
+      !coverageCanRun ||
       !inclusiveDateRangeToApiRange(startDate, endDate)
     ) {
+      if (!coverageCanRun) {
+        setFormError(coverageError ?? "Refresh historical coverage before starting this analysis.");
+      }
       return;
     }
 
@@ -591,6 +694,9 @@ export function AnalysisForm({
     } catch (requestError) {
       if (requestError instanceof HistoricalAnalysisApiError) {
         idempotencyKey.current = null;
+        if (requestError.code === "HISTORICAL_ANALYSIS_RANGE_UNAVAILABLE") {
+          onCoverageRefresh();
+        }
         setFieldErrors(
           strategyFieldErrorsFromApi(
             requestError.details,
@@ -612,6 +718,32 @@ export function AnalysisForm({
   function fieldDescribedBy(field: StrategyField, helpId: string): string {
     return fieldErrors[field] ? `${helpId} ${helpId}-error` : helpId;
   }
+
+  const coverageDays = coverageCompleteDays(coverage);
+  const coverageMinimumDays = coverage?.minimumRangeDays ?? configuration.minimumRangeDays;
+  const coverageMaximumDays = coverage?.maximumRangeDays ?? configuration.maximumRangeDays;
+  const coverageRange = formatCoverageDateRange(coverage);
+  const { firstAnalysisStart, lastAnalysisEnd } = historicalCoverageBounds(coverage);
+  const coverageFirstDate = firstAnalysisStart?.slice(0, 10);
+  const coverageLastDate = getPresetUtcDateRange(1, lastAnalysisEnd)?.endDate;
+  const coverageCanRun = Boolean(
+    coverage &&
+      coverage.status !== "unavailable" &&
+      coverageDays >= coverageMinimumDays &&
+      firstAnalysisStart &&
+      lastAnalysisEnd,
+  );
+  const coverageStatusLabel = coverage
+    ? coverage.status === "backfilling"
+      ? `Backfilling ${coverage.coveragePercent}%`
+      : coverage.status === "degraded"
+        ? "Degraded"
+        : coverage.status === "partial"
+          ? "Partial coverage"
+          : coverage.status === "unavailable"
+            ? "Unavailable"
+            : "Ready"
+    : null;
 
   if (!availableMarkets.length || !availablePresets.length) {
     return (
@@ -928,16 +1060,107 @@ export function AnalysisForm({
                 </h3>
                 <p className="text-sm text-muted-foreground">Choose completed UTC days only.</p>
               </div>
+              <div aria-live="polite" className="space-y-3">
+                <div aria-label="Period presets" className="flex flex-wrap gap-2" role="group">
+                  {PERIOD_PRESETS.map((period) => {
+                    const enabled = Boolean(
+                      coverageCanRun &&
+                        period.days >= coverageMinimumDays &&
+                        period.days <= coverageMaximumDays &&
+                        coverageDays >= period.days,
+                    );
+                    const disabledReason = coverage
+                      ? period.days > coverageDays
+                        ? `${period.label} unavailable — ${coverageDays} complete days currently available.`
+                        : period.days < coverageMinimumDays || period.days > coverageMaximumDays
+                          ? `${period.label} is outside the server-supported range.`
+                          : undefined
+                      : undefined;
+
+                    return (
+                      <Button
+                        aria-label={disabledReason ?? `Use ${period.label} period`}
+                        aria-pressed={selectedPeriod === period.days}
+                        disabled={isSubmitting || isReviewOpen || !enabled}
+                        key={period.label}
+                        onClick={() => {
+                          const range = getPresetUtcDateRange(
+                            period.days,
+                            historicalCoverageBounds(coverage).lastAnalysisEnd,
+                          );
+                          if (!range) {
+                            return;
+                          }
+                          clearRequestIdentity();
+                          setStartDate(range.startDate);
+                          setEndDate(range.endDate);
+                          setSelectedPeriod(period.days);
+                        }}
+                        size="sm"
+                        type="button"
+                        variant={selectedPeriod === period.days ? "default" : "outline"}
+                      >
+                        {period.label}
+                      </Button>
+                    );
+                  })}
+                  <Button
+                    aria-pressed={selectedPeriod === "custom"}
+                    disabled={isSubmitting || isReviewOpen}
+                    onClick={() => {
+                      clearRequestIdentity();
+                      setSelectedPeriod("custom");
+                    }}
+                    size="sm"
+                    type="button"
+                    variant={selectedPeriod === "custom" ? "default" : "outline"}
+                  >
+                    Custom
+                  </Button>
+                </div>
+                {isCoverageLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading historical coverage…</p>
+                ) : coverageError ? (
+                  <InlineError
+                    message={coverageError}
+                    retryAction={
+                      <Button onClick={onCoverageRefresh} size="sm" type="button" variant="outline">
+                        Retry coverage
+                      </Button>
+                    }
+                    title="Historical coverage unavailable"
+                  />
+                ) : coverage ? (
+                  <Alert variant={coverage.status === "degraded" ? "warning" : undefined}>
+                    <AlertTitle>Historical data · {coverageStatusLabel}</AlertTitle>
+                    <AlertDescription className="space-y-1">
+                      {coverageRange ? <p>Available {coverageRange}</p> : null}
+                      {coverage.status === "backfilling" ||
+                      coverage.status === "degraded" ||
+                      coverage.status === "partial" ? (
+                        <p>
+                          Longer history is still being prepared. Covered shorter periods remain available.
+                        </p>
+                      ) : null}
+                      {!coverageCanRun ? (
+                        <p>Historical data is not yet sufficient for this strategy and market.</p>
+                      ) : null}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="historical-analysis-start">Start date (UTC)</Label>
                   <Input
                     disabled={isSubmitting || isReviewOpen}
                     id="historical-analysis-start"
+                    min={coverageFirstDate}
                     max={endDate || undefined}
                     onChange={(event) => {
                       clearRequestIdentity();
                       setStartDate(event.target.value);
+                      setSelectedPeriod("custom");
                     }}
                     type="date"
                     value={startDate}
@@ -949,9 +1172,11 @@ export function AnalysisForm({
                     disabled={isSubmitting || isReviewOpen}
                     id="historical-analysis-end"
                     min={startDate || undefined}
+                    max={coverageLastDate}
                     onChange={(event) => {
                       clearRequestIdentity();
                       setEndDate(event.target.value);
+                      setSelectedPeriod("custom");
                     }}
                     type="date"
                     value={endDate}
@@ -959,7 +1184,7 @@ export function AnalysisForm({
                 </div>
               </div>
               <p className="text-sm text-muted-foreground">
-                Choose {configuration.minimumRangeDays}-{configuration.maximumRangeDays} completed UTC days.
+                Choose {coverageMinimumDays}-{coverageMaximumDays} completed UTC days.
               </p>
             </section>
 
@@ -978,7 +1203,7 @@ export function AnalysisForm({
               <InlineError message={formError} title="Check your choices" />
             ) : null}
 
-            <Button disabled={isSubmitting} type="submit">
+            <Button disabled={isSubmitting || !coverageCanRun} type="submit">
               Review and run
             </Button>
           </form>
@@ -1024,8 +1249,11 @@ export function AnalysisForm({
                   <dd className="text-muted-foreground">{formatTimeframe(selectedPreset.timeframe)}</dd>
                 </div>
                 <div>
-                  <dt className="font-medium">Date range</dt>
-                  <dd className="text-muted-foreground">{startDate} to {endDate} (UTC)</dd>
+                  <dt className="font-medium">Period</dt>
+                  <dd className="space-y-1 text-muted-foreground">
+                    <p>{startDate} to {endDate} (UTC)</p>
+                    <p>{inclusiveRangeDays(startDate, endDate) ?? "—"} complete days</p>
+                  </dd>
                 </div>
               </dl>
 
