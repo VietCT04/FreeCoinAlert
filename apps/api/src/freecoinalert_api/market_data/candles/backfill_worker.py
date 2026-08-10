@@ -15,11 +15,11 @@ import importlib
 import logging
 import signal
 import time
-from collections.abc import AsyncContextManager, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal, Protocol, cast
+from typing import AsyncContextManager, Literal, Protocol, cast
 
 from sqlalchemy.exc import SQLAlchemyError
 
