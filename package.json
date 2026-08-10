@@ -21,6 +21,7 @@
     "dev:telegram-updates": "uv run --project apps/api python -m freecoinalert_api.telegram.poller",
     "dev:market": "docker compose --profile market up --build",
     "dev:market-stream": "uv run --project apps/api python -m freecoinalert_api.market_data.stream",
+    "dev:candle-backfill": "uv run --project apps/api python -m freecoinalert_api.market_data.candles.backfill_worker",
     "dev:market-logs": "docker compose --profile market logs --follow market-stream",
     "dev:notification-worker": "uv run --project apps/api python -m freecoinalert_api.notifications.worker",
     "dev:signal-telegram-dispatcher": "uv run --project apps/api python -m freecoinalert_api.notifications.signal_dispatcher",

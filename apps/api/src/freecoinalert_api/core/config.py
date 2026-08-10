@@ -6,6 +6,11 @@ from urllib.parse import urlparse
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from freecoinalert_api.market_data.candles.constants import (
+    CANDLE_REQUIRED_RETENTION_DAYS,
+    MAX_CANDLE_BOOTSTRAP_DAYS,
+    MIN_CANDLE_BOOTSTRAP_DAYS,
+)
 
 PRODUCTION_TELEGRAM_BOT_API_BASE_URL = "https://api.telegram.org/bot"
 PRODUCTION_TELEGRAM_BOT_FILE_BASE_URL = "https://api.telegram.org/file/bot"
@@ -36,13 +41,23 @@ class AuthenticationSettings(BaseSettings):
     market_catalog_refresh_seconds: int = Field(default=21600, gt=0)
     market_state_write_interval_seconds: int = Field(default=1, gt=0)
     market_stream_reconnect_max_seconds: int = Field(default=30, gt=0)
-    candle_retention_days: int = Field(default=180, gt=0)
+    candle_retention_days: int = Field(
+        default=CANDLE_REQUIRED_RETENTION_DAYS,
+        ge=CANDLE_REQUIRED_RETENTION_DAYS,
+    )
     candle_ws_max_age_seconds: int = Field(default=180, gt=0)
     candle_data_max_lag_seconds: int = Field(default=180, gt=0)
-    candle_bootstrap_days: int = Field(default=150, ge=35, le=180)
+    candle_bootstrap_days: int = Field(
+        default=MAX_CANDLE_BOOTSTRAP_DAYS,
+        ge=MIN_CANDLE_BOOTSTRAP_DAYS,
+        le=MAX_CANDLE_BOOTSTRAP_DAYS,
+    )
     candle_reconciliation_lookback_hours: int = Field(default=24, gt=0, le=168)
     candle_recent_reconciliation_seconds: int = Field(default=900, gt=0)
     candle_recent_reconciliation_hours: int = Field(default=6, gt=0, le=168)
+    candle_backfill_target_days: int = Field(default=765, ge=765, le=3650)
+    candle_backfill_maintenance_seconds: int = Field(default=900, ge=60, le=86400)
+    candle_backfill_chunk_pause_seconds: float = Field(default=0.1, ge=0, le=60)
     signal_live_catchup_max_days: int = Field(default=7, gt=0, le=7)
     signal_history_days: int = Field(default=90, gt=0, le=180)
     signal_event_retention_days: int = Field(default=365, gt=0)

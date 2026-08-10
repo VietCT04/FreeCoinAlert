@@ -1,6 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
@@ -113,3 +114,39 @@ async def upsert_candle_symbol_state(
         },
     )
     await session.execute(statement)
+
+
+async def mark_candle_reconciliation_state(
+    session: AsyncSession,
+    *,
+    supported_market_id: UUID,
+    status: str,
+    unresolved_gap_count: int,
+    status_reason: str | None,
+    last_reconciled_through: datetime | None,
+) -> None:
+    state = await session.scalar(
+        select(CandleSymbolState)
+        .where(CandleSymbolState.supported_market_id == supported_market_id)
+        .with_for_update()
+    )
+    if state is None:
+        state = CandleSymbolState(
+            supported_market_id=supported_market_id,
+            status=status,
+            latest_complete_1m_open_time=None,
+            latest_complete_1h_open_time=None,
+            latest_complete_4h_open_time=None,
+            last_websocket_received_at=None,
+            last_reconciled_through=last_reconciled_through,
+            unresolved_gap_count=unresolved_gap_count,
+            status_reason=status_reason,
+        )
+        session.add(state)
+        return
+
+    state.status = status
+    state.unresolved_gap_count = unresolved_gap_count
+    state.status_reason = status_reason
+    if last_reconciled_through is not None:
+        state.last_reconciled_through = last_reconciled_through
