@@ -19,7 +19,9 @@ The approved architecture is:
 ```text
 Binance public historical archives
         ↓
-resumable bulk backfill
+resumable bulk backfill primitives
+        ↓
+background candle-backfill worker
         ↓
 canonical FreeCoinAlert candle database
         ↓
@@ -33,6 +35,8 @@ backtest from stored canonical data only
 ```
 
 A user's backtest request must never directly trigger a Binance provider fetch.
+
+Full long-range coverage is **not** an application-startup prerequisite. Web/API/core product functionality becomes usable while the historical backfill worker continues extending canonical coverage in the background.
 
 ## Product Range
 
@@ -121,6 +125,45 @@ Imports must be idempotent against canonical candle uniqueness/revision semantic
 
 A corrupt, malformed, checksum-invalid, wrong-symbol, wrong-interval, or otherwise invalid archive must not produce a falsely complete canonical range.
 
+## Background Backfill and Application Readiness
+
+Deep historical coverage must run as a dedicated background process/service rather than as a required one-shot application-startup job.
+
+The target runtime shape is:
+
+```text
+DB migrations + API + Web + market catalogue
+                ↓
+       application becomes usable
+                ↓
+market stream + bounded recent reconciliation
+                ↓
+long-range historical backfill worker
+                ↓
+coverage grows toward the 765-day target
+```
+
+The following are distinct states:
+
+```text
+application readiness
+historical coverage readiness
+```
+
+Web/API/auth/Telegram/price-alert and other functions that do not require deep candle history must remain usable while background coverage is incomplete.
+
+The market stream must not wait for the entire 765-day history before connecting to the live provider. It retains its existing bounded recent reconciliation/live-ingestion responsibilities.
+
+Features that require historical data gate themselves on actual canonical coverage:
+
+- live preset evaluation may remain in its safe `warming` state when indicator history is insufficient;
+- Historical Analysis allows only a requested range whose analysis window plus warm-up is complete;
+- an unavailable longer backtest fails fast / remains disabled rather than waiting for provider acquisition.
+
+The backfill worker must be resource-bounded so archive parsing/database writes do not starve normal application traffic. Completed checkpoints and persistent PostgreSQL data are reused across worker/application restarts.
+
+Backfill should prioritize newest contiguous missing history across the controlled symbols, progressing backward so shorter useful ranges become available before the entire two-year target is complete.
+
 ## Timestamp Normalization
 
 The archive ingestion path must explicitly normalize Binance archive timestamps into FreeCoinAlert's canonical UTC timestamp representation.
@@ -157,7 +200,9 @@ FreeCoinAlert must retain enough source history for:
 + small operational buffer
 ```
 
-The implementation issue must derive the exact minimum retained horizon from the actual supported preset/aggregation semantics. Approximately 760 complete UTC days is the planning target, not a hard-coded technical truth if a larger exact requirement is needed.
+With the current supported presets, the maximum warm-up is 200 candles on the 4h timeframe, or 800 hours (33 days 8 hours). The approved product retention target is therefore **765 complete UTC days**, which provides the 730-day analysis window, maximum current warm-up, and a small operational margin.
+
+If future supported strategies require more warm-up, the invariant must be increased rather than silently truncating valid analysis.
 
 The retention/cleanup path must never delete candles still required to satisfy the supported maximum backtest window and warm-up invariant.
 
@@ -173,7 +218,17 @@ fill only missing ranges
 retain persistent coverage
 ```
 
-Completed ranges are not repeatedly downloaded on every application startup.
+Completed ranges are not repeatedly downloaded on every application or worker startup.
+
+Coverage state should distinguish at least:
+
+```text
+backfilling
+ready
+degraded
+```
+
+and expose safe actual/target ranges and derived progress where needed by operations and the authenticated Historical Analysis UI.
 
 ## Backtesting Requirements
 
@@ -190,9 +245,11 @@ request
 → persist immutable report
 ```
 
-The backtest worker must not call Binance because a user requested a date range.
+The backtest worker must not call Binance because a user requested a date range and must not wait for the background backfill worker.
 
 If canonical data required for the requested analysis range/warm-up is incomplete, the request/run must fail safely with a stable product-level coverage/range-unavailable category rather than silently fetching provider data or simulating incomplete history.
+
+An already-covered shorter range remains runnable while deeper historical coverage is still backfilling.
 
 The implementation must review fixed dataset/candle limits that were designed around the previous short range. The allowable load must be derived from:
 
@@ -225,39 +282,41 @@ The Historical Analysis period controls add convenient long-range presets while 
 
 The browser must use server-provided capabilities and coverage rather than becoming another source of truth for range limits.
 
-When available, the UI should show the actual canonical coverage for the selected market/timeframe, for example:
+When available, the UI should show actual canonical coverage and background state for the selected market/timeframe, for example:
 
 ```text
-Available historical data
-2024-08-12 → 2026-08-09 UTC
+Historical data · Backfilling 63%
+Available: 2025-05-01 → 2026-08-09 UTC
+Target:    2024-07-06 → 2026-08-09 UTC
 ```
 
-If the requested two-year range is temporarily unavailable, the UI must show the actual available range and allow a shorter valid selection rather than claiming history exists.
+Covered shorter presets remain usable. A preset whose full requested analysis range plus warm-up is not yet available remains disabled and must not be silently shortened.
+
+As background coverage grows, longer presets become available without restarting the application.
 
 Selecting a long range must never cause the browser to call Binance directly.
 
 ## Local Development
 
-Local development must not require downloading approximately two years of history on every `pnpm dev:all` startup.
+Local development must not require downloading approximately two years of history before `pnpm dev:all` becomes usable.
 
 The database remains persistent across normal local restarts.
 
-The existing local bootstrap-days configuration may be expanded so:
+`pnpm dev:all` should start the background candle-backfill worker with the market profile, but local readiness should succeed once the core services are ready/running rather than waiting for 765-day coverage completion.
+
+A fresh local environment therefore behaves like:
 
 ```text
-normal development
-→ shorter retained/bootstrap window
-
-explicit two-year testing
-→ full required window
-
-production
-→ full required window
+pnpm dev:all
+→ Web/API/market stream become usable
+→ background historical backfill continues
+→ unrelated features can be tested immediately
+→ longer Historical Analysis ranges unlock as coverage grows
 ```
 
-The exact supported configuration range and behavior are owned by the implementation issue.
+Deep-history acquisition must not require setting a blocking `LOCAL_CANDLE_BOOTSTRAP_DAYS=765`. Any retained local configuration for startup reconciliation must remain small/bounded and distinct from the background historical target.
 
-If canonical history is already complete, startup/maintenance must skip completed ranges rather than re-download them.
+If canonical history is already complete, worker maintenance skips completed ranges rather than re-downloading them.
 
 ## Storage and Performance
 
@@ -266,6 +325,8 @@ The implementation must review, not assume, the storage/index impact of retainin
 The target is millions of canonical rows, which is expected and must be handled with appropriate existing/new indexes and bounded ingestion transactions.
 
 Schema/index/partition changes should be made only when justified by measured/query-plan requirements in the implementation design.
+
+The background importer must use bounded archive concurrency, bounded database chunks/transactions, and explicit yielding/pacing so the backfill does not monopolize PostgreSQL or application resources.
 
 ## Observability
 
@@ -280,7 +341,9 @@ Production-safe observability should make it possible to distinguish:
 - provider 429 throttling;
 - provider 418 ban state;
 - canonical retained-range health;
-- unavailable backtest coverage.
+- background backfill status/progress;
+- unavailable backtest coverage;
+- application readiness independently from historical-coverage readiness.
 
 Logs must avoid excessive per-candle noise.
 
@@ -301,6 +364,7 @@ Logs must avoid excessive per-candle noise.
 - Portfolio backtesting
 - Provider fetches initiated per user backtest
 - Downloading the full two-year history on every startup
+- Blocking Web/API/application readiness on full two-year history
 - Replacing WebSocket live ingestion with polling
 - Public user-generated datasets
 - Paid third-party historical-data providers
@@ -321,16 +385,20 @@ Logs must avoid excessive per-candle noise.
 - [ ] Binance REST consumers share one conservative request-weight/rate-limit policy.
 - [ ] HTTP 429 honors provider retry guidance and does not busy-retry.
 - [ ] HTTP 418 stops unsafe retries and exposes an operational provider-ban state.
-- [ ] Canonical retention covers the 730-day window plus required indicator warm-up and operational buffer.
+- [ ] Canonical retention covers exactly the approved 765-day product horizon unless future warm-up requirements increase it.
 - [ ] Retention cleanup cannot delete data required by the supported backtest horizon.
-- [ ] Backtests read canonical persisted candles only and never fetch Binance on demand.
+- [ ] Full historical coverage runs in a dedicated background worker and does not block Web/API/core application readiness.
+- [ ] Market-stream startup does not wait for the complete 765-day backfill.
+- [ ] Features requiring history gate on actual canonical coverage; unrelated functions remain usable while backfill is incomplete.
+- [ ] Backtests read canonical persisted candles only and never fetch Binance on demand or wait for background acquisition.
 - [ ] Missing required canonical coverage fails safely and explicitly.
+- [ ] An already-covered shorter backtest remains usable while deeper coverage is still backfilling.
 - [ ] Dataset loading supports the bounded full-range 1h/4h candle counts plus warm-up without relying on a short-range magic cap.
 - [ ] Existing historical reports remain immutable/readable.
 - [ ] The web exposes 30D, 90D, 6M, 1Y, 2Y, and Custom period choices driven by server limits/coverage.
-- [ ] Local development can keep a shorter bootstrap while explicit full-range testing/production can maintain the full required horizon.
+- [ ] The web shows safe actual coverage/backfill status and progressively unlocks longer presets without restarting the app.
 - [ ] Local persistent history is not repeatedly downloaded after normal restarts.
-- [ ] Deterministic E2E coverage uses local fixtures/simulation and never contacts real Binance services.
+- [ ] Deterministic E2E coverage proves application readiness independently from paused/incomplete background backfill and never contacts real Binance services.
 - [ ] Current-state market-data, database, historical-analysis/backtesting, API, web, architecture, operations, observability, E2E, README, concerns, and continuity documentation remain synchronized during implementation.
 
 ## Implementation Issues
@@ -338,6 +406,7 @@ Logs must avoid excessive per-candle noise.
 - #151 — Add resumable Binance bulk historical candle ingestion
 - #152 — Add shared Binance REST rate-budget and safe candle reconciliation
 - #153 — Maintain rolling two-year canonical candle coverage
+- #159 — Run long-range candle backfill in background without blocking app readiness
 - #154 — Expand historical-analysis range to the latest 730 days
 - #155 — Add long-range historical-analysis date presets and coverage UX
 - #156 — Cover two-year historical coverage and resumable market-data backfill
@@ -345,7 +414,7 @@ Logs must avoid excessive per-candle noise.
 Implementation order:
 
 ```text
-#151 → #152 → #153 → #154 → #155 → #156
+#151 → #152 → #153 → #159 → #154 → #155 → #156
 ```
 
 Each issue requires an explicitly approved technical solution comment before implementation.
