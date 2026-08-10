@@ -83,7 +83,7 @@ const faqs = [
 export default function Home() {
   return (
     <div className="min-h-svh bg-background text-foreground">
-      <MarketingHeader showHomeSections />
+      <MarketingHeader />
       <main>
         <JsonLd
           data={createWebSiteStructuredData({
