@@ -57,10 +57,13 @@ or change-frequency values.
 
 `createPublicMetadata()` centralizes unique titles, descriptions, exact
 canonical paths, Open Graph, Twitter `summary_large_image`, and the current
-index/follow policy. The root layout owns `metadataBase`, application name,
-the default title/template, site description, social image, optional Google
-verification, and the same indexing policy, but it does not own a canonical
-that child routes could inherit incorrectly.
+index/follow policy. Open Graph and Twitter use the deterministic Next-native
+`/opengraph-image` route, which returns a 1200×630 PNG based on the shared
+server-safe marketing example; it does not call an API, database, provider, or
+browser-only chart library. The root layout owns `metadataBase`, application
+name, the default title/template, site description, social image, optional
+Google verification, and the same indexing policy, but it does not own a
+canonical that child routes could inherit incorrectly.
 
 The root page publishes one truthful `WebSite` JSON-LD object. Landing and
 guide pages publish `BreadcrumbList` only when the visible breadcrumb exists;
@@ -131,10 +134,15 @@ E2E timing is not a field-performance measurement.
 
 `apps/e2e/specs/seo-public.spec.ts` uses the existing Playwright workspace and
 the source `PUBLIC_SEO_ROUTES` registry. It covers public page loading, one
-visible H1, unique title/description, canonical and social metadata, sitemap
-equality/uniqueness, robots behavior, private-route noindex, bounded internal
-links, and truthful JSON-LD. It does not attempt to reproduce Google's SERP
-rewriting or Rich Results Test.
+visible H1, unique title/description, canonical and social metadata, the
+homepage's 1200×630 PNG route and PNG signature, desktop marketing navigation,
+required contextual acquisition links, reduced-motion content visibility,
+sitemap equality/uniqueness, robots behavior, private-route noindex, bounded
+internal links, and truthful JSON-LD. The companion
+`apps/e2e/specs/seo-public.mobile.spec.ts` covers the public mobile Sheet,
+focus return, product preview visibility, and horizontal-overflow boundary.
+These specifications do not attempt to reproduce Google's SERP rewriting,
+social-platform caching/cropping, or Rich Results Test.
 
 The E2E environment sets `SEO_INDEXING_ENABLED=true` only for the isolated
 `.test` web origin. The normal local/preview default remains `false`. The
@@ -148,9 +156,8 @@ verification boundary is [TESTING.md](TESTING.md).
   deployed; then explicitly opt in.
 - Configure verification outside source control if URL-prefix verification is
   selected.
-- Review public route metadata, canonical uniqueness, sitemap, robots, and
-  private noindex behavior.
+- Review public route metadata, canonical uniqueness, sitemap, robots, private
+  noindex behavior, and `/opengraph-image` response dimensions/content type.
 - Submit the sitemap and inspect representative URLs in Search Console.
 - Review indexing, queries, Core Web Vitals, manual actions, and security
   issues during the 28-day measurement cycle.
-

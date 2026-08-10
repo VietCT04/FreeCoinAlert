@@ -4,15 +4,15 @@ import { normalizeSeoRoutePath } from "./routes";
 import { SEO_INDEXING_ENABLED, SITE_URL } from "./site";
 
 export const ROOT_TITLE =
-  "Free Crypto Strategy Backtesting & Alerts | FreeCoinAlert";
+  "Crypto Strategy Backtesting & Alerts | FreeCoinAlert";
 export const ROOT_DESCRIPTION =
-  "Backtest supported crypto strategies on historical market data, inspect hypothetical trades and risk metrics, then monitor supported entry signals with Telegram alerts.";
+  "Backtest supported crypto entry and exit strategies on historical Binance Spot data, inspect hypothetical results and execution assumptions, then monitor supported entry signals with Telegram alerts.";
 
 const googleSiteVerification = process.env.GOOGLE_SITE_VERIFICATION?.trim();
 
 const OPEN_GRAPH_IMAGE_PATH = "/opengraph-image";
 const OPEN_GRAPH_IMAGE_ALT =
-  "FreeCoinAlert crypto strategy backtesting and alert workflow";
+  "FreeCoinAlert crypto strategy backtesting product preview with an XRPUSDT RSI strategy";
 
 type PublicMetadataOptions = {
   title: string;
