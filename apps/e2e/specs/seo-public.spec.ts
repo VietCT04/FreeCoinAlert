@@ -13,6 +13,34 @@ const privatePaths = [
   "/telegram",
 ] as const;
 
+const requiredAcquisitionPaths = [
+  "/crypto-backtesting",
+  "/crypto-strategy-tester",
+  "/strategy-alerts",
+  "/rsi-backtest",
+  "/sma-backtest",
+  "/tp-sl-backtest",
+  "/bitcoin-backtest",
+] as const;
+
+const primaryNavigationMustNotExpose = [
+  "/rsi-backtest",
+  "/sma-backtest",
+  "/tp-sl-backtest",
+  "/bitcoin-backtest",
+  "#faq",
+  "#how-it-works",
+  "#product-showcase",
+] as const;
+
+const privateApplicationPaths = [
+  "/dashboard",
+  "/price-alerts",
+  "/preset-signals",
+  "/historical-analysis",
+  "/telegram",
+] as const;
+
 function absoluteUrl(path: string): string {
   return new URL(path, E2E_WEB_ORIGIN).toString();
 }
@@ -91,6 +119,116 @@ test.describe("public SEO surface", () => {
 
     expect(new Set(titles).size).toBe(titles.length);
     expect(new Set(descriptions).size).toBe(descriptions.length);
+  });
+
+  test("keeps homepage metadata and the deterministic social image stable", async ({
+    newAnonymousPage,
+  }) => {
+    const response = await newAnonymousPage.goto("/");
+    expect(response?.ok()).toBe(true);
+    await expect(newAnonymousPage.getByRole("heading", { level: 1 })).toHaveCount(1);
+
+    await expect(newAnonymousPage.locator('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      absoluteUrl("/"),
+    );
+    await expect(newAnonymousPage.locator('meta[name="robots"]')).toHaveAttribute(
+      "content",
+      /index.*follow/i,
+    );
+    await expect(newAnonymousPage.locator('meta[property="og:title"]')).toHaveAttribute(
+      "content",
+      /.+/,
+    );
+    await expect(newAnonymousPage.locator('meta[name="twitter:card"]')).toHaveAttribute(
+      "content",
+      "summary_large_image",
+    );
+
+    const ogImage = await newAnonymousPage
+      .locator('meta[property="og:image"]')
+      .getAttribute("content");
+    expect(ogImage).toBe(absoluteUrl("/opengraph-image"));
+    await expect(newAnonymousPage.locator('meta[property="og:image:width"]')).toHaveAttribute(
+      "content",
+      "1200",
+    );
+    await expect(newAnonymousPage.locator('meta[property="og:image:height"]')).toHaveAttribute(
+      "content",
+      "630",
+    );
+
+    const imageResponse = await newAnonymousPage.request.get("/opengraph-image");
+    expect(imageResponse.ok()).toBe(true);
+    expect(imageResponse.headers()["content-type"]).toMatch(/^image\/png/i);
+    const imageBody = await imageResponse.body();
+    expect(imageBody.length).toBeGreaterThan(8);
+    expect(Array.from(imageBody.subarray(0, 8))).toEqual([
+      137, 80, 78, 71, 13, 10, 26, 10,
+    ]);
+  });
+
+  test("keeps the homepage navigation focused and acquisition links intentional", async ({
+    newAnonymousPage,
+  }) => {
+    await newAnonymousPage.goto("/");
+
+    const primaryNavigation = newAnonymousPage.getByRole("navigation", {
+      name: "Marketing navigation",
+      exact: true,
+    });
+    for (const [label, path] of [
+      ["Backtest", "/crypto-backtesting"],
+      ["Alerts", "/strategy-alerts"],
+      ["Guides", "/guides"],
+    ] as const) {
+      await expect(primaryNavigation.getByRole("link", { name: label, exact: true })).toHaveAttribute(
+        "href",
+        path,
+      );
+    }
+
+    const primaryNavigationHrefs = await primaryNavigation
+      .locator("a[href]")
+      .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+    expect(primaryNavigationHrefs).toEqual(
+      expect.arrayContaining([
+        "/crypto-backtesting",
+        "/strategy-alerts",
+        "/guides",
+      ]),
+    );
+    for (const path of primaryNavigationMustNotExpose) {
+      expect(primaryNavigationHrefs).not.toContain(path);
+    }
+    for (const path of privateApplicationPaths) {
+      expect(primaryNavigationHrefs).not.toContain(path);
+    }
+
+    const homepageContextualHrefs = await newAnonymousPage
+      .locator("main a[href], footer a[href]")
+      .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+    for (const path of requiredAcquisitionPaths) {
+      expect(homepageContextualHrefs).toContain(path);
+    }
+  });
+
+  test("keeps the homepage example and CTA usable with reduced motion", async ({
+    newAnonymousPage,
+  }) => {
+    await newAnonymousPage.emulateMedia({ reducedMotion: "reduce" });
+    await newAnonymousPage.goto("/");
+
+    await expect(newAnonymousPage.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(
+      newAnonymousPage.getByRole("img", { name: /Example: XRPUSDT 1H strategy/i }),
+    ).toBeVisible();
+    await expect(
+      newAnonymousPage.getByRole("link", { name: "Start backtesting", exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      newAnonymousPage.getByText("RSI(14) crosses below 30", { exact: true }).first(),
+    ).toBeVisible();
   });
 
   test("keeps the sitemap bounded to the public route registry", async ({
@@ -180,6 +318,8 @@ test.describe("public SEO surface", () => {
       const response = await newAnonymousPage.request.get(target);
       expect(response.ok(), `${target} should be reachable`).toBe(true);
     }
+
+    expect([...targets]).toEqual(expect.arrayContaining(requiredAcquisitionPaths));
   });
 
   test("publishes only truthful structured data", async ({ newAnonymousPage }) => {
