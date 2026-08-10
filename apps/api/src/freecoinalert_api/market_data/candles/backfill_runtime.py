@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import AsyncContextManager
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSession
