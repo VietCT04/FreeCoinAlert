@@ -209,6 +209,83 @@
   }
 }
 
+@keyframes marketing-homepage-chart-reveal {
+  0%,
+  24% {
+    opacity: 0.72;
+  }
+
+  45%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes marketing-homepage-entry-marker {
+  0%,
+  31% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  39%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes marketing-homepage-report-emphasis {
+  0%,
+  62% {
+    box-shadow: 0 0 0 0 transparent;
+    transform: translateY(2px);
+  }
+
+  74%,
+  100% {
+    box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 12%, transparent);
+    transform: translateY(0);
+  }
+}
+
+.marketing-homepage__hero {
+  background:
+    radial-gradient(
+      circle at 82% 18%,
+      color-mix(in oklch, var(--primary) 10%, transparent),
+      transparent 34rem
+    ),
+    var(--background);
+}
+
+.marketing-homepage__hero-depth {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(color-mix(in oklch, var(--foreground) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--foreground) 4%, transparent) 1px, transparent 1px);
+  background-position: center;
+  background-size: 3rem 3rem;
+  mask-image: radial-gradient(ellipse at center, black 15%, transparent 78%);
+}
+
+.marketing-homepage__chart-line,
+.marketing-homepage__rsi-line {
+  animation: marketing-homepage-chart-reveal 8s ease-in-out infinite;
+}
+
+.marketing-homepage__entry-marker {
+  animation: marketing-homepage-entry-marker 8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.marketing-homepage__report {
+  animation: marketing-homepage-report-emphasis 8s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
